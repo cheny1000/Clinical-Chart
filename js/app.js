@@ -146,10 +146,9 @@
 
   // -------- Supabase: pull catalog on boot --------
   // If Supabase is configured and reachable, replace the local catalog
-  // with the cloud version. This is what makes the catalog sync across
-  // devices: edit on the desktop → it pushes to Supabase; open on the
-  // phone → it pulls from Supabase and overwrites the (now stale) local
-  // catalog.
+  // with the cloud version — UNLESS the last push failed recently,
+  // in which case the local catalog is fresher and we skip the pull
+  // to avoid blowing away local edits that never made it to the cloud.
   async function pullCatalogOnBoot() {
     if (!SB || !SBSync || !SB.isConfigured()) {
       updateSupabaseStatusUI("غير مربوط");
@@ -163,6 +162,10 @@
       refreshStatsAndRooms();
       updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
       flashHint("تمت مزامنة الكتالوج من Supabase");
+    } else if (res.skipped) {
+      // Pull was skipped to protect local edits — keep the local catalog
+      updateSupabaseStatusUI("يعمل محليًا · السحب متأخر", "error");
+      flashHint("الكتالوج المحلي محفوظ (آخر رفع لـ Supabase فشل)");
     } else {
       updateSupabaseStatusUI("خطأ: " + res.error, "error");
       console.warn("[Supabase] pull failed:", res.error);
@@ -170,6 +173,9 @@
   }
 
   // Push the local catalog to Supabase (called after every admin save).
+  // If the push fails, the user is shown a clear warning so they know
+  // their edits are local-only and won't appear on other devices until
+  // the next successful push.
   async function pushCatalogAfterEdit() {
     if (!SB || !SBSync || !SB.isConfigured()) return;
     // Fire-and-forget: the local save is already done, this just syncs
@@ -179,7 +185,54 @@
       updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
     } else {
       updateSupabaseStatusUI("خطأ في الرفع: " + res.error, "error");
+      flashHint("⚠ فشل رفع التعديل للسحابة — محفوظ محليًا فقط");
       console.warn("[Supabase] push failed:", res.error);
+      // Retry once after a short delay (network blip recovery)
+      setTimeout(() => {
+        SBSync.pushCatalog().then(r => {
+          if (r.ok) updateSupabaseStatusUI(`مربوط · ${r.count} دواء`, "connected");
+        });
+      }, 2000);
+    }
+  }
+
+  // Manual "push now" — used by the manual push button in advanced settings
+  async function pushCatalogManual() {
+    if (!SB || !SBSync || !SB.isConfigured()) {
+      flashHint("Supabase غير مُهيّأ");
+      return;
+    }
+    updateSupabaseStatusUI("جارٍ الرفع…", "loading");
+    const res = await SBSync.pushCatalog();
+    if (res.ok) {
+      state.medications = Storage.loadMedications();
+      UI.renderAdminMedList(state.medications, null);
+      updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
+      flashHint(`تم رفع ${res.count} دواء للسحابة`);
+    } else {
+      updateSupabaseStatusUI("فشل الرفع: " + res.error, "error");
+      flashHint("فشل الرفع للسحابة: " + res.error);
+    }
+  }
+
+  // Manual "pull now" — used by the manual pull button in advanced settings
+  async function pullCatalogManual() {
+    if (!SB || !SBSync || !SB.isConfigured()) {
+      flashHint("Supabase غير مُهيّأ");
+      return;
+    }
+    if (!confirm("سحب الكتالوج من السحابة سيستبدل نسختك المحلية.\nهل تريد المتابعة؟")) return;
+    updateSupabaseStatusUI("جارٍ السحب…", "loading");
+    const res = await SBSync.pullCatalog(true);  // force = true
+    if (res.ok) {
+      state.medications = Storage.loadMedications();
+      UI.renderAdminMedList(state.medications, null);
+      refreshStatsAndRooms();
+      updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
+      flashHint(`تم سحب ${res.count} دواء من السحابة`);
+    } else {
+      updateSupabaseStatusUI("فشل السحب: " + res.error, "error");
+      flashHint("فشل السحب من السحابة: " + res.error);
     }
   }
 
@@ -736,6 +789,10 @@
       updateSupabaseStatusUI("غير مربوط");
       flashHint("تم إلغاء ربط Supabase");
     });
+
+    // Manual push/pull buttons (advanced)
+    $("sb-push-now").addEventListener("click", pushCatalogManual);
+    $("sb-pull-now").addEventListener("click", pullCatalogManual);
   }
 
   // -------- Admin view --------

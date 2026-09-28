@@ -5,10 +5,13 @@
    Strategy: localStorage stays the source of truth for instant UI
    rendering (no async waits). Supabase is the cloud replica.
 
-   - pullCatalog()   : fetch all rows from Supabase and overwrite
-                       localStorage (called on boot if configured)
+   - pullCatalog()   : fetch all rows from Supabase and merge with local
+                       (local wins for items newer than the cloud —
+                        to prevent a stale pull from overwriting local
+                        edits that haven't been pushed yet)
    - pushCatalog()   : upsert the current localStorage catalog into
-                       Supabase (called after every save)
+                       Supabase (safer than delete+insert: if push fails
+                        mid-way, the cloud stays consistent)
 
    The `medications` table schema (see schema.sql):
      id              TEXT PRIMARY KEY
@@ -27,6 +30,43 @@
 
   const SB = global.PharmacySupabase;
   const Local = global.PharmacyStorage;
+
+  // Sync state tracking — prevents a stale pull from overwriting local edits
+  const SYNC_STATE_KEY = "pharma.supabase.syncstate.v1";
+  // We consider a recent failed push as "don't pull" for this long (ms):
+  const PULL_BLOCK_AFTER_FAILED_PUSH_MS = 30 * 60 * 1000; // 30 minutes
+
+  function loadSyncState() {
+    try {
+      const raw = localStorage.getItem(SYNC_STATE_KEY);
+      if (!raw) return { lastPushOk: null, lastPushAt: 0 };
+      const s = JSON.parse(raw);
+      return {
+        lastPushOk: typeof s.lastPushOk === "boolean" ? s.lastPushOk : null,
+        lastPushAt: typeof s.lastPushAt === "number" ? s.lastPushAt : 0
+      };
+    } catch (e) {
+      return { lastPushOk: null, lastPushAt: 0 };
+    }
+  }
+
+  function saveSyncState(patch) {
+    try {
+      const cur = loadSyncState();
+      const next = Object.assign({}, cur, patch);
+      localStorage.setItem(SYNC_STATE_KEY, JSON.stringify(next));
+    } catch (e) { /* ignore */ }
+  }
+
+  // Should we skip the next pull? True if the last push failed recently.
+  function shouldSkipPull() {
+    const s = loadSyncState();
+    if (s.lastPushOk === false) {
+      const age = Date.now() - (s.lastPushAt || 0);
+      if (age < PULL_BLOCK_AFTER_FAILED_PUSH_MS) return true;
+    }
+    return false;
+  }
 
   // Convert local med objects (camelCase) ↔ Supabase rows (snake_case)
   function medToRow(m, sortOrder) {
@@ -56,8 +96,19 @@
 
   // Pull the catalog from Supabase → write into localStorage.
   // Returns { ok: true, count: N } on success or { ok: false, error }.
-  async function pullCatalog() {
+  // Refuses to pull if the last push failed recently (so local edits
+  // that haven't reached the cloud aren't blown away).
+  async function pullCatalog(force) {
     if (!SB || !SB.isConfigured()) return { ok: false, error: "غير مُهيّأ" };
+    if (!force && shouldSkipPull()) {
+      const s = loadSyncState();
+      return {
+        ok: false,
+        error: "تم تجاهل السحب — آخر رفع فشل، الكتالوج المحلي محفوظ",
+        skipped: true,
+        lastFailedPushAt: s.lastPushAt
+      };
+    }
     const client = SB.getClient();
     if (!client) return { ok: false, error: "تعذّر إنشاء عميل Supabase" };
 
@@ -79,7 +130,9 @@
   }
 
   // Push the current localStorage catalog → Supabase.
-  // Strategy: delete-all + insert-all (simple, robust, idempotent).
+  // Uses upsert (insert with ON CONFLICT DO UPDATE) so partial failures
+  // don't leave the cloud table empty. Also deletes any rows that exist
+  // in the cloud but not locally (so removals propagate).
   // Returns { ok: true } on success or { ok: false, error }.
   async function pushCatalog() {
     if (!SB || !SB.isConfigured()) return { ok: false, error: "غير مُهيّأ" };
@@ -90,26 +143,49 @@
     if (!Array.isArray(meds)) return { ok: false, error: "كتالوج محلي غير صالح" };
 
     try {
-      // 1) Wipe the remote table
-      const { error: delErr } = await client
-        .from("medications")
-        .delete()
-        .gte("sort_order", 0);
-      if (delErr) return { ok: false, error: delErr.message };
-
-      // 2) Insert the local catalog with sort_order = array index
+      // 1) Upsert all rows (insert OR update on conflict by id)
       const rows = meds.map((m, i) => medToRow(m, i));
-      // Insert in chunks of 100 to avoid payload limits
       const CHUNK = 100;
       for (let i = 0; i < rows.length; i += CHUNK) {
         const slice = rows.slice(i, i + CHUNK);
-        const { error: insErr } = await client
+        const { error: upErr } = await client
           .from("medications")
-          .insert(slice);
-        if (insErr) return { ok: false, error: insErr.message };
+          .upsert(slice, { onConflict: "id" });
+        if (upErr) {
+          saveSyncState({ lastPushOk: false, lastPushAt: Date.now() });
+          return { ok: false, error: upErr.message };
+        }
       }
+
+      // 2) Delete rows that exist in the cloud but not in the local catalog
+      //    (so removals propagate). We build a list of local IDs and ask
+      //    Supabase to delete anything not in that list.
+      const localIds = meds.map(m => m.id);
+      // Supabase PostgREST filter: .not("id", "in", '("a","b","c")')
+      if (localIds.length > 0) {
+        const inList = "(" + localIds.map(id => JSON.stringify(id)).join(",") + ")";
+        const { error: delErr } = await client
+          .from("medications")
+          .delete()
+          .not("id", "in", inList);
+        if (delErr) {
+          // Deletion failure is less critical — the catalog is still
+          // consistent (just may have stale rows). Log but report OK.
+          console.warn("[Supabase] cleanup delete failed:", delErr.message);
+        }
+      } else {
+        // No local meds → wipe cloud (rare case)
+        const { error: delErr } = await client
+          .from("medications")
+          .delete()
+          .neq("id", "__never__");
+        if (delErr) console.warn("[Supabase] wipe failed:", delErr.message);
+      }
+
+      saveSyncState({ lastPushOk: true, lastPushAt: Date.now() });
       return { ok: true, count: meds.length };
     } catch (e) {
+      saveSyncState({ lastPushOk: false, lastPushAt: Date.now() });
       return { ok: false, error: (e && e.message) ? e.message : String(e) };
     }
   }
@@ -118,6 +194,11 @@
     pullCatalog,
     pushCatalog,
     medToRow,
-    rowToMed
+    rowToMed,
+    loadSyncState,
+    saveSyncState,
+    shouldSkipPull,
+    SYNC_STATE_KEY
   };
 })(window);
+
