@@ -262,6 +262,10 @@
     });
 
     // Selected list interactions (delegated)
+    // The selected-list is now VISUAL-ONLY (name, dose, frequency are not editable
+    // here). The only interactive element is the delete (✕) button.
+    // Editing of dose + frequency happens after the meds are added to the patient
+    // (in the patient view's editable med cards).
     $("selected-list").addEventListener("click", (e) => {
       const del = e.target.closest('[data-action="del-selected"]');
       if (!del) return;
@@ -273,23 +277,6 @@
       UI.renderMedOptions(state.medications, state.sheet.selected, state.sheet.filter, state.sheet.activeTab);
       bindMedOptionCheckboxes();
       syncSelectedUI();
-    });
-    $("selected-list").addEventListener("input", (e) => {
-      const t = e.target;
-      if (t.dataset.selIndex == null) return;
-      const idx = parseInt(t.dataset.selIndex, 10);
-      const item = state.sheet.selectedList[idx];
-      if (!item) return;
-      if (t.dataset.field === "dose") item.dose = t.value;
-      else if (t.dataset.field === "frequency") item.frequency = t.value;
-    });
-    $("selected-list").addEventListener("change", (e) => {
-      const t = e.target;
-      if (t.dataset.field !== "frequency") return;
-      const idx = parseInt(t.dataset.selIndex, 10);
-      const item = state.sheet.selectedList[idx];
-      if (!item) return;
-      item.frequency = t.value;
     });
 
     // Add selected to patient

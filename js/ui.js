@@ -324,25 +324,51 @@
     });
   }
 
-  // selected meds editable list inside the sheet
+  // selected meds visual-only list inside the sheet.
+  // Each row shows:
+  //   - medication name (display only — NOT editable)
+  //   - 6 squares visualizing the dose frequency
+  //     (filled = dose time, empty = no dose, special = custom freq like 'حسب القياس')
+  //   - dose text + frequency text
+  //   - delete button (to remove from selection)
+  // The user can still edit dose + frequency AFTER adding the med
+  // to the patient (in the patient view).
+  function parseFrequencyCount(freq) {
+    if (!freq) return 0;
+    // Match patterns like "1×3", "1x4", "1 × 2", "2×3", etc.
+    const m = freq.match(/×\s*(\d+)/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      return isNaN(n) ? 0 : n;
+    }
+    // Custom / non-numeric frequencies ("حسب القياس", "حسب البروتوكول", ...)
+    return -1;
+  }
+
+  function renderFreqSquares(freq) {
+    const count = parseFrequencyCount(freq);
+    const squares = [];
+    for (let i = 0; i < 6; i++) {
+      let state;
+      if (count === -1) state = "special";
+      else if (i < count) state = "filled";
+      else state = "empty";
+      squares.push(h("span", {
+        class: "freq-square " + state,
+        title: state === "special"
+          ? "تكرار مخصص"
+          : (i < count ? `جرعة ${i + 1}` : "بدون جرعة")
+      }));
+    }
+    return squares;
+  }
+
   function renderSelectedList(selected) {
     const container = document.getElementById("selected-list");
     container.innerHTML = "";
     if (selected.length === 0) return;
 
-    const freqOptions = global.PharmacyMedications.FREQUENCIES;
-
     selected.forEach((m, idx) => {
-      const isCustomFreq = !freqOptions.includes(m.frequency);
-      const freqSelect = isCustomFreq
-        ? h("select", { dataset: { selIndex: idx, field: "frequency" } }, [
-            h("option", { value: m.frequency, selected: "selected" }, m.frequency),
-            ...freqOptions.map(f => h("option", { value: f }, f))
-          ])
-        : h("select", { dataset: { selIndex: idx, field: "frequency" } },
-            freqOptions.map(f => h("option", { value: f, selected: f === m.frequency ? "selected" : undefined }, f))
-          );
-
       container.appendChild(
         h("div", { class: "sel-item", dataset: { selIndex: idx } }, [
           h("div", { class: "sel-item-head" }, [
@@ -353,21 +379,18 @@
               dataset: { selIndex: idx, action: "del-selected" }
             }, "✕")
           ]),
-          h("div", { class: "med-fields" }, [
-            h("div", { class: "med-field" }, [
-              h("label", {}, "الجرعة"),
-              h("input", {
-                type: "text",
-                value: m.dose,
-                placeholder: "الجرعة",
-                dataset: { selIndex: idx, field: "dose" },
-                autocomplete: "off"
-              })
-            ]),
-            h("div", { class: "med-field" }, [
-              h("label", {}, "التكرار"),
-              freqSelect
-            ])
+          // 6 visual squares — one per dose time
+          h("div", {
+            class: "freq-squares",
+            role: "img",
+            "aria-label": `التكرار: ${m.frequency || "—"}`,
+            title: `التكرار: ${m.frequency || "—"}`
+          }, renderFreqSquares(m.frequency)),
+          // Dose + frequency as visual text
+          h("div", { class: "sel-item-info" }, [
+            h("span", { class: "sel-item-dose" }, m.dose || "—"),
+            h("span", { class: "sel-item-sep" }, "·"),
+            h("span", { class: "sel-item-freq" }, m.frequency || "—")
           ])
         ])
       );
