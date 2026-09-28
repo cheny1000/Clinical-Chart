@@ -345,28 +345,44 @@
     return -1;
   }
 
-  function renderFreqSquares(freq) {
+  // Renders a -/+ stepper to control the dose frequency (1×N).
+  // Behavior:
+  //   - tap "+"  → frequency increases by 1 (max 12)
+  //   - tap "-"  → frequency decreases by 1 (min 1, can't go to 1×0)
+  //   - if frequency is custom (e.g. "حسب القياس"), the number cell shows
+  //     "مخصص" instead of N, and tapping + or - switches to numeric (1×1 / 1×2)
+  // The +/- buttons and the number are all in one row.
+  function renderFreqStepper(freq) {
     const count = parseFrequencyCount(freq);
-    const squares = [];
-    const TOTAL = 12;
-    for (let i = 0; i < TOTAL; i++) {
-      let state;
-      if (count === -1) state = "special";
-      else if (i < count) state = "filled";
-      else state = "empty";
-      const n = i + 1;
-      squares.push(h("button", {
+    const isCustom = (count === -1);
+    // Display: numeric count (e.g. 3 → shown as "1×3" → just "3" here) or "مخصص"
+    const displayNumber = isCustom ? "مخصص" : String(count || 0);
+
+    return h("div", {
+      class: "freq-stepper",
+      role: "group",
+      "aria-label": `التكرار: ${freq || "—"}`,
+      title: `التكرار: ${freq || "—"} — اضغط + أو - للتعديل`
+    }, [
+      h("button", {
         type: "button",
-        class: "freq-square " + state,
-        // 1-indexed position: tapping this square sets frequency to 1×n
-        dataset: { squareIndex: String(n), action: "toggle-square" },
-        title: state === "special"
-          ? `اضغط لتعيين التكرار إلى 1×${n}`
-          : (i < count ? `اضغط لإلغاء هذه الجرعة (يصبح 1×${i})` : `اضغط لتعيين التكرار إلى 1×${n}`),
-        "aria-label": `جرعة ${n}: ${state === "filled" ? "مفعّلة" : (state === "special" ? "تكرار مخصص" : "معطّلة")}`
-      }, String(n)));
-    }
-    return squares;
+        class: "freq-step-btn minus",
+        dataset: { action: "freq-decrement" },
+        title: "تقليل التكرار بمقدار 1",
+        "aria-label": "تقليل التكرار"
+      }, "−"),
+      h("span", {
+        class: "freq-step-number" + (isCustom ? " is-custom" : ""),
+        "aria-live": "polite"
+      }, displayNumber),
+      h("button", {
+        type: "button",
+        class: "freq-step-btn plus",
+        dataset: { action: "freq-increment" },
+        title: "زيادة التكرار بمقدار 1",
+        "aria-label": "زيادة التكرار"
+      }, "+")
+    ]);
   }
 
   function renderSelectedList(selected) {
@@ -385,18 +401,11 @@
               dataset: { selIndex: idx, action: "del-selected" }
             }, "✕")
           ]),
-          // 6 visual squares — one per dose time. Tappable: tapping a square
-          // sets the frequency to 1×N where N is the square's position.
-          h("div", {
-            class: "freq-squares",
-            role: "group",
-            "aria-label": `التكرار الحالي: ${m.frequency || "—"} — اضغط مربعًا للتعديل`,
-            title: `التكرار: ${m.frequency || "—"}`
-          }, renderFreqSquares(m.frequency)),
-          // Dose + frequency as visual text
-          h("div", { class: "sel-item-info" }, [
+          // Stepper row: - / + buttons with frequency count in the middle,
+          // plus the dose on the same row for compactness.
+          h("div", { class: "sel-item-controls" }, [
             h("span", { class: "sel-item-dose" }, m.dose || "—"),
-            h("span", { class: "sel-item-sep" }, "·"),
+            renderFreqStepper(m.frequency),
             h("span", { class: "sel-item-freq" }, m.frequency || "—")
           ])
         ])
