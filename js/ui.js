@@ -348,22 +348,23 @@
   function renderFreqSquares(freq) {
     const count = parseFrequencyCount(freq);
     const squares = [];
-    for (let i = 0; i < 6; i++) {
+    const TOTAL = 12;
+    for (let i = 0; i < TOTAL; i++) {
       let state;
       if (count === -1) state = "special";
       else if (i < count) state = "filled";
       else state = "empty";
+      const n = i + 1;
       squares.push(h("button", {
         type: "button",
         class: "freq-square " + state,
-        // 1-indexed position: tapping this square sets frequency to 1×(i+1)
-        // Special squares (custom freq) all reset to 1×(i+1) when tapped
-        dataset: { squareIndex: String(i + 1), action: "toggle-square" },
+        // 1-indexed position: tapping this square sets frequency to 1×n
+        dataset: { squareIndex: String(n), action: "toggle-square" },
         title: state === "special"
-          ? `اضغط لتعيين التكرار إلى 1×${i + 1}`
-          : (i < count ? `اضغط لإلغاء هذه الجرعة (يصبح 1×${i})` : `اضغط لتعيين التكرار إلى 1×${i + 1}`),
-        "aria-label": `جرعة ${i + 1}: ${state === "filled" ? "مفعّلة" : (state === "special" ? "تكرار مخصص" : "معطّلة")}`
-      }));
+          ? `اضغط لتعيين التكرار إلى 1×${n}`
+          : (i < count ? `اضغط لإلغاء هذه الجرعة (يصبح 1×${i})` : `اضغط لتعيين التكرار إلى 1×${n}`),
+        "aria-label": `جرعة ${n}: ${state === "filled" ? "مفعّلة" : (state === "special" ? "تكرار مخصص" : "معطّلة")}`
+      }, String(n)));
     }
     return squares;
   }
