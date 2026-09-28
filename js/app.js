@@ -16,8 +16,9 @@
     // bottom-sheet selection state
     sheet: {
       open: false,
-      selected: new Set(),     // med ids
-      selectedList: [],       // [{ id, nameTrade, nameAr, nameEn, dose, frequency }]
+      activeTab: "vial",         // "vial" (default) | "tablet" — which form is shown
+      selected: new Set(),        // med ids
+      selectedList: [],          // [{ id, nameTrade, nameAr, nameEn, form, dose, frequency }]
       filter: ""
     },
     // admin editor state
@@ -231,9 +232,21 @@
       state.sheet.filter = e.target.value;
       clearTimeout(searchTimer);
       searchTimer = setTimeout(() => {
-        UI.renderMedOptions(state.medications, state.sheet.selected, state.sheet.filter);
+        UI.renderMedOptions(state.medications, state.sheet.selected, state.sheet.filter, state.sheet.activeTab);
         bindMedOptionCheckboxes();
       }, 100);
+    });
+
+    // Tab clicks (vials / tablets) — switch the active form, keep the search query
+    $("sheet-tabs").addEventListener("click", (e) => {
+      const tab = e.target.closest(".sheet-tab");
+      if (!tab) return;
+      const newTab = tab.dataset.tab === "tablet" ? "tablet" : "vial";
+      if (state.sheet.activeTab === newTab) return; // no change
+      state.sheet.activeTab = newTab;
+      UI.setActiveTabUI(newTab);
+      UI.renderMedOptions(state.medications, state.sheet.selected, state.sheet.filter, newTab);
+      bindMedOptionCheckboxes();
     });
 
     // Med option checkboxes (delegated)
@@ -243,7 +256,7 @@
       const id = cb.dataset.medId;
       if (cb.checked) addToSelected(id);
       else removeFromSelected(id);
-      UI.renderMedOptions(state.medications, state.sheet.selected, state.sheet.filter);
+      UI.renderMedOptions(state.medications, state.sheet.selected, state.sheet.filter, state.sheet.activeTab);
       bindMedOptionCheckboxes();
       syncSelectedUI();
     });
@@ -257,7 +270,7 @@
       if (!item) return;
       state.sheet.selected.delete(item.id);
       state.sheet.selectedList.splice(idx, 1);
-      UI.renderMedOptions(state.medications, state.sheet.selected, state.sheet.filter);
+      UI.renderMedOptions(state.medications, state.sheet.selected, state.sheet.filter, state.sheet.activeTab);
       bindMedOptionCheckboxes();
       syncSelectedUI();
     });
@@ -290,6 +303,7 @@
           nameTrade: s.nameTrade,
           nameAr:    s.nameAr,
           nameEn:    s.nameEn,
+          form:      s.form || "vial",
           dose:      s.dose,
           frequency: s.frequency
         });
@@ -514,7 +528,7 @@
       return;
     }
     resetSheet();
-    UI.renderMedOptions(state.medications, state.sheet.selected, state.sheet.filter);
+    UI.renderMedOptions(state.medications, state.sheet.selected, state.sheet.filter, state.sheet.activeTab);
     bindMedOptionCheckboxes();
     syncSelectedUI();
     UI.openSheet();
@@ -528,6 +542,9 @@
     state.sheet.selected.clear();
     state.sheet.selectedList = [];
     state.sheet.filter = "";
+    // Default to vials (the most common form in hospital wards)
+    state.sheet.activeTab = "vial";
+    UI.setActiveTabUI("vial");
     $("med-search").value = "";
     $("selected-list").innerHTML = "";
     $("sheet-add").disabled = true;
@@ -552,6 +569,7 @@
       nameTrade: m.nameTrade,
       nameAr:    m.nameAr,
       nameEn:    m.nameEn,
+      form:      m.form || "vial",
       dose: m.defaultDose,
       frequency: m.defaultFrequency
     });

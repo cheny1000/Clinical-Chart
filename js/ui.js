@@ -234,78 +234,98 @@
   }
 
   // ---------- Medication bottom-sheet ----------
-  // Renders medications grouped by form (tablet first, then vial),
-  // with a small section header before each group.
-  function renderMedOptions(meds, selectedIds, filterText) {
+  // Renders ONLY medications matching the active tab's form (no section header).
+  // The caller passes `activeTab` ("vial" | "tablet") to choose which form to show.
+  // Tab counts for both forms are also updated so the user sees totals at all times.
+  function renderMedOptions(meds, selectedIds, filterText, activeTab) {
     const container = document.getElementById("med-options");
     container.innerHTML = "";
 
+    // Update tab counts on every render (across both tabs)
+    updateTabCounts(meds);
+
+    const tab = activeTab === "tablet" ? "tablet" : "vial";
+
     const q = (filterText || "").trim().toLowerCase();
-    const filtered = q
-      ? meds.filter(m =>
-          (m.nameTrade || "").toLowerCase().includes(q) ||
-          (m.nameAr || "").toLowerCase().includes(q) ||
-          (m.nameEn || "").toLowerCase().includes(q))
-      : meds;
+    // Filter: must match active tab's form AND search query (if any)
+    let filtered = meds.filter(m =>
+      (m.form === "tablet" ? "tablet" : "vial") === tab);
+    if (q) {
+      filtered = filtered.filter(m =>
+        (m.nameTrade || "").toLowerCase().includes(q) ||
+        (m.nameAr || "").toLowerCase().includes(q) ||
+        (m.nameEn || "").toLowerCase().includes(q));
+    }
 
     if (filtered.length === 0) {
-      container.appendChild(h("div", {
-        style: "text-align:center;padding:20px;color:var(--text-muted);font-weight:600;"
-      }, "لا توجد نتائج مطابقة"));
+      const otherTabLabel = (tab === "vial") ? "الحبوب" : "الفيالات";
+      const otherTabKey   = (tab === "vial") ? "tablet" : "vial";
+      const hintEl = h("div", {
+        style: "text-align:center;padding:24px 16px;color:var(--text-muted);font-weight:600;font-size:13px;line-height:1.6;"
+      }, [
+        h("div", { style: "font-size:28px;margin-bottom:8px;color:var(--text-faint);font-weight:800;" }, "⌕"),
+        h("div", {}, q
+          ? `لا توجد نتائج مطابقة في ${tab === "vial" ? "الفيالات" : "الحبوب"}.`
+          : `لا توجد أدوية في ${tab === "vial" ? "الفيالات" : "الحبوب"}.`),
+        h("div", {
+          style: "margin-top:10px;color:var(--primary);font-weight:800;cursor:pointer;text-decoration:underline;",
+          dataset: { switchTab: otherTabKey },
+          onclick: () => {
+            const otherBtn = document.querySelector(`.sheet-tab[data-tab="${otherTabKey}"]`);
+            if (otherBtn) otherBtn.click();
+          }
+        }, `جرّب ${otherTabLabel} ←`)
+      ]);
+      container.appendChild(hintEl);
       return;
     }
 
-    // Group by form (tablet first, then vial; unknown last)
-    const groups = { tablet: [], vial: [], other: [] };
+    // Render meds (no section header — the tab itself is the header)
     filtered.forEach(m => {
-      const f = m.form === "tablet" ? "tablet" : (m.form === "vial" ? "vial" : "other");
-      groups[f].push(m);
-    });
-
-    const FORM_LABELS = global.PharmacyMedications.FORM_LABELS || { tablet: "حبوب", vial: "فيالات" };
-
-    const sections = [
-      { key: "tablet", label: FORM_LABELS.tablet || "حبوب", icon: "💊" },
-      { key: "vial",   label: FORM_LABELS.vial   || "فيالات", icon: "💉" },
-      { key: "other",  label: "أخرى",                          icon: "•" }
-    ];
-
-    sections.forEach(sec => {
-      const list = groups[sec.key];
-      if (!list || list.length === 0) return;
-
-      // Section header
-      container.appendChild(h("div", { class: "sheet-section-head" }, [
-        h("span", { class: "sheet-section-icon", "aria-hidden": "true" }, sec.icon),
-        h("span", { class: "sheet-section-title" }, sec.label),
-        h("span", { class: "sheet-section-count" }, String(list.length))
-      ]));
-
-      // Meds in this section (preserve admin-set order)
-      list.forEach(m => {
-        const id = "med-opt-" + m.id;
-        const checked = selectedIds.has(m.id);
-        const sci = scientificName(m);
-        const metaParts = [];
-        if (sci) metaParts.push(sci);
-        if (m.defaultDose) metaParts.push(m.defaultDose);
-        if (m.defaultFrequency) metaParts.push(m.defaultFrequency);
-        container.appendChild(
-          h("label", { class: "med-option", for: id }, [
-            h("input", {
-              type: "checkbox",
-              id: id,
-              dataset: { medId: m.id },
-              checked: checked ? "checked" : undefined
-            }),
-            h("div", { class: "med-option-body" }, [
-              h("div", { class: "med-option-name" }, primaryName(m)),
-              h("div", { class: "med-option-meta" },
-                metaParts.length ? metaParts.join(" · ") : "—")
-            ])
+      const id = "med-opt-" + m.id;
+      const checked = selectedIds.has(m.id);
+      const sci = scientificName(m);
+      const metaParts = [];
+      if (sci) metaParts.push(sci);
+      if (m.defaultDose) metaParts.push(m.defaultDose);
+      if (m.defaultFrequency) metaParts.push(m.defaultFrequency);
+      container.appendChild(
+        h("label", { class: "med-option", for: id }, [
+          h("input", {
+            type: "checkbox",
+            id: id,
+            dataset: { medId: m.id },
+            checked: checked ? "checked" : undefined
+          }),
+          h("div", { class: "med-option-body" }, [
+            h("div", { class: "med-option-name" }, primaryName(m)),
+            h("div", { class: "med-option-meta" },
+              metaParts.length ? metaParts.join(" · ") : "—")
           ])
-        );
-      });
+        ])
+      );
+    });
+  }
+
+  // Update the small counter on each tab button (# vials / # tablets)
+  function updateTabCounts(meds) {
+    let vials = 0, tablets = 0;
+    meds.forEach(m => {
+      if (m.form === "tablet") tablets++; else vials++;
+    });
+    const vialEl = document.getElementById("tab-count-vial");
+    const tabEl  = document.getElementById("tab-count-tablet");
+    if (vialEl) vialEl.textContent = String(vials);
+    if (tabEl)  tabEl.textContent  = String(tablets);
+  }
+
+  // Update active tab styling on the tab buttons
+  function setActiveTabUI(activeTab) {
+    const tab = activeTab === "tablet" ? "tablet" : "vial";
+    document.querySelectorAll(".sheet-tab").forEach(btn => {
+      const isActive = btn.dataset.tab === tab;
+      btn.classList.toggle("active", isActive);
+      btn.setAttribute("aria-selected", isActive ? "true" : "false");
     });
   }
 
@@ -660,6 +680,9 @@
     buildPrintReport,
     // helpers
     primaryName,
-    scientificName
+    scientificName,
+    // sheet tabs
+    updateTabCounts,
+    setActiveTabUI
   };
 })(window);
