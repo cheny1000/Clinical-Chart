@@ -226,30 +226,37 @@
           </div>
         </div>
 
-        <!-- Supabase cloud sync settings -->
+        <!-- Supabase cloud sync — pre-configured for this hospital deployment -->
         <div class="admin-supabase-card">
           <h4>☁️ المزامنة السحابية (Supabase)</h4>
           <p class="admin-supabase-sub">
-            اربط التطبيق بقاعدة بيانات Supabase لمزامنة كتالوج الأدوية عبر جميع الأجهزة.
-            أنشئ مشروعًا على <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a>، نفّذ ملف
-            <code>schema.sql</code> في SQL Editor، ثم أدخل البيانات أدناه.
+            التطبيق مربوط تلقائيًا بقاعدة بيانات Supabase المشتركة لمستشفى <strong>الجناح الداخلي</strong>.
+            كتالوج الأدوية يُزامَن عبر جميع الأجهزة تلقائيًا — لا حاجة لأي إعداد.
           </p>
-          <div class="admin-supabase-grid">
-            <div class="admin-field">
-              <label for="sb-url">Project URL</label>
-              <input type="text" id="sb-url" placeholder="https://xxxxx.supabase.co" autocomplete="off" dir="ltr" />
+          <div class="admin-supabase-status" id="sb-status">الحالة: جارٍ الاتصال…</div>
+          <!-- Hidden fields + controls kept for advanced override (rarely needed) -->
+          <details class="admin-supabase-advanced">
+            <summary>إعدادات متقدمة (لمسؤول النظام)</summary>
+            <div class="admin-supabase-grid">
+              <div class="admin-field">
+                <label for="sb-url">Project URL</label>
+                <input type="text" id="sb-url" placeholder="https://xxxxx.supabase.co" autocomplete="off" dir="ltr" />
+              </div>
+              <div class="admin-field">
+                <label for="sb-key">Anon Public Key</label>
+                <input type="password" id="sb-key" placeholder="eyJhbGciOi..." autocomplete="off" dir="ltr" />
+              </div>
             </div>
-            <div class="admin-field">
-              <label for="sb-key">Anon Public Key</label>
-              <input type="password" id="sb-key" placeholder="eyJhbGciOi..." autocomplete="off" dir="ltr" />
+            <div class="admin-supabase-actions">
+              <button class="btn-test" id="sb-test" type="button">اختبار الاتصال</button>
+              <button class="btn-save-sb" id="sb-save" type="button">حفظ تجاوز الإعدادات</button>
+              <button class="btn-clear-sb" id="sb-clear" type="button">إلغاء التجاوز والعودة للإعداد الافتراضي</button>
             </div>
-          </div>
-          <div class="admin-supabase-actions">
-            <button class="btn-test" id="sb-test" type="button">اختبار الاتصال</button>
-            <button class="btn-save-sb" id="sb-save" type="button">حفظ الإعدادات</button>
-            <button class="btn-clear-sb" id="sb-clear" type="button">إلغاء الربط</button>
-          </div>
-          <div class="admin-supabase-status" id="sb-status">الحالة: غير مربوط</div>
+            <p class="admin-supabase-hint">
+              الإعداد الافتراضي مدمج في <code>js/supabase-config.js</code> ويُستخدم تلقائيًا.
+              التجاوز هنا يُخزَّن في هذا المتصفح فقط.
+            </p>
+          </details>
         </div>
 
         <div class="admin-danger-zone">
@@ -358,6 +365,7 @@
   <script src="js/medications.js"></script>
   <script src="js/ward.js"></script>
   <script src="js/storage.js"></script>
+  <script src="js/supabase-config.js"></script>
   <script src="js/supabase-client.js"></script>
   <script src="js/supabase-sync.js"></script>
   <script src="js/remote-adapter.js"></script>

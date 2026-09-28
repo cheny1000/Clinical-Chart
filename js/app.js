@@ -659,9 +659,12 @@
     UI.hideAdminForm();
     UI.renderAdminMedList(state.medications, null);
     refreshSupabaseInputs();
-    // Update Supabase status badge (without re-pulling)
+    // The default Supabase config is embedded, so the app is always
+    // "configured" out of the box. Show that in the status badge.
     if (SB && SB.isConfigured()) {
-      updateSupabaseStatusUI("مربوط · جاهز للمزامنة", "connected");
+      const usingEmbedded = SB.isUsingEmbedded();
+      const label = usingEmbedded ? "مربوط تلقائيًا · جاهز للمزامنة" : "مربوط بإعداد مخصص";
+      updateSupabaseStatusUI(label, "connected");
     } else {
       updateSupabaseStatusUI("غير مربوط");
     }
