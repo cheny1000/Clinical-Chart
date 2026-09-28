@@ -608,90 +608,6 @@
     };
   }
 
-  // ---------- Print: build the patient medication report ----------
-  function buildPrintReport(patient, roomId, bedNumber) {
-    const root = document.getElementById("print-root");
-    root.innerHTML = "";
-
-    const now = new Date();
-    const dateStr =
-      `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}` +
-      ` ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-
-    const meds = (patient && Array.isArray(patient.medications)) ? patient.medications : [];
-
-    // Header
-    const header = h("div", { class: "pr-doc-header" }, [
-      h("div", {}, [
-        h("div", { class: "pr-doc-title" }, "قائمة أدوية المريض"),
-        h("p", { class: "pr-doc-sub" }, "إدارة الصيدلية السريرية — الجناح الداخلي")
-      ]),
-      h("div", { class: "pr-doc-meta" }, [
-        h("div", {}, "Date: " + dateStr),
-        h("div", { style: "margin-top:2px;" }, "Room " + roomId + " · Bed " + bedNumber)
-      ])
-    ]);
-    root.appendChild(header);
-
-    // Patient card
-    root.appendChild(
-      h("div", { class: "pr-patient-card" }, [
-        h("div", { class: "pr-patient-name" }, patient && patient.name ? patient.name : "(بدون اسم)"),
-        h("div", { class: "pr-patient-loc" }, `الغرفة: ${roomId} — السرير: ${bedNumber}`)
-      ])
-    );
-
-    // Meds table
-    root.appendChild(h("div", { class: "pr-section-title" }, "العلاجات المقررة"));
-
-    if (meds.length === 0) {
-      root.appendChild(h("p", {
-        style: "font-size:13px;color:#64748B;font-weight:600;padding:8px 0;"
-      }, "لا توجد علاجات مسجلة لهذا المريض."));
-    } else {
-      const table = h("table", { class: "pr-meds-table" });
-      const thead = h("thead", {}, h("tr", {}, [
-        h("th", { style: "width:8%;" }, "#"),
-        h("th", { style: "width:42%;" }, "الدواء"),
-        h("th", { style: "width:25%;" }, "الجرعة"),
-        h("th", { style: "width:25%;" }, "التكرار")
-      ]));
-      const tbody = h("tbody", {});
-      meds.forEach((m, i) => {
-        const sci = scientificName(m);
-        const nameCell = h("td", {}, [
-          h("span", { class: "pr-med-name" }, primaryName(m)),
-          sci ? h("span", { class: "pr-med-name-en" }, sci) : null
-        ]);
-        tbody.appendChild(h("tr", {}, [
-          h("td", {}, String(i + 1)),
-          nameCell,
-          h("td", {}, m.dose || "—"),
-          h("td", {}, m.frequency || "—")
-        ]));
-      });
-      table.appendChild(thead);
-      table.appendChild(tbody);
-      root.appendChild(table);
-    }
-
-    // Footnote
-    root.appendChild(h("div", { class: "pr-footnote" },
-      "تم إنشاء هذا المستند من تطبيق إدارة الصيدلية السريرية. الجرعات قابلة للتعديل حسب الحالة السريرية وتعليمات الطبيب."));
-
-    // Signatures
-    root.appendChild(h("div", { class: "pr-signatures" }, [
-      h("div", { class: "pr-sig" }, [
-        h("div", {}, "الصيدلي المسؤول"),
-        h("div", { class: "pr-sig-line" }, "التوقيع")
-      ]),
-      h("div", { class: "pr-sig" }, [
-        h("div", {}, "ممرض/ة الجناح"),
-        h("div", { class: "pr-sig-line" }, "التوقيع")
-      ])
-    ]));
-  }
-
   global.PharmacyUI = {
     h,
     renderStats,
@@ -710,8 +626,6 @@
     hideAdminForm,
     toggleAdminFreqCustom,
     readAdminForm,
-    // print
-    buildPrintReport,
     // helpers
     primaryName,
     scientificName,

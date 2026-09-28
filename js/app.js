@@ -329,21 +329,12 @@
         });
       });
       persistPatient(state.currentBed.key);
-      refreshPatientViewOnly();
       closeSheet();
       flashHint("تمت إضافة " + state.sheet.selectedList.length + " علاج");
-    });
-
-    // ----- Print / export PDF (patient view) -----
-    $("print-patient").addEventListener("click", () => {
-      if (!state.currentBed) return;
-      const p = state.patients[state.currentBed.key] || { name: "", medications: [] };
-      if (!p.name || !p.name.trim()) {
-        flashHint("أدخل اسم المريض أولًا");
-        return;
-      }
-      UI.buildPrintReport(p, state.currentBed.roomId, state.currentBed.bed);
-      window.print();
+      // Return to rooms view immediately so the pharmacist can move to
+      // the next patient without an extra tap on the back button.
+      state.currentBed = null;
+      UI.showView("home");
     });
 
     // ----- Admin: open via header gear -----
