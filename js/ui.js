@@ -65,36 +65,57 @@
     return hasMeds ? "meds" : "occupied";
   }
 
-  // ---------- Room card ----------
+  // ---------- Corridor map ----------
+  // Renders the ward as a long vertical corridor with rooms on one side.
+  // - A "entrance" marker at the top indicates where you walk in
+  // - A vertical line (the corridor) runs down the side
+  // - Room cards are positioned along the corridor
+  //   - Rooms 1-5 (split-3-3): when you enter the room, 3 beds on the
+  //     right + 3 beds on the left
+  //   - Rooms 6-10 (linear-4): 4 beds in a row
   function renderRooms(patientsMap) {
     const container = document.getElementById("rooms-grid");
     container.innerHTML = "";
 
+    // Entrance marker
+    container.appendChild(h("div", { class: "corridor-entrance" }, [
+      h("span", { class: "entrance-icon" }, "↓"),
+      h("span", { class: "entrance-label" }, "مدخل الردهة")
+    ]));
+
+    // The corridor itself: vertical line on the left + room cards
+    const corridor = h("div", { class: "corridor" });
+
     global.PharmacyWard.ROOMS.forEach(room => {
       const occupied = room.beds.filter(b => {
-        const p = patientsMap[global.PharmacyWard.bedKey(room.id, b)];
+        const p = patientsMap[global.PharmacyWard.bedKey(room.id, b.number)];
         return p && p.name && p.name.trim();
       }).length;
 
-      const bedsGrid = h("div", { class: `beds-grid cols-${room.bedCount}` });
-
-      room.beds.forEach(bed => {
-        const key = global.PharmacyWard.bedKey(room.id, bed);
-        const patient = patientsMap[key] || null;
-        const status = bedStatus(patient);
-        const btn = h("button", {
-          class: `bed-btn state-${status}`,
-          dataset: { roomId: room.id, bed: bed, key: key },
-          type: "button"
-        }, [
-          h("span", { class: "bed-icon" }),
-          h("span", { class: "bed-num" }, "سرير " + bed),
-          h("span", { class: "bed-state" })
+      // Build the beds grid per room layout
+      let bedsArea;
+      if (room.layout === "split-3-3") {
+        // 3 beds on right + 3 beds on left (inside the room)
+        const right = room.beds.filter(b => b.side === "right");
+        const left  = room.beds.filter(b => b.side === "left");
+        bedsArea = h("div", { class: "room-beds split-3-3" }, [
+          h("div", { class: "beds-col beds-right" },
+            right.map(b => bedButton(room, b, patientsMap))),
+          // Door / entrance indicator between the two columns
+          h("div", { class: "beds-door", title: "باب الغرفة" }, "🚪"),
+          h("div", { class: "beds-col beds-left" },
+            left.map(b => bedButton(room, b, patientsMap)))
         ]);
-        bedsGrid.appendChild(btn);
-      });
+      } else {
+        // linear-4: 4 beds in a row
+        bedsArea = h("div", { class: "room-beds linear-4" },
+          room.beds.map(b => bedButton(room, b, patientsMap)));
+      }
 
-      const card = h("div", { class: "room-card" }, [
+      const roomCard = h("div", {
+        class: "room-card layout-" + room.layout,
+        dataset: { roomId: room.id }
+      }, [
         h("div", { class: "room-head" }, [
           h("div", { class: "room-title" }, [
             h("span", { class: "room-num" }, "غرفة " + room.id),
@@ -102,10 +123,28 @@
           ]),
           h("span", { class: "room-occ" }, occupied + " / " + room.bedCount + " مشغول")
         ]),
-        bedsGrid
+        bedsArea
       ]);
-      container.appendChild(card);
+      corridor.appendChild(roomCard);
     });
+
+    container.appendChild(corridor);
+  }
+
+  // Helper: build a single bed button
+  function bedButton(room, bed, patientsMap) {
+    const key = global.PharmacyWard.bedKey(room.id, bed.number);
+    const patient = patientsMap[key] || null;
+    const status = bedStatus(patient);
+    return h("button", {
+      class: `bed-btn state-${status}`,
+      dataset: { roomId: room.id, bed: bed.number, key: key },
+      type: "button"
+    }, [
+      h("span", { class: "bed-icon" }),
+      h("span", { class: "bed-num" }, "سرير " + bed.number),
+      h("span", { class: "bed-state" })
+    ]);
   }
 
   // ---------- Patient view ----------
