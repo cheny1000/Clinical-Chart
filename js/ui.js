@@ -35,20 +35,14 @@
     if (!m) return "—";
     return m.nameTrade || m.nameAr || m.nameEn || "—";
   }
-  // SECONDARY name = scientific (nameEn). Shown under the primary name.
+  // SECONDARY name = scientific (nameEn). Always shown when set,
+  // even if it happens to equal the trade name. This is intentional:
+  // the user wants the scientific name visible at all times so they
+  // can confirm the active substance on the printed patient list.
   function scientificName(m) {
     if (!m) return "";
-    const trade = m.nameTrade || "";
-    const ar    = m.nameAr || "";
-    const en    = m.nameEn || "";
-    // If nameTrade already equals nameEn (e.g. Latin-only trade name), skip duplication
-    if (trade && en && trade.trim().toLowerCase() === en.trim().toLowerCase()) return "";
-    // If we have a trade name and an English scientific name, show scientific only
-    if (trade && en) return en;
-    // If only Arabic is set, hide secondary line
-    if (trade && !en && !ar) return "";
-    // Fallback: if no trade, no need to duplicate
-    return "";
+    const en = m.nameEn || "";
+    return en;
   }
 
   // ---------- Dashboard stats ----------
