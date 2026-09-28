@@ -258,15 +258,16 @@
     }
 
     if (filtered.length === 0) {
-      const otherTabLabel = (tab === "vial") ? "الحبوب" : "الفيالات";
+      const otherTabLabel = (tab === "vial") ? "الحبوب" : "Vial";
       const otherTabKey   = (tab === "vial") ? "tablet" : "vial";
+      const curTabLabel   = (tab === "vial") ? "Vial" : "الحبوب";
       const hintEl = h("div", {
         style: "text-align:center;padding:24px 16px;color:var(--text-muted);font-weight:600;font-size:13px;line-height:1.6;"
       }, [
         h("div", { style: "font-size:28px;margin-bottom:8px;color:var(--text-faint);font-weight:800;" }, "⌕"),
         h("div", {}, q
-          ? `لا توجد نتائج مطابقة في ${tab === "vial" ? "الفيالات" : "الحبوب"}.`
-          : `لا توجد أدوية في ${tab === "vial" ? "الفيالات" : "الحبوب"}.`),
+          ? `لا توجد نتائج مطابقة في ${curTabLabel}.`
+          : `لا توجد أدوية في ${curTabLabel}.`),
         h("div", {
           style: "margin-top:10px;color:var(--primary);font-weight:800;cursor:pointer;text-decoration:underline;",
           dataset: { switchTab: otherTabKey },
@@ -439,7 +440,7 @@
 
       const formLabel = (m.form === "tablet")
         ? ((global.PharmacyMedications.FORM_LABELS || {}).tablet || "حبوب")
-        : ((global.PharmacyMedications.FORM_LABELS || {}).vial || "فيالات");
+        : ((global.PharmacyMedications.FORM_LABELS || {}).vial || "Vial");
       const formClass = "admin-form-badge " + (m.form === "tablet" ? "is-tablet" : "is-vial");
 
       const row = h("div", {

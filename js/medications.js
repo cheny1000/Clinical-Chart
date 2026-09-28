@@ -14,12 +14,12 @@
 
   // Form / dosage-form categories. Each medication has a `form` value:
   //   "tablet" → الحبوب (oral tablets / capsules / oral solutions)
-  //   "vial"   → الفيالات (injectable / IV / IM / SC vials, nebules)
+  //   "vial"   → Vial (injectable / IV / IM / SC vials, nebules)
   // The bottom-sheet selector groups medications by this field.
   // The admin panel can change a med's `form` at any time.
   const FORM_LABELS = {
     tablet: "حبوب",
-    vial:   "فيالات"
+    vial:   "Vial"
   };
 
   // Demo medication catalog — editable by administrator
