@@ -226,8 +226,43 @@
           </div>
         </div>
 
+        <!-- Supabase cloud sync settings -->
+        <div class="admin-supabase-card">
+          <h4>☁️ المزامنة السحابية (Supabase)</h4>
+          <p class="admin-supabase-sub">
+            اربط التطبيق بقاعدة بيانات Supabase لمزامنة كتالوج الأدوية عبر جميع الأجهزة.
+            أنشئ مشروعًا على <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a>، نفّذ ملف
+            <code>schema.sql</code> في SQL Editor، ثم أدخل البيانات أدناه.
+          </p>
+          <div class="admin-supabase-grid">
+            <div class="admin-field">
+              <label for="sb-url">Project URL</label>
+              <input type="text" id="sb-url" placeholder="https://xxxxx.supabase.co" autocomplete="off" dir="ltr" />
+            </div>
+            <div class="admin-field">
+              <label for="sb-key">Anon Public Key</label>
+              <input type="password" id="sb-key" placeholder="eyJhbGciOi..." autocomplete="off" dir="ltr" />
+            </div>
+          </div>
+          <div class="admin-supabase-actions">
+            <button class="btn-test" id="sb-test" type="button">اختبار الاتصال</button>
+            <button class="btn-save-sb" id="sb-save" type="button">حفظ الإعدادات</button>
+            <button class="btn-clear-sb" id="sb-clear" type="button">إلغاء الربط</button>
+          </div>
+          <div class="admin-supabase-status" id="sb-status">الحالة: غير مربوط</div>
+        </div>
+
         <div class="admin-danger-zone">
           <h4>منطقة الخطر</h4>
+          <div class="admin-danger-row">
+            <button class="btn-export" id="admin-export" type="button">
+              ⬆ تصدير الكتالوج (JSON)
+            </button>
+            <button class="btn-import" id="admin-import-btn" type="button">
+              ⬇ استيراد الكتالوج (JSON)
+            </button>
+            <input type="file" id="admin-import-file" accept="application/json,.json" hidden />
+          </div>
           <button class="btn-reset" id="admin-reset" type="button">
             استعادة قائمة الأدوية الافتراضية
           </button>
@@ -319,9 +354,12 @@
   </div>
 
   <!-- ===== Scripts (modular) ===== -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
   <script src="js/medications.js"></script>
   <script src="js/ward.js"></script>
   <script src="js/storage.js"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/supabase-sync.js"></script>
   <script src="js/remote-adapter.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/app.js"></script>

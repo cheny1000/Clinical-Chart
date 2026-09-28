@@ -34,6 +34,8 @@
   const Ward    = global.PharmacyWard;
   const Meds    = global.PharmacyMedications;
   const UI      = global.PharmacyUI;
+  const SB      = global.PharmacySupabase;          // may be undefined on very old browsers
+  const SBSync  = global.PharmacySupabaseSync;      // may be undefined
   const $ = (id) => document.getElementById(id);
 
   // -------- Init --------
@@ -42,6 +44,9 @@
     bindEvents();
     refreshAll();
     UI.showView("home");
+    // After the UI is up, try to pull the latest catalog from Supabase
+    // (if configured) and refresh the admin list + room cards.
+    pullCatalogOnBoot();
   }
 
   function hydrate() {
@@ -50,6 +55,66 @@
     state.medications = data.medications && data.medications.length
       ? data.medications
       : Meds.DEFAULT_MEDICATIONS.slice();
+  }
+
+  // -------- Supabase: pull catalog on boot --------
+  // If Supabase is configured and reachable, replace the local catalog
+  // with the cloud version. This is what makes the catalog sync across
+  // devices: edit on the desktop → it pushes to Supabase; open on the
+  // phone → it pulls from Supabase and overwrites the (now stale) local
+  // catalog.
+  async function pullCatalogOnBoot() {
+    if (!SB || !SBSync || !SB.isConfigured()) {
+      updateSupabaseStatusUI("غير مربوط");
+      return;
+    }
+    updateSupabaseStatusUI("جارٍ المزامنة…", "loading");
+    const res = await SBSync.pullCatalog();
+    if (res.ok) {
+      state.medications = Storage.loadMedications();
+      UI.renderAdminMedList(state.medications, null);
+      refreshStatsAndRooms();
+      updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
+      flashHint("تمت مزامنة الكتالوج من Supabase");
+    } else {
+      updateSupabaseStatusUI("خطأ: " + res.error, "error");
+      console.warn("[Supabase] pull failed:", res.error);
+    }
+  }
+
+  // Push the local catalog to Supabase (called after every admin save).
+  async function pushCatalogAfterEdit() {
+    if (!SB || !SBSync || !SB.isConfigured()) return;
+    // Fire-and-forget: the local save is already done, this just syncs
+    // to the cloud. If it fails, the user still has their local catalog.
+    const res = await SBSync.pushCatalog();
+    if (res.ok) {
+      updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
+    } else {
+      updateSupabaseStatusUI("خطأ في الرفع: " + res.error, "error");
+      console.warn("[Supabase] push failed:", res.error);
+    }
+  }
+
+  // Update the small status badge in the Supabase settings panel.
+  function updateSupabaseStatusUI(text, kind) {
+    const el = $("sb-status");
+    if (!el) return;
+    el.textContent = "الحالة: " + text;
+    el.classList.remove("is-connected", "is-error", "is-loading");
+    if (kind === "connected") el.classList.add("is-connected");
+    else if (kind === "error") el.classList.add("is-error");
+    else if (kind === "loading") el.classList.add("is-loading");
+  }
+
+  // Pre-fill the Supabase settings inputs if already configured.
+  function refreshSupabaseInputs() {
+    if (!SB) return;
+    const cfg = SB.loadConfig();
+    if (cfg) {
+      $("sb-url").value = cfg.url || "";
+      $("sb-key").value = cfg.anonKey || "";
+    }
   }
 
   // -------- Render refresh --------
@@ -381,7 +446,7 @@
         const label = UI.primaryName(m) || "هذا الدواء";
         if (!confirm(`حذف "${label}" من الكتالوج؟\n(لن يؤثر على العلاجات المسجلة بالفعل على المرضى)`)) return;
         state.medications = state.medications.filter(x => x.id !== id);
-        Storage.saveMedications(state.medications);
+        Storage.saveMedications(state.medications); pushCatalogAfterEdit();
         if (state.admin.editingId === id) {
           state.admin.editingId = null;
           state.admin.isNew = false;
@@ -404,7 +469,7 @@
         else if (action === "move-bottom") newIdx = state.medications.length;
         else return;
         state.medications.splice(newIdx, 0, item);
-        Storage.saveMedications(state.medications);
+        Storage.saveMedications(state.medications); pushCatalogAfterEdit();
         UI.renderAdminMedList(state.medications, id);
         // Scroll the moved row into view if it's outside the visible area
         const rowEl = document.querySelector(`.admin-med-row[data-med-id="${id}"]`);
@@ -463,7 +528,7 @@
           defaultDose: data.defaultDose,
           defaultFrequency: data.defaultFrequency
         });
-        Storage.saveMedications(state.medications);
+        Storage.saveMedications(state.medications); pushCatalogAfterEdit();
         state.admin.editingId = id;
         state.admin.isNew = false;
         state.admin.selectedId = id;
@@ -480,7 +545,7 @@
         m.form = data.form;
         m.defaultDose = data.defaultDose;
         m.defaultFrequency = data.defaultFrequency;
-        Storage.saveMedications(state.medications);
+        Storage.saveMedications(state.medications); pushCatalogAfterEdit();
         UI.renderAdminMedList(state.medications, m.id);
         flashHint("تم حفظ التعديلات");
       }
@@ -519,6 +584,71 @@
       refreshStatsAndRooms();
       flashHint("تم مسح جميع البيانات");
     });
+
+    // ----- Supabase: test / save / clear -----
+    $("sb-test").addEventListener("click", async () => {
+      if (!SB) { flashHint("مكتبة Supabase غير محمّلة"); return; }
+      // Use whatever is currently in the inputs (even if not saved yet)
+      const url = $("sb-url").value.trim();
+      const anonKey = $("sb-key").value.trim();
+      if (!url || !anonKey) {
+        updateSupabaseStatusUI("أدخل URL و Anon Key أولاً", "error");
+        return;
+      }
+      // Save temporarily so testConnection can use it
+      SB.saveConfig(url, anonKey);
+      updateSupabaseStatusUI("جارٍ الاختبار…", "loading");
+      const res = await SB.testConnection();
+      if (res.ok) {
+        updateSupabaseStatusUI("الاتصال ناجح ✓", "connected");
+        flashHint("تم الاتصال بـ Supabase بنجاح");
+      } else {
+        updateSupabaseStatusUI("فشل الاتصال: " + res.error, "error");
+        flashHint("فشل الاتصال بـ Supabase");
+      }
+    });
+
+    $("sb-save").addEventListener("click", async () => {
+      if (!SB) { flashHint("مكتبة Supabase غير محمّلة"); return; }
+      const url = $("sb-url").value.trim();
+      const anonKey = $("sb-key").value.trim();
+      if (!url || !anonKey) {
+        updateSupabaseStatusUI("أدخل URL و Anon Key أولاً", "error");
+        flashHint("أدخل URL و Anon Key");
+        return;
+      }
+      SB.saveConfig(url, anonKey);
+      updateSupabaseStatusUI("تم الحفظ · جارٍ المزامنة…", "loading");
+      flashHint("تم حفظ إعدادات Supabase");
+      // Try to pull the catalog right away
+      const res = await SBSync.pullCatalog();
+      if (res.ok) {
+        state.medications = Storage.loadMedications();
+        UI.renderAdminMedList(state.medications, null);
+        refreshStatsAndRooms();
+        updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
+        flashHint("تمت المزامنة من Supabase");
+      } else {
+        // Pull failed → push the local catalog to populate the empty table
+        const pushRes = await SBSync.pushCatalog();
+        if (pushRes.ok) {
+          updateSupabaseStatusUI(`مربوط · ${pushRes.count} دواء (مرفوع محليًا)`, "connected");
+          flashHint("تم رفع الكتالوج المحلي إلى Supabase");
+        } else {
+          updateSupabaseStatusUI("مربوط لكن فشلت المزامنة: " + pushRes.error, "error");
+          flashHint("فشلت المزامنة مع Supabase");
+        }
+      }
+    });
+
+    $("sb-clear").addEventListener("click", () => {
+      if (!SB) return;
+      if (!confirm("إلغاء ربط Supabase؟ سيبقى الكتالوج المحلي كما هو.")) return;
+      SB.clearConfig();
+      refreshSupabaseInputs();
+      updateSupabaseStatusUI("غير مربوط");
+      flashHint("تم إلغاء ربط Supabase");
+    });
   }
 
   // -------- Admin view --------
@@ -528,6 +658,13 @@
     state.admin.selectedId = null;
     UI.hideAdminForm();
     UI.renderAdminMedList(state.medications, null);
+    refreshSupabaseInputs();
+    // Update Supabase status badge (without re-pulling)
+    if (SB && SB.isConfigured()) {
+      updateSupabaseStatusUI("مربوط · جاهز للمزامنة", "connected");
+    } else {
+      updateSupabaseStatusUI("غير مربوط");
+    }
     UI.showView("admin");
   }
 
