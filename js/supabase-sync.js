@@ -68,7 +68,23 @@
     return false;
   }
 
-  // Convert local med objects (camelCase) ↔ Supabase rows (snake_case)
+  // Convert local med objects (camelCase) ↔ Supabase rows (snake_case).
+  // IMPORTANT: we only set `updated_at = now()` for rows that are NEW
+  // to the cloud (we don't know their previous cloud state). For rows
+  // that we're going to upsert, the database default `updated_at` won't
+  // auto-update on UPDATE (Postgres doesn't do that automatically), so
+  // we must set it ourselves — but we should set it ONLY when the row's
+  // content actually changed vs the cloud version, otherwise every
+  // push refreshes ALL updated_at and makes future pulls think the
+  // cloud is newer than the local (false-positive sync conflict).
+  // Simplest robust approach: don't set updated_at on upsert; let the
+  // DB trigger handle it. (We add a trigger in schema.sql v2.)
+  // For now (no trigger), we set updated_at only for the insert path
+  // by passing it only when the row is new — but upsert can't tell
+  // insert vs update apart from the client. So we just don't touch
+  // updated_at here and accept that the trigger-less version will
+  // refresh updated_at on every upsert. The local-vs-cloud comparison
+  // still works because we ALSO bump localMs only on REAL edits.
   function medToRow(m, sortOrder) {
     return {
       id: m.id,
@@ -78,8 +94,11 @@
       form: m.form || "vial",
       default_dose: m.defaultDose || "",
       default_frequency: m.defaultFrequency || "",
-      sort_order: sortOrder,
-      updated_at: new Date().toISOString()
+      sort_order: sortOrder
+      // NOTE: we deliberately omit updated_at so the DB trigger
+      // (if installed) sets it; otherwise the column default is now()
+      // which would refresh on every upsert — handled by the localMs
+      // comparison being based on real edits, not push timing.
     };
   }
   function rowToMed(row) {
@@ -96,8 +115,12 @@
 
   // Pull the catalog from Supabase → write into localStorage.
   // Returns { ok: true, count: N } on success or { ok: false, error }.
-  // Refuses to pull if the last push failed recently (so local edits
-  // that haven't reached the cloud aren't blown away).
+  // Refuses to pull if:
+  //   (a) the last push failed recently, OR
+  //   (b) the local catalog has unsynced edits (modified after last
+  //       successful sync). This is the key fix: it prevents a stale
+  //       cloud (where a previous push failed) from overwriting local
+  //       edits on the next boot.
   async function pullCatalog(force) {
     if (!SB || !SB.isConfigured()) return { ok: false, error: "غير مُهيّأ" };
     if (!force && shouldSkipPull()) {
@@ -106,7 +129,18 @@
         ok: false,
         error: "تم تجاهل السحب — آخر رفع فشل، الكتالوج المحلي محفوظ",
         skipped: true,
+        reason: "push-failed-recently",
         lastFailedPushAt: s.lastPushAt
+      };
+    }
+    // Check for unsynced local edits — skip pull if local is fresher
+    // than the last successful sync.
+    if (!force && Local.hasUnsyncedLocalEdits && Local.hasUnsyncedLocalEdits()) {
+      return {
+        ok: false,
+        error: "تم تجاهل السحب — لديك تعديلات محلية لم تُرفع بعد",
+        skipped: true,
+        reason: "local-unsynced"
       };
     }
     const client = SB.getClient();
@@ -123,6 +157,14 @@
       const meds = data.map(rowToMed);
       // Overwrite the local catalog with the cloud version
       Local.saveMedications(meds);
+      // Mark local as "synced" at this moment — both localModifiedAt
+      // and localSyncedAt are now equal, so future pulls are allowed
+      // until the user makes another local edit.
+      const nowMs = Date.now();
+      try {
+        localStorage.setItem("pharma.medications.modified.v1", String(nowMs));
+        Local.setLocalCatalogSyncedAt(nowMs);
+      } catch (e) { /* ignore */ }
       return { ok: true, count: meds.length };
     } catch (e) {
       return { ok: false, error: (e && e.message) ? e.message : String(e) };
@@ -183,6 +225,10 @@
       }
 
       saveSyncState({ lastPushOk: true, lastPushAt: Date.now() });
+      // Mark local catalog as fully synced (modified == synced)
+      if (Local.setLocalCatalogSyncedAt) {
+        Local.setLocalCatalogSyncedAt(Date.now());
+      }
       return { ok: true, count: meds.length };
     } catch (e) {
       saveSyncState({ lastPushOk: false, lastPushAt: Date.now() });

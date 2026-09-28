@@ -13,7 +13,9 @@
 
   const STORAGE_KEYS = {
     PATIENTS:    "pharma.patients.v1",     // map: bedKey -> patient
-    MEDICATIONS: "pharma.medications.v1"   // array: default med catalog
+    MEDICATIONS: "pharma.medications.v1",  // array: default med catalog
+    MEDICATIONS_LAST_MODIFIED: "pharma.medications.modified.v1", // ms timestamp
+    MEDICATIONS_LAST_SYNCED: "pharma.medications.synced.v1"      // ms timestamp
   };
 
   function safeParse(raw, fallback) {
@@ -101,25 +103,63 @@
   }
 
   // ----- Medications catalog -----
+  // First-run detection: we only seed the default catalog if the user
+  // has NEVER saved anything (key doesn't exist). Once the user has
+  // saved (even an empty array), we respect their choice — deleting
+  // all meds should NOT silently restore defaults on next boot.
   function loadMedications() {
-    const stored = safeParse(localStorage.getItem(STORAGE_KEYS.MEDICATIONS), null);
-    if (stored && Array.isArray(stored) && stored.length > 0) {
-      // Migrate: ensure nameTrade is present on every catalog entry
+    const raw = localStorage.getItem(STORAGE_KEYS.MEDICATIONS);
+    if (raw === null) {
+      // First run: seed defaults
+      const def = (global.PharmacyMedications && global.PharmacyMedications.DEFAULT_MEDICATIONS) || [];
+      safeSet(STORAGE_KEYS.MEDICATIONS, def);
+      return def;
+    }
+    // The user has a stored catalog (even if empty) — respect it.
+    const stored = safeParse(raw, []);
+    if (Array.isArray(stored)) {
+      // Migrate: ensure nameTrade + form are present on every catalog entry
       const res = migrateMedsList(stored);
       if (res.changed) safeSet(STORAGE_KEYS.MEDICATIONS, res.list);
       return res.list;
     }
-    // fall back to defaults and persist
-    const def = (global.PharmacyMedications && global.PharmacyMedications.DEFAULT_MEDICATIONS) || [];
-    safeSet(STORAGE_KEYS.MEDICATIONS, def);
-    return def;
+    // Fallback if parse failed entirely
+    return [];
   }
   function saveMedications(list) {
+    // Mark the local catalog as modified — pullCatalog uses this to
+    // decide whether the local version is newer than the cloud version.
+    try {
+      localStorage.setItem(STORAGE_KEYS.MEDICATIONS_LAST_MODIFIED, String(Date.now()));
+    } catch (e) { /* ignore */ }
     return safeSet(STORAGE_KEYS.MEDICATIONS, list);
   }
   function resetMedicationsToDefault() {
     const def = (global.PharmacyMedications && global.PharmacyMedications.DEFAULT_MEDICATIONS) || [];
     return saveMedications(def);
+  }
+  function getLocalCatalogModifiedAt() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.MEDICATIONS_LAST_MODIFIED);
+      return raw ? parseInt(raw, 10) : 0;
+    } catch (e) { return 0; }
+  }
+  function getLocalCatalogSyncedAt() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.MEDICATIONS_LAST_SYNCED);
+      return raw ? parseInt(raw, 10) : 0;
+    } catch (e) { return 0; }
+  }
+  function setLocalCatalogSyncedAt(ms) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.MEDICATIONS_LAST_SYNCED, String(ms));
+    } catch (e) { /* ignore */ }
+  }
+  // True if the local catalog has unsynced edits (modified after last sync)
+  function hasUnsyncedLocalEdits() {
+    const m = getLocalCatalogModifiedAt();
+    const s = getLocalCatalogSyncedAt();
+    return m > s;
   }
 
   // ----- Bulk (used for initial hydration) -----
@@ -142,6 +182,10 @@
     loadMedications,
     saveMedications,
     resetMedicationsToDefault,
+    getLocalCatalogModifiedAt,
+    getLocalCatalogSyncedAt,
+    setLocalCatalogSyncedAt,
+    hasUnsyncedLocalEdits,
     // bulk
     loadAll
   };

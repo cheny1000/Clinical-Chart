@@ -702,6 +702,7 @@
       UI.hideAdminForm();
       UI.renderAdminMedList(state.medications, null);
       flashHint("تم استعادة القائمة الافتراضية");
+      pushCatalogAfterEdit();  // Sync the reset to Supabase
     });
 
     // Admin: wipe all data
@@ -723,6 +724,7 @@
       UI.renderAdminMedList(state.medications, null);
       refreshStatsAndRooms();
       flashHint("تم مسح جميع البيانات");
+      pushCatalogAfterEdit();  // Sync the reset to Supabase
     });
 
     // ----- Supabase: test / save / clear -----
