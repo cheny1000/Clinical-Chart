@@ -154,7 +154,8 @@
         </div>
 
         <div class="admin-hint">
-          💡 استخدم أزرار <strong>⤒ ↑ ↓ ⤓</strong> في كل صف لترتيب الأدوية. الترتيب ينعكس فورًا على قائمة الاختيار في شاشة المريض — ضع الأكثر استخدامًا (مثل السيفترياكسون) في الأعلى لسرعة الوصول.
+          💡 استخدم أزرار <strong>⤒ ↑ ↓ ⤓</strong> لترتيب الأدوية حسب الأولوية — الترتيب ينعكس فورًا على قائمة الاختيار.<br/>
+          📛 لكل دواء ثلاثة أسماء: <strong>الاسم التجاري</strong> (يظهر كاسم رئيسي)، <strong>الاسم العربي</strong> (احتياطي)، <strong>الاسم العلمي</strong> (Lat. INN، يظهر بجانب الاسم التجاري بحجم أصغر).
         </div>
 
         <div class="admin-layout">
@@ -177,11 +178,15 @@
               <h3 id="admin-form-title">تعديل دواء</h3>
               <div class="admin-form-grid">
                 <div class="admin-field">
-                  <label for="adm-name-ar">الاسم بالعربية</label>
+                  <label for="adm-name-trade">الاسم التجاري (يظهر كاسم رئيسي)</label>
+                  <input type="text" id="adm-name-trade" placeholder="مثال: تايفينول / كونترولوك" autocomplete="off" />
+                </div>
+                <div class="admin-field">
+                  <label for="adm-name-ar">الاسم العربي (احتياطي)</label>
                   <input type="text" id="adm-name-ar" placeholder="مثال: باراسيتامول" autocomplete="off" />
                 </div>
                 <div class="admin-field">
-                  <label for="adm-name-en">الاسم بالإنجليزية</label>
+                  <label for="adm-name-en">الاسم العلمي (Lat. INN)</label>
                   <input type="text" id="adm-name-en" placeholder="مثال: Paracetamol" autocomplete="off" dir="ltr" />
                 </div>
                 <div class="admin-field">

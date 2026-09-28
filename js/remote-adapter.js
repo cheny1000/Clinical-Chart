@@ -34,16 +34,18 @@
      room_id        INT  NOT NULL,
      bed_number     INT  NOT NULL,
      name           TEXT NOT NULL,
-     medications    JSONB NOT NULL DEFAULT '[]',  -- [{id,nameAr,nameEn,dose,frequency}]
+     medications    JSONB NOT NULL DEFAULT '[]',  -- [{id,nameTrade,nameAr,nameEn,dose,frequency}]
      updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
    );
 
    CREATE TABLE medications_catalog (
      id              TEXT PRIMARY KEY,
-     name_ar         TEXT NOT NULL,
-     name_en         TEXT,
+     name_trade      TEXT,                -- trade / brand name (primary display name)
+     name_ar         TEXT,                -- Arabic generic name (fallback)
+     name_en         TEXT,                -- Scientific / INN Latin name (secondary display)
      default_dose    TEXT NOT NULL,
      default_frequency TEXT NOT NULL,
+     sort_order      INT  NOT NULL DEFAULT 0,
      updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
    );
 

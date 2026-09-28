@@ -27,9 +27,49 @@
     catch (e) { console.warn("[PharmacyStorage] set failed:", e); return false; }
   }
 
+  // ----- Migration: ensure every medication has nameTrade -----
+  // Older versions stored only nameAr + nameEn. We now use nameTrade
+  // (trade/brand name) as the primary display name. If a stored
+  // medication lacks nameTrade, we copy it from nameAr (or nameEn).
+  // We also do the same for patient.medications entries so existing
+  // patient data keeps working after the upgrade.
+  function migrateMed(med) {
+    if (!med || typeof med !== "object") return med;
+    if (!("nameTrade" in med) || !med.nameTrade) {
+      med.nameTrade = med.nameAr || med.nameEn || "";
+    }
+    return med;
+  }
+  function migrateMedsList(list) {
+    if (!Array.isArray(list)) return list;
+    let changed = false;
+    const out = list.map(m => {
+      if (!m || typeof m !== "object") return m;
+      if (!("nameTrade" in m) || !m.nameTrade) {
+        changed = true;
+        return migrateMed({ ...m });
+      }
+      return m;
+    });
+    return { list: out, changed };
+  }
+
   // ----- Patients -----
   function loadPatients() {
-    return safeParse(localStorage.getItem(STORAGE_KEYS.PATIENTS), {});
+    const all = safeParse(localStorage.getItem(STORAGE_KEYS.PATIENTS), {});
+    // Migrate patient.medications entries: back-fill nameTrade
+    let changed = false;
+    for (const bedKey of Object.keys(all)) {
+      const p = all[bedKey];
+      if (!p || !Array.isArray(p.medications)) continue;
+      const res = migrateMedsList(p.medications);
+      if (res.changed) {
+        p.medications = res.list;
+        changed = true;
+      }
+    }
+    if (changed) savePatients(all);
+    return all;
   }
   function savePatients(map) {
     return safeSet(STORAGE_KEYS.PATIENTS, map);
@@ -56,7 +96,12 @@
   // ----- Medications catalog -----
   function loadMedications() {
     const stored = safeParse(localStorage.getItem(STORAGE_KEYS.MEDICATIONS), null);
-    if (stored && Array.isArray(stored) && stored.length > 0) return stored;
+    if (stored && Array.isArray(stored) && stored.length > 0) {
+      // Migrate: ensure nameTrade is present on every catalog entry
+      const res = migrateMedsList(stored);
+      if (res.changed) safeSet(STORAGE_KEYS.MEDICATIONS, res.list);
+      return res.list;
+    }
     // fall back to defaults and persist
     const def = (global.PharmacyMedications && global.PharmacyMedications.DEFAULT_MEDICATIONS) || [];
     safeSet(STORAGE_KEYS.MEDICATIONS, def);

@@ -17,7 +17,7 @@
     sheet: {
       open: false,
       selected: new Set(),     // med ids
-      selectedList: [],       // [{ id, nameAr, nameEn, dose, frequency }]
+      selectedList: [],       // [{ id, nameTrade, nameAr, nameEn, dose, frequency }]
       filter: ""
     },
     // admin editor state
@@ -287,6 +287,7 @@
       state.sheet.selectedList.forEach(s => {
         p.medications.push({
           id:        s.id,
+          nameTrade: s.nameTrade,
           nameAr:    s.nameAr,
           nameEn:    s.nameEn,
           dose:      s.dose,
@@ -352,7 +353,7 @@
         const id = delBtn.dataset.medId;
         const m = state.medications.find(x => x.id === id);
         if (!m) return;
-        const label = m.nameAr || m.nameEn || "هذا الدواء";
+        const label = UI.primaryName(m) || "هذا الدواء";
         if (!confirm(`حذف "${label}" من الكتالوج؟\n(لن يؤثر على العلاجات المسجلة بالفعل على المرضى)`)) return;
         state.medications = state.medications.filter(x => x.id !== id);
         Storage.saveMedications(state.medications);
@@ -399,10 +400,10 @@
     // Admin: save (add or update)
     $("admin-save").addEventListener("click", () => {
       const data = UI.readAdminForm();
-      // validation
-      if (!data.nameAr && !data.nameEn) {
-        flashHint("أدخل اسم الدواء بالعربية أو الإنجليزية");
-        $("adm-name-ar").focus();
+      // validation — at least one name is required (trade, ar, or en)
+      if (!data.nameTrade && !data.nameAr && !data.nameEn) {
+        flashHint("أدخل اسم الدواء (تجاري أو علمي)");
+        $("adm-name-trade").focus();
         return;
       }
       if (!data.defaultDose) {
@@ -416,8 +417,9 @@
         return;
       }
       if (state.admin.isNew) {
-        // generate stable id from name (or random fallback)
-        const base = (data.nameEn || data.nameAr)
+        // generate stable id from scientific name (preferred) or trade name or arabic
+        const baseSource = data.nameEn || data.nameTrade || data.nameAr;
+        const base = baseSource
           .toLowerCase()
           .replace(/[^a-z0-9\u0600-\u06FF]+/g, "-")
           .replace(/^-+|-+$/g, "")
@@ -429,8 +431,9 @@
         }
         state.medications.push({
           id,
-          nameAr: data.nameAr,
-          nameEn: data.nameEn,
+          nameTrade: data.nameTrade,
+          nameAr:    data.nameAr,
+          nameEn:    data.nameEn,
           defaultDose: data.defaultDose,
           defaultFrequency: data.defaultFrequency
         });
@@ -445,6 +448,7 @@
       } else {
         const m = state.medications.find(x => x.id === state.admin.editingId);
         if (!m) return;
+        m.nameTrade = data.nameTrade;
         m.nameAr = data.nameAr;
         m.nameEn = data.nameEn;
         m.defaultDose = data.defaultDose;
@@ -543,8 +547,9 @@
     state.sheet.selected.add(id);
     state.sheet.selectedList.push({
       id: m.id,
-      nameAr: m.nameAr,
-      nameEn: m.nameEn,
+      nameTrade: m.nameTrade,
+      nameAr:    m.nameAr,
+      nameEn:    m.nameEn,
       dose: m.defaultDose,
       frequency: m.defaultFrequency
     });

@@ -29,6 +29,28 @@
     return el;
   };
 
+  // ---------- Display name helpers ----------
+  // PRIMARY name = nameTrade (falls back to nameAr then nameEn then "—")
+  function primaryName(m) {
+    if (!m) return "—";
+    return m.nameTrade || m.nameAr || m.nameEn || "—";
+  }
+  // SECONDARY name = scientific (nameEn). Shown under the primary name.
+  function scientificName(m) {
+    if (!m) return "";
+    const trade = m.nameTrade || "";
+    const ar    = m.nameAr || "";
+    const en    = m.nameEn || "";
+    // If nameTrade already equals nameEn (e.g. Latin-only trade name), skip duplication
+    if (trade && en && trade.trim().toLowerCase() === en.trim().toLowerCase()) return "";
+    // If we have a trade name and an English scientific name, show scientific only
+    if (trade && en) return en;
+    // If only Arabic is set, hide secondary line
+    if (trade && !en && !ar) return "";
+    // Fallback: if no trade, no need to duplicate
+    return "";
+  }
+
   // ---------- Dashboard stats ----------
   function renderStats(patientsMap) {
     let patientCount = 0;
@@ -142,14 +164,15 @@
       );
     }
 
+    const sci = scientificName(med);
+    const nameBlock = h("div", {}, [
+      h("div", { class: "med-name" }, primaryName(med)),
+      sci ? h("div", { class: "med-name-en" }, sci) : null
+    ]);
+
     return h("div", { class: "med-card", dataset: { medIndex: index } }, [
       h("div", { class: "med-card-head" }, [
-        h("div", {}, [
-          h("div", { class: "med-name" }, med.nameAr || med.nameEn || med.name),
-          med.nameEn && med.nameAr
-            ? h("div", { class: "med-name-en" }, med.nameEn)
-            : null
-        ]),
+        nameBlock,
         h("button", {
           class: "med-del",
           type: "button",
@@ -218,6 +241,7 @@
     const q = (filterText || "").trim().toLowerCase();
     const filtered = q
       ? meds.filter(m =>
+          (m.nameTrade || "").toLowerCase().includes(q) ||
           (m.nameAr || "").toLowerCase().includes(q) ||
           (m.nameEn || "").toLowerCase().includes(q))
       : meds;
@@ -232,6 +256,11 @@
     filtered.forEach(m => {
       const id = "med-opt-" + m.id;
       const checked = selectedIds.has(m.id);
+      const sci = scientificName(m);
+      const metaParts = [];
+      if (sci) metaParts.push(sci);
+      if (m.defaultDose) metaParts.push(m.defaultDose);
+      if (m.defaultFrequency) metaParts.push(m.defaultFrequency);
       container.appendChild(
         h("label", { class: "med-option", for: id }, [
           h("input", {
@@ -241,9 +270,9 @@
             checked: checked ? "checked" : undefined
           }),
           h("div", { class: "med-option-body" }, [
-            h("div", { class: "med-option-name" }, m.nameAr),
+            h("div", { class: "med-option-name" }, primaryName(m)),
             h("div", { class: "med-option-meta" },
-              `${m.nameEn} · ${m.defaultDose} · ${m.defaultFrequency}`)
+              metaParts.length ? metaParts.join(" · ") : "—")
           ])
         ])
       );
@@ -272,7 +301,7 @@
       container.appendChild(
         h("div", { class: "sel-item", dataset: { selIndex: idx } }, [
           h("div", { class: "sel-item-head" }, [
-            h("div", { class: "sel-item-name" }, m.nameAr),
+            h("div", { class: "sel-item-name" }, primaryName(m)),
             h("button", {
               class: "sel-item-del",
               type: "button",
@@ -352,6 +381,11 @@
     meds.forEach((m, idx) => {
       const isFirst = idx === 0;
       const isLast  = idx === meds.length - 1;
+      const sci = scientificName(m);
+      const metaParts = [];
+      if (sci) metaParts.push(sci);
+      if (m.defaultDose) metaParts.push(m.defaultDose);
+      if (m.defaultFrequency) metaParts.push(m.defaultFrequency);
 
       const row = h("div", {
         class: "admin-med-row" + (selectedId === m.id ? " selected" : ""),
@@ -359,9 +393,9 @@
       }, [
         h("div", { class: "admin-med-pos", title: "ترتيب الظهور في قائمة الاختيار" }, String(idx + 1)),
         h("div", { class: "admin-med-info" }, [
-          h("div", { class: "admin-med-name" }, m.nameAr || m.nameEn || "(بدون اسم)"),
+          h("div", { class: "admin-med-name" }, primaryName(m)),
           h("div", { class: "admin-med-meta" },
-            `${m.nameEn || "—"} · ${m.defaultDose || "—"} · ${m.defaultFrequency || "—"}`)
+            metaParts.length ? metaParts.join(" · ") : "—")
         ]),
         h("div", { class: "admin-med-actions" }, [
           h("button", {
@@ -419,6 +453,7 @@
     document.getElementById("admin-form-title").textContent =
       isNew ? "إضافة دواء جديد" : "تعديل دواء";
 
+    const nameTrade = document.getElementById("adm-name-trade");
     const nameAr = document.getElementById("adm-name-ar");
     const nameEn = document.getElementById("adm-name-en");
     const dose   = document.getElementById("adm-dose");
@@ -426,9 +461,10 @@
     const freqWrap = document.getElementById("adm-freq-custom-wrap");
     const freqCustom = document.getElementById("adm-freq-custom");
 
-    nameAr.value = med.nameAr || "";
-    nameEn.value = med.nameEn || "";
-    dose.value   = med.defaultDose || "";
+    nameTrade.value = med.nameTrade || "";
+    nameAr.value    = med.nameAr || "";
+    nameEn.value    = med.nameEn || "";
+    dose.value      = med.defaultDose || "";
 
     const freqOptions = global.PharmacyMedications.FREQUENCIES;
     const isStandard = freqOptions.includes(med.defaultFrequency);
@@ -445,7 +481,7 @@
   function hideAdminForm() {
     document.getElementById("admin-form-card").hidden = true;
     document.getElementById("admin-empty").hidden = false;
-    ["adm-name-ar", "adm-name-en", "adm-dose", "adm-freq-custom"].forEach(id => {
+    ["adm-name-trade", "adm-name-ar", "adm-name-en", "adm-dose", "adm-freq-custom"].forEach(id => {
       const el = document.getElementById(id); if (el) el.value = "";
     });
     document.getElementById("adm-freq").value = "1×1";
@@ -458,6 +494,7 @@
 
   // ---------- Admin: read form into med object ----------
   function readAdminForm() {
+    const nameTrade = document.getElementById("adm-name-trade").value.trim();
     const nameAr = document.getElementById("adm-name-ar").value.trim();
     const nameEn = document.getElementById("adm-name-en").value.trim();
     const dose   = document.getElementById("adm-dose").value.trim();
@@ -466,6 +503,7 @@
     const frequency = freqSel === "custom" ? freqCustom : freqSel;
 
     return {
+      nameTrade: nameTrade,
       nameAr:    nameAr,
       nameEn:    nameEn,
       defaultDose:      dose,
@@ -523,11 +561,10 @@
       ]));
       const tbody = h("tbody", {});
       meds.forEach((m, i) => {
+        const sci = scientificName(m);
         const nameCell = h("td", {}, [
-          h("span", { class: "pr-med-name" }, m.nameAr || m.nameEn || m.name || ""),
-          m.nameEn && m.nameAr
-            ? h("span", { class: "pr-med-name-en" }, m.nameEn)
-            : null
+          h("span", { class: "pr-med-name" }, primaryName(m)),
+          sci ? h("span", { class: "pr-med-name-en" }, sci) : null
         ]);
         tbody.appendChild(h("tr", {}, [
           h("td", {}, String(i + 1)),
@@ -577,6 +614,9 @@
     toggleAdminFreqCustom,
     readAdminForm,
     // print
-    buildPrintReport
+    buildPrintReport,
+    // helpers
+    primaryName,
+    scientificName
   };
 })(window);
