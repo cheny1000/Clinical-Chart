@@ -334,10 +334,11 @@
       $("adm-name-ar").focus();
     });
 
-    // Admin list clicks (delegated) — edit / delete
+    // Admin list clicks (delegated) — edit / delete / move
     $("admin-med-list").addEventListener("click", (e) => {
       const editBtn = e.target.closest('[data-action="edit-med"]');
       const delBtn  = e.target.closest('[data-action="del-med"]');
+      const moveBtn = e.target.closest('[data-action^="move-"]');
       if (editBtn) {
         const id = editBtn.dataset.medId;
         const m = state.medications.find(x => x.id === id);
@@ -363,6 +364,25 @@
         state.admin.selectedId = null;
         UI.renderAdminMedList(state.medications, null);
         flashHint("تم حذف الدواء من الكتالوج");
+      } else if (moveBtn) {
+        const id = moveBtn.dataset.medId;
+        const action = moveBtn.dataset.action; // move-top | move-up | move-down | move-bottom
+        const idx = state.medications.findIndex(x => x.id === id);
+        if (idx < 0) return;
+        const item = state.medications[idx];
+        state.medications.splice(idx, 1);
+        let newIdx;
+        if (action === "move-top")         newIdx = 0;
+        else if (action === "move-up")      newIdx = Math.max(0, idx - 1);
+        else if (action === "move-down")   newIdx = Math.min(state.medications.length, idx + 1);
+        else if (action === "move-bottom") newIdx = state.medications.length;
+        else return;
+        state.medications.splice(newIdx, 0, item);
+        Storage.saveMedications(state.medications);
+        UI.renderAdminMedList(state.medications, id);
+        // Scroll the moved row into view if it's outside the visible area
+        const rowEl = document.querySelector(`.admin-med-row[data-med-id="${id}"]`);
+        if (rowEl) rowEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
       }
     });
 

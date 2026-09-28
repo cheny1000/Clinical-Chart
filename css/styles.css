@@ -1072,6 +1072,21 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   line-height: 1;
   margin-top: 1px;
 }
+.admin-hint {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  border-radius: var(--r-md);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+  border: 1px solid #DBEAFE;
+}
+.admin-hint strong {
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
 
 .admin-layout {
   display: flex;
@@ -1144,6 +1159,28 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   border-color: var(--primary);
   background: var(--primary-soft);
 }
+
+/* Position badge (#1, #2, ...) — visual feedback for ordering */
+.admin-med-pos {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-full);
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+  border: 1.5px solid #DBEAFE;
+}
+/* Highlight position #1 (most commonly used) */
+.admin-med-row:first-child .admin-med-pos {
+  background: var(--success);
+  color: #fff;
+  border-color: var(--success);
+}
+
 .admin-med-info {
   flex: 1;
   min-width: 0;
@@ -1164,8 +1201,10 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 }
 .admin-med-actions {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .admin-ico-btn {
   width: 32px;
@@ -1175,6 +1214,26 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   place-items: center;
   font-size: 14px;
   font-weight: 700;
+  transition: background 160ms ease, transform 120ms ease, opacity 160ms ease;
+}
+.admin-ico-btn.move {
+  background: var(--empty-soft);
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+}
+.admin-ico-btn.move.top    { color: #1D4ED8; }
+.admin-ico-btn.move.up     { color: #1D4ED8; }
+.admin-ico-btn.move.down   { color: #475569; }
+.admin-ico-btn.move.bottom  { color: #475569; }
+.admin-ico-btn.move:hover:not(:disabled) {
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+}
+.admin-ico-btn.move:active:not(:disabled) { transform: scale(0.88); }
+.admin-ico-btn.move:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 .admin-ico-btn.edit {
   background: var(--primary-soft);
@@ -1185,6 +1244,12 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   color: var(--danger);
 }
 .admin-ico-btn:active { transform: scale(0.9); }
+
+/* Small screens: keep action buttons on a second row if needed */
+@media (max-width: 480px) {
+  .admin-med-row { flex-wrap: wrap; }
+  .admin-med-actions { width: 100%; justify-content: flex-end; margin-top: 4px; }
+}
 
 /* admin form column */
 .admin-form-col {

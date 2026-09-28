@@ -349,17 +349,49 @@
       return;
     }
 
-    meds.forEach(m => {
+    meds.forEach((m, idx) => {
+      const isFirst = idx === 0;
+      const isLast  = idx === meds.length - 1;
+
       const row = h("div", {
         class: "admin-med-row" + (selectedId === m.id ? " selected" : ""),
         dataset: { medId: m.id }
       }, [
+        h("div", { class: "admin-med-pos", title: "ترتيب الظهور في قائمة الاختيار" }, String(idx + 1)),
         h("div", { class: "admin-med-info" }, [
           h("div", { class: "admin-med-name" }, m.nameAr || m.nameEn || "(بدون اسم)"),
           h("div", { class: "admin-med-meta" },
             `${m.nameEn || "—"} · ${m.defaultDose || "—"} · ${m.defaultFrequency || "—"}`)
         ]),
         h("div", { class: "admin-med-actions" }, [
+          h("button", {
+            class: "admin-ico-btn move top",
+            type: "button",
+            dataset: { medId: m.id, action: "move-top" },
+            title: "نقل للأعلى (أول القائمة)",
+            disabled: isFirst ? "disabled" : undefined
+          }, "⤒"),
+          h("button", {
+            class: "admin-ico-btn move up",
+            type: "button",
+            dataset: { medId: m.id, action: "move-up" },
+            title: "تحريك لأعلى",
+            disabled: isFirst ? "disabled" : undefined
+          }, "↑"),
+          h("button", {
+            class: "admin-ico-btn move down",
+            type: "button",
+            dataset: { medId: m.id, action: "move-down" },
+            title: "تحريك لأسفل",
+            disabled: isLast ? "disabled" : undefined
+          }, "↓"),
+          h("button", {
+            class: "admin-ico-btn move bottom",
+            type: "button",
+            dataset: { medId: m.id, action: "move-bottom" },
+            title: "نقل للأسفل (آخر القائمة)",
+            disabled: isLast ? "disabled" : undefined
+          }, "⤓"),
           h("button", {
             class: "admin-ico-btn edit",
             type: "button",
