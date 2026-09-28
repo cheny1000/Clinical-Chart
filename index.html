@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+  />
+  <meta name="theme-color" content="#2563EB" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>إدارة الصيدلية السريرية</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- ===== App Shell ===== -->
+  <div id="app" class="app">
+
+    <!-- ===== Top Header / Dashboard ===== -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">＋</div>
+        <div class="brand-text">
+          <h1>إدارة الصيدلية السريرية</h1>
+          <p>الجناح الداخلي</p>
+        </div>
+        <button class="brand-settings" id="open-admin" type="button" aria-label="إعدادات الأدوية" title="إعدادات الأدوية">
+          <span aria-hidden="true">⚙</span>
+        </button>
+      </div>
+
+      <!-- Compact dashboard stats -->
+      <div class="stats" id="stats" aria-label="إحصائيات">
+        <div class="stat">
+          <div class="stat-value" id="stat-patients">0</div>
+          <div class="stat-label">عدد المرضى</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="stat-meds">0</div>
+          <div class="stat-label">عدد العلاجات</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="stat-beds">50</div>
+          <div class="stat-label">إجمالي الأسرّة</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ===== Main view container ===== -->
+    <main class="app-main" id="view-container">
+
+      <!-- ----- Home view: rooms grid ----- -->
+      <section class="view view-home" id="view-home" data-view="home">
+        <div class="section-title">
+          <h2>الغرف</h2>
+          <p>اختر غرفة ثم سريرًا للوصول إلى المريض</p>
+        </div>
+        <div class="rooms-grid" id="rooms-grid">
+          <!-- rooms rendered by JS -->
+        </div>
+      </section>
+
+      <!-- ----- Patient view (full-screen) ----- -->
+      <section class="view view-patient" id="view-patient" data-view="patient" hidden>
+        <button class="back-btn" id="back-btn" type="button" aria-label="رجوع">
+          <span class="back-arrow">›</span>
+          <span>رجوع</span>
+        </button>
+
+        <div class="patient-header" id="patient-header">
+          <div class="patient-loc">
+            <span class="loc-chip" id="loc-room">غرفة —</span>
+            <span class="loc-chip" id="loc-bed">سرير —</span>
+          </div>
+          <div class="patient-name-row">
+            <input
+              type="text"
+              id="patient-name-input"
+              class="patient-name-input"
+              placeholder="اسم المريض"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+            />
+          </div>
+        </div>
+
+        <div class="meds-section">
+          <div class="meds-head">
+            <h3>العلاجات</h3>
+            <button class="add-med-fab" id="open-med-sheet" type="button">
+              <span aria-hidden="true">＋</span> إضافة علاج
+            </button>
+          </div>
+
+          <div class="meds-list" id="meds-list">
+            <!-- patient medications rendered here -->
+          </div>
+
+          <div class="empty-meds" id="empty-meds">
+            <div class="empty-icon">℞</div>
+            <p>لا توجد علاجات بعد</p>
+            <span>اضغط «إضافة علاج» لبدء الإضافة</span>
+          </div>
+        </div>
+
+        <div class="patient-actions">
+          <button class="btn-print" id="print-patient" type="button">
+            <span aria-hidden="true">🖨</span> تصدير PDF / طباعة
+          </button>
+          <button class="delete-patient" id="delete-patient" type="button">
+            تفريغ السرير وحذف المريض
+          </button>
+        </div>
+      </section>
+
+      <!-- ----- Patients list view ----- -->
+      <section class="view view-patients" id="view-patients" data-view="patients" hidden>
+        <div class="section-title">
+          <h2>المرضى</h2>
+          <p>قائمة بجميع المرضى الحاليين</p>
+        </div>
+        <div class="patients-list" id="patients-list">
+          <!-- patient rows -->
+        </div>
+        <div class="empty-state" id="empty-patients" hidden>
+          <div class="empty-icon">⌕</div>
+          <p>لا يوجد مرضى</p>
+          <span>عند إضافة مريض سيظهر هنا</span>
+        </div>
+      </section>
+
+      <!-- ----- Admin view: medication catalog management ----- -->
+      <section class="view view-admin" id="view-admin" data-view="admin" hidden>
+        <button class="back-btn" id="admin-back-btn" type="button" aria-label="رجوع">
+          <span class="back-arrow">›</span>
+          <span>رجوع</span>
+        </button>
+
+        <div class="section-title">
+          <h2>إدارة الأدوية</h2>
+          <p>كتالوج الأدوية والجرعات الافتراضية — للمسؤول فقط</p>
+        </div>
+
+        <div class="admin-warn">
+          <span class="warn-dot">⚠</span>
+          هذه القيم هي إعدادات افتراضية. يتحمل مدير الصيدلية/المستشفى مسؤولية ضبط الجرعات والتكرارات وفق البروتوكولات المعتمدة.
+        </div>
+
+        <div class="admin-layout">
+          <!-- left: catalog list -->
+          <div class="admin-list-col">
+            <div class="admin-list-head">
+              <h3>قائمة الأدوية (<span id="admin-count">0</span>)</h3>
+              <button class="btn-add-small" id="admin-new-btn" type="button">
+                <span aria-hidden="true">＋</span> دواء جديد
+              </button>
+            </div>
+            <div class="admin-med-list" id="admin-med-list">
+              <!-- medication rows rendered here -->
+            </div>
+          </div>
+
+          <!-- right: editor form -->
+          <div class="admin-form-col" id="admin-form-col">
+            <div class="admin-form-card" id="admin-form-card" hidden>
+              <h3 id="admin-form-title">تعديل دواء</h3>
+              <div class="admin-form-grid">
+                <div class="admin-field">
+                  <label for="adm-name-ar">الاسم بالعربية</label>
+                  <input type="text" id="adm-name-ar" placeholder="مثال: باراسيتامول" autocomplete="off" />
+                </div>
+                <div class="admin-field">
+                  <label for="adm-name-en">الاسم بالإنجليزية</label>
+                  <input type="text" id="adm-name-en" placeholder="مثال: Paracetamol" autocomplete="off" dir="ltr" />
+                </div>
+                <div class="admin-field">
+                  <label for="adm-dose">الجرعة الافتراضية</label>
+                  <input type="text" id="adm-dose" placeholder="مثال: 1 g" autocomplete="off" />
+                </div>
+                <div class="admin-field">
+                  <label for="adm-freq">التكرار الافتراضي</label>
+                  <select id="adm-freq">
+                    <option value="1×1">1×1</option>
+                    <option value="1×2">1×2</option>
+                    <option value="1×3">1×3</option>
+                    <option value="1×4">1×4</option>
+                    <option value="custom">قيمة مخصصة…</option>
+                  </select>
+                </div>
+                <div class="admin-field" id="adm-freq-custom-wrap" hidden>
+                  <label for="adm-freq-custom">التكرار المخصص</label>
+                  <input type="text" id="adm-freq-custom" placeholder="مثال: حسب القياس" autocomplete="off" />
+                </div>
+              </div>
+              <div class="admin-form-actions">
+                <button class="btn-secondary" id="admin-cancel" type="button">إلغاء</button>
+                <button class="btn-primary" id="admin-save" type="button">حفظ</button>
+              </div>
+            </div>
+
+            <div class="admin-empty" id="admin-empty">
+              <div class="empty-icon">⚙</div>
+              <p>اختر دواءً من القائمة لتعديله</p>
+              <span>أو اضغط «دواء جديد» لإضافة عنصر</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-danger-zone">
+          <h4>منطقة الخطر</h4>
+          <button class="btn-reset" id="admin-reset" type="button">
+            استعادة قائمة الأدوية الافتراضية
+          </button>
+          <button class="btn-wipe" id="admin-wipe" type="button">
+            مسح جميع بيانات المرضى والأدوية
+          </button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ===== Bottom Navigation ===== -->
+    <nav class="bottom-nav" id="bottom-nav">
+      <button class="nav-item active" data-nav="home" type="button">
+        <span class="nav-icon">⌂</span>
+        <span class="nav-label">الغرف</span>
+      </button>
+      <button class="nav-item nav-item-primary" data-nav="add" type="button">
+        <span class="nav-icon">＋</span>
+        <span class="nav-label">إضافة علاج</span>
+      </button>
+      <button class="nav-item" data-nav="patients" type="button">
+        <span class="nav-icon">▤</span>
+        <span class="nav-label">المرضى</span>
+      </button>
+    </nav>
+
+    <!-- ===== Medication bottom-sheet ===== -->
+    <div class="sheet-overlay" id="sheet-overlay" hidden></div>
+    <aside class="med-sheet" id="med-sheet" aria-hidden="true" role="dialog" aria-label="إضافة علاج">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <div class="sheet-header">
+        <h3>إضافة علاج</h3>
+        <button class="sheet-close" id="sheet-close" type="button" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="sheet-search">
+        <input
+          type="search"
+          id="med-search"
+          placeholder="بحث عن دواء..."
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+        />
+      </div>
+
+      <div class="sheet-demo-note">
+        <span class="demo-dot">DEMO</span>
+        قائمة الأدوية التجريبية — يمكن تعديلها من قبل مدير الصيدلية
+      </div>
+
+      <div class="med-options" id="med-options">
+        <!-- medication checkboxes rendered here -->
+      </div>
+
+      <div class="sheet-selected" id="sheet-selected" hidden>
+        <div class="sheet-selected-head">
+          <h4>المحدد</h4>
+          <span id="selected-count">0</span>
+        </div>
+        <div class="selected-list" id="selected-list">
+          <!-- editable selected medications -->
+        </div>
+      </div>
+
+      <div class="sheet-actions">
+        <button class="btn-secondary" id="sheet-cancel" type="button">إلغاء</button>
+        <button class="btn-primary" id="sheet-add" type="button" disabled>
+          إضافة المحدد إلى المريض
+        </button>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- ===== Print-only report (hidden on screen) ===== -->
+  <div id="print-root" class="print-root" aria-hidden="true"></div>
+
+  <!-- ===== Scripts (modular) ===== -->
+  <script src="js/medications.js"></script>
+  <script src="js/ward.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/remote-adapter.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
