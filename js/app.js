@@ -434,6 +434,7 @@
           nameTrade: data.nameTrade,
           nameAr:    data.nameAr,
           nameEn:    data.nameEn,
+          form:      data.form,
           defaultDose: data.defaultDose,
           defaultFrequency: data.defaultFrequency
         });
@@ -451,6 +452,7 @@
         m.nameTrade = data.nameTrade;
         m.nameAr = data.nameAr;
         m.nameEn = data.nameEn;
+        m.form = data.form;
         m.defaultDose = data.defaultDose;
         m.defaultFrequency = data.defaultFrequency;
         Storage.saveMedications(state.medications);

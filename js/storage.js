@@ -27,16 +27,21 @@
     catch (e) { console.warn("[PharmacyStorage] set failed:", e); return false; }
   }
 
-  // ----- Migration: ensure every medication has nameTrade -----
+  // ----- Migration: ensure every medication has nameTrade + form -----
   // Older versions stored only nameAr + nameEn. We now use nameTrade
   // (trade/brand name) as the primary display name. If a stored
   // medication lacks nameTrade, we copy it from nameAr (or nameEn).
-  // We also do the same for patient.medications entries so existing
+  // We also back-fill the `form` field (tablet|vial) — defaulting to
+  // "vial" since most hospital ward medications are injectables.
+  // We do the same for patient.medications entries so existing
   // patient data keeps working after the upgrade.
   function migrateMed(med) {
     if (!med || typeof med !== "object") return med;
     if (!("nameTrade" in med) || !med.nameTrade) {
       med.nameTrade = med.nameAr || med.nameEn || "";
+    }
+    if (!("form" in med) || !med.form) {
+      med.form = "vial";
     }
     return med;
   }
@@ -45,7 +50,9 @@
     let changed = false;
     const out = list.map(m => {
       if (!m || typeof m !== "object") return m;
-      if (!("nameTrade" in m) || !m.nameTrade) {
+      const needsTrade = !("nameTrade" in m) || !m.nameTrade;
+      const needsForm  = !("form" in m) || !m.form;
+      if (needsTrade || needsForm) {
         changed = true;
         return migrateMed({ ...m });
       }

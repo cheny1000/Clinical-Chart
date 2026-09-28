@@ -888,6 +888,42 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   gap: 8px;
   -webkit-overflow-scrolling: touch;
 }
+
+/* Section header in the bottom-sheet (Tablets / Vials / Other) */
+.sheet-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 4px 6px;
+  margin-top: 4px;
+  border-bottom: 2px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
+}
+.sheet-section-head:first-child {
+  margin-top: 0;
+  padding-top: 4px;
+}
+.sheet-section-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+.sheet-section-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  flex: 1;
+}
+.sheet-section-count {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+  background: var(--empty-soft);
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+}
 .med-option {
   display: flex;
   align-items: center;
@@ -1192,6 +1228,31 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Small form badge (tablet / vial) shown next to med name in admin list */
+.admin-form-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: var(--r-full);
+  flex-shrink: 0;
+  letter-spacing: 0.3px;
+  line-height: 1.5;
+}
+.admin-form-badge.is-tablet {
+  background: #FEF3C7;   /* warm amber for tablets */
+  color: #92400E;
+  border: 1px solid #FDE68A;
+}
+.admin-form-badge.is-vial {
+  background: #DBEAFE;   /* cool blue for vials */
+  color: #1E3A8A;
+  border: 1px solid #BFDBFE;
 }
 .admin-med-meta {
   font-size: 11px;

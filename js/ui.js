@@ -234,6 +234,8 @@
   }
 
   // ---------- Medication bottom-sheet ----------
+  // Renders medications grouped by form (tablet first, then vial),
+  // with a small section header before each group.
   function renderMedOptions(meds, selectedIds, filterText) {
     const container = document.getElementById("med-options");
     container.innerHTML = "";
@@ -253,29 +255,57 @@
       return;
     }
 
+    // Group by form (tablet first, then vial; unknown last)
+    const groups = { tablet: [], vial: [], other: [] };
     filtered.forEach(m => {
-      const id = "med-opt-" + m.id;
-      const checked = selectedIds.has(m.id);
-      const sci = scientificName(m);
-      const metaParts = [];
-      if (sci) metaParts.push(sci);
-      if (m.defaultDose) metaParts.push(m.defaultDose);
-      if (m.defaultFrequency) metaParts.push(m.defaultFrequency);
-      container.appendChild(
-        h("label", { class: "med-option", for: id }, [
-          h("input", {
-            type: "checkbox",
-            id: id,
-            dataset: { medId: m.id },
-            checked: checked ? "checked" : undefined
-          }),
-          h("div", { class: "med-option-body" }, [
-            h("div", { class: "med-option-name" }, primaryName(m)),
-            h("div", { class: "med-option-meta" },
-              metaParts.length ? metaParts.join(" · ") : "—")
+      const f = m.form === "tablet" ? "tablet" : (m.form === "vial" ? "vial" : "other");
+      groups[f].push(m);
+    });
+
+    const FORM_LABELS = global.PharmacyMedications.FORM_LABELS || { tablet: "حبوب", vial: "فيالات" };
+
+    const sections = [
+      { key: "tablet", label: FORM_LABELS.tablet || "حبوب", icon: "💊" },
+      { key: "vial",   label: FORM_LABELS.vial   || "فيالات", icon: "💉" },
+      { key: "other",  label: "أخرى",                          icon: "•" }
+    ];
+
+    sections.forEach(sec => {
+      const list = groups[sec.key];
+      if (!list || list.length === 0) return;
+
+      // Section header
+      container.appendChild(h("div", { class: "sheet-section-head" }, [
+        h("span", { class: "sheet-section-icon", "aria-hidden": "true" }, sec.icon),
+        h("span", { class: "sheet-section-title" }, sec.label),
+        h("span", { class: "sheet-section-count" }, String(list.length))
+      ]));
+
+      // Meds in this section (preserve admin-set order)
+      list.forEach(m => {
+        const id = "med-opt-" + m.id;
+        const checked = selectedIds.has(m.id);
+        const sci = scientificName(m);
+        const metaParts = [];
+        if (sci) metaParts.push(sci);
+        if (m.defaultDose) metaParts.push(m.defaultDose);
+        if (m.defaultFrequency) metaParts.push(m.defaultFrequency);
+        container.appendChild(
+          h("label", { class: "med-option", for: id }, [
+            h("input", {
+              type: "checkbox",
+              id: id,
+              dataset: { medId: m.id },
+              checked: checked ? "checked" : undefined
+            }),
+            h("div", { class: "med-option-body" }, [
+              h("div", { class: "med-option-name" }, primaryName(m)),
+              h("div", { class: "med-option-meta" },
+                metaParts.length ? metaParts.join(" · ") : "—")
+            ])
           ])
-        ])
-      );
+        );
+      });
     });
   }
 
@@ -387,13 +417,21 @@
       if (m.defaultDose) metaParts.push(m.defaultDose);
       if (m.defaultFrequency) metaParts.push(m.defaultFrequency);
 
+      const formLabel = (m.form === "tablet")
+        ? ((global.PharmacyMedications.FORM_LABELS || {}).tablet || "حبوب")
+        : ((global.PharmacyMedications.FORM_LABELS || {}).vial || "فيالات");
+      const formClass = "admin-form-badge " + (m.form === "tablet" ? "is-tablet" : "is-vial");
+
       const row = h("div", {
         class: "admin-med-row" + (selectedId === m.id ? " selected" : ""),
         dataset: { medId: m.id }
       }, [
         h("div", { class: "admin-med-pos", title: "ترتيب الظهور في قائمة الاختيار" }, String(idx + 1)),
         h("div", { class: "admin-med-info" }, [
-          h("div", { class: "admin-med-name" }, primaryName(m)),
+          h("div", { class: "admin-med-name" }, [
+            primaryName(m),
+            h("span", { class: formClass, title: "الشكل الدوائي" }, formLabel)
+          ]),
           h("div", { class: "admin-med-meta" },
             metaParts.length ? metaParts.join(" · ") : "—")
         ]),
@@ -456,6 +494,7 @@
     const nameTrade = document.getElementById("adm-name-trade");
     const nameAr = document.getElementById("adm-name-ar");
     const nameEn = document.getElementById("adm-name-en");
+    const form   = document.getElementById("adm-form");
     const dose   = document.getElementById("adm-dose");
     const freq   = document.getElementById("adm-freq");
     const freqWrap = document.getElementById("adm-freq-custom-wrap");
@@ -464,6 +503,7 @@
     nameTrade.value = med.nameTrade || "";
     nameAr.value    = med.nameAr || "";
     nameEn.value    = med.nameEn || "";
+    form.value      = (med.form === "tablet") ? "tablet" : "vial";
     dose.value      = med.defaultDose || "";
 
     const freqOptions = global.PharmacyMedications.FREQUENCIES;
@@ -484,6 +524,7 @@
     ["adm-name-trade", "adm-name-ar", "adm-name-en", "adm-dose", "adm-freq-custom"].forEach(id => {
       const el = document.getElementById(id); if (el) el.value = "";
     });
+    document.getElementById("adm-form").value = "vial";
     document.getElementById("adm-freq").value = "1×1";
     document.getElementById("adm-freq-custom-wrap").hidden = true;
   }
@@ -497,6 +538,7 @@
     const nameTrade = document.getElementById("adm-name-trade").value.trim();
     const nameAr = document.getElementById("adm-name-ar").value.trim();
     const nameEn = document.getElementById("adm-name-en").value.trim();
+    const form   = document.getElementById("adm-form").value;  // "vial" | "tablet"
     const dose   = document.getElementById("adm-dose").value.trim();
     const freqSel = document.getElementById("adm-freq").value;
     const freqCustom = document.getElementById("adm-freq-custom").value.trim();
@@ -506,6 +548,7 @@
       nameTrade: nameTrade,
       nameAr:    nameAr,
       nameEn:    nameEn,
+      form:      (form === "tablet") ? "tablet" : "vial",
       defaultDose:      dose,
       defaultFrequency: frequency
     };

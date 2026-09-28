@@ -34,7 +34,7 @@
      room_id        INT  NOT NULL,
      bed_number     INT  NOT NULL,
      name           TEXT NOT NULL,
-     medications    JSONB NOT NULL DEFAULT '[]',  -- [{id,nameTrade,nameAr,nameEn,dose,frequency}]
+     medications    JSONB NOT NULL DEFAULT '[]',  -- [{id,nameTrade,nameAr,nameEn,form,dose,frequency}]
      updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
    );
 
@@ -43,6 +43,7 @@
      name_trade      TEXT,                -- trade / brand name (primary display name)
      name_ar         TEXT,                -- Arabic generic name (fallback)
      name_en         TEXT,                -- Scientific / INN Latin name (secondary display)
+     form            TEXT NOT NULL DEFAULT 'vial',  -- 'tablet' | 'vial'
      default_dose    TEXT NOT NULL,
      default_frequency TEXT NOT NULL,
      sort_order      INT  NOT NULL DEFAULT 0,
