@@ -353,11 +353,16 @@
       if (count === -1) state = "special";
       else if (i < count) state = "filled";
       else state = "empty";
-      squares.push(h("span", {
+      squares.push(h("button", {
+        type: "button",
         class: "freq-square " + state,
+        // 1-indexed position: tapping this square sets frequency to 1×(i+1)
+        // Special squares (custom freq) all reset to 1×(i+1) when tapped
+        dataset: { squareIndex: String(i + 1), action: "toggle-square" },
         title: state === "special"
-          ? "تكرار مخصص"
-          : (i < count ? `جرعة ${i + 1}` : "بدون جرعة")
+          ? `اضغط لتعيين التكرار إلى 1×${i + 1}`
+          : (i < count ? `اضغط لإلغاء هذه الجرعة (يصبح 1×${i})` : `اضغط لتعيين التكرار إلى 1×${i + 1}`),
+        "aria-label": `جرعة ${i + 1}: ${state === "filled" ? "مفعّلة" : (state === "special" ? "تكرار مخصص" : "معطّلة")}`
       }));
     }
     return squares;
@@ -379,11 +384,12 @@
               dataset: { selIndex: idx, action: "del-selected" }
             }, "✕")
           ]),
-          // 6 visual squares — one per dose time
+          // 6 visual squares — one per dose time. Tappable: tapping a square
+          // sets the frequency to 1×N where N is the square's position.
           h("div", {
             class: "freq-squares",
-            role: "img",
-            "aria-label": `التكرار: ${m.frequency || "—"}`,
+            role: "group",
+            "aria-label": `التكرار الحالي: ${m.frequency || "—"} — اضغط مربعًا للتعديل`,
             title: `التكرار: ${m.frequency || "—"}`
           }, renderFreqSquares(m.frequency)),
           // Dose + frequency as visual text

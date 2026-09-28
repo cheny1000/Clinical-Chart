@@ -262,20 +262,48 @@
     });
 
     // Selected list interactions (delegated)
-    // The selected-list is now VISUAL-ONLY (name, dose, frequency are not editable
-    // here). The only interactive element is the delete (✕) button.
-    // Editing of dose + frequency happens after the meds are added to the patient
-    // (in the patient view's editable med cards).
+    // - ✕ button (delete-selected) → removes the med from the selected list
+    // - freq-square (toggle-square) → taps a square to change the frequency.
+    //   Square N (1-indexed) sets frequency to "1×N".
+    //   Tapping the LAST filled square (square = current count) decrements to "1×(N-1)".
+    //   Tapping a 'special' square (custom freq like 'حسب القياس') sets numeric freq.
+    //   The dose stays the same; only the frequency changes.
     $("selected-list").addEventListener("click", (e) => {
       const del = e.target.closest('[data-action="del-selected"]');
-      if (!del) return;
-      const idx = parseInt(del.dataset.selIndex, 10);
+      if (del) {
+        const idx = parseInt(del.dataset.selIndex, 10);
+        const item = state.sheet.selectedList[idx];
+        if (!item) return;
+        state.sheet.selected.delete(item.id);
+        state.sheet.selectedList.splice(idx, 1);
+        UI.renderMedOptions(state.medications, state.sheet.selected, state.sheet.filter, state.sheet.activeTab);
+        bindMedOptionCheckboxes();
+        syncSelectedUI();
+        return;
+      }
+
+      const sq = e.target.closest('[data-action="toggle-square"]');
+      if (!sq) return;
+      const selItem = sq.closest(".sel-item");
+      if (!selItem) return;
+      const idx = parseInt(selItem.dataset.selIndex, 10);
       const item = state.sheet.selectedList[idx];
       if (!item) return;
-      state.sheet.selected.delete(item.id);
-      state.sheet.selectedList.splice(idx, 1);
-      UI.renderMedOptions(state.medications, state.sheet.selected, state.sheet.filter, state.sheet.activeTab);
-      bindMedOptionCheckboxes();
+
+      const n = parseInt(sq.dataset.squareIndex, 10); // 1..6
+      const currentCount = (function () {
+        const m = (item.frequency || "").match(/×\s*(\d+)/);
+        return m ? parseInt(m[1], 10) : 0;
+      })();
+
+      let newFreq;
+      // Tap on the currently-last filled square → decrement by 1 (turn it off)
+      if (n === currentCount) newFreq = `1×${n - 1}`;
+      // Tap on a higher or lower square → set to that count
+      else newFreq = `1×${n}`;
+
+      if (newFreq === "1×0") newFreq = "1×1"; // minimum is 1×1
+      item.frequency = newFreq;
       syncSelectedUI();
     });
 
