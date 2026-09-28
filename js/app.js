@@ -36,17 +36,24 @@
   const UI      = global.PharmacyUI;
   const SB      = global.PharmacySupabase;          // may be undefined on very old browsers
   const SBSync  = global.PharmacySupabaseSync;      // may be undefined
+  const Auth    = global.PharmacyAuth;             // auth module
   const $ = (id) => document.getElementById(id);
 
   // -------- Init --------
   function init() {
     hydrate();
+    bindAuthEvents();
     bindEvents();
-    refreshAll();
-    UI.showView("home");
-    // After the UI is up, try to pull the latest catalog from Supabase
-    // (if configured) and refresh the admin list + room cards.
-    pullCatalogOnBoot();
+    applyRoleVisibility();
+    // Show login overlay if not logged in, otherwise show the app
+    if (Auth && Auth.isLoggedIn()) {
+      showApp();
+      refreshAll();
+      UI.showView("home");
+      pullCatalogOnBoot();
+    } else {
+      showLogin();
+    }
   }
 
   function hydrate() {
@@ -55,6 +62,86 @@
     state.medications = data.medications && data.medications.length
       ? data.medications
       : Meds.DEFAULT_MEDICATIONS.slice();
+  }
+
+  // -------- Auth: show / hide login screen --------
+  function showLogin() {
+    $("login-screen").hidden = false;
+    // Reset any previous form state
+    $("login-username").value = "";
+    $("login-password").value = "";
+    $("login-error").hidden = true;
+    // Focus the username field for fast typing on phones
+    setTimeout(() => { try { $("login-username").focus(); } catch (e) {} }, 100);
+  }
+
+  function showApp() {
+    $("login-screen").hidden = true;
+    // Update the user label in the header
+    const user = Auth ? Auth.getCurrentUser() : null;
+    const label = $("current-user-label");
+    if (label) label.textContent = user ? user.displayName : "—";
+  }
+
+  // Apply role-based visibility (hide ⚙ from pharmacist role)
+  function applyRoleVisibility() {
+    if (!Auth) return;
+    const isAdmin = Auth.isAdmin();
+    const adminBtn = $("open-admin");
+    if (adminBtn) adminBtn.hidden = !isAdmin;
+    // logout button is always visible (both roles can log out)
+    const logoutBtn = $("logout-btn");
+    if (logoutBtn) logoutBtn.hidden = false;
+  }
+
+  // Bind login form + quick buttons + logout
+  function bindAuthEvents() {
+    if (!Auth) return;
+
+    // Login form submit
+    $("login-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const username = $("login-username").value;
+      const password = $("login-password").value;
+      const res = Auth.login(username, password);
+      if (res.ok) {
+        onLoginSuccess();
+      } else {
+        const errEl = $("login-error");
+        errEl.textContent = res.error;
+        errEl.hidden = false;
+      }
+    });
+
+    // Quick login buttons (one tap, no password needed for demo)
+    $("quick-admin").addEventListener("click", () => {
+      const res = Auth.loginAs("admin");
+      if (res.ok) onLoginSuccess();
+    });
+    $("quick-pharmacist").addEventListener("click", () => {
+      const res = Auth.loginAs("pharmacist");
+      if (res.ok) onLoginSuccess();
+    });
+
+    // Logout button in header
+    $("logout-btn").addEventListener("click", () => {
+      if (!confirm("هل تريد تسجيل الخروج؟")) return;
+      Auth.logout();
+      applyRoleVisibility();
+      showLogin();
+      flashHint("تم تسجيل الخروج");
+    });
+  }
+
+  function onLoginSuccess() {
+    $("login-error").hidden = true;
+    applyRoleVisibility();
+    showApp();
+    refreshAll();
+    UI.showView("home");
+    pullCatalogOnBoot();
+    const user = Auth.getCurrentUser();
+    flashHint(`مرحبًا ${user ? user.displayName : ""}`);
   }
 
   // -------- Supabase: pull catalog on boot --------
