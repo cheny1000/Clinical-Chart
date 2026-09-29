@@ -13,27 +13,36 @@
   const FREQUENCIES = ["1×1", "1×2", "1×3", "1×4"];
 
   // Form / dosage-form categories. Each medication has a `form` value.
-  // Five forms are supported (ordered as they appear in the UI):
-  //   "vial"             → Vial (حقن وريدية / عضلية - مسحوق يُحل)
-  //   "ampule"           → Ampule (أمبول - سائل جاهز للحقن)
-  //   "prefilled-syringe"→ Prefilled Syringe (سرنجة جاهزة - مثل Enoxaparin)
-  //   "tablet"           → حبوب (أشكال فموية: أقراص، كبسولات، شراب)
-  //   "supplies"         → مستلزمات طبية (محاليل، سرنجات، قساطر، إلخ)
+  // Eight forms are supported (ordered as they appear in the UI):
+  //   "vial"              → Vial (حقن وريدية / عضلية - مسحوق يُحل)
+  //   "ampule"            → Ampule (أمبول - سائل جاهز للحقن)
+  //   "prefilled-syringe" → Prefilled Syringe (سرنجة جاهزة - مثل Enoxaparin)
+  //   "tablet"            → Tablet (أقراص / كبسولات)
+  //   "syrup"             → Syrup (شراب فموي)
+  //   "suppository"       → Suppository (تحاميل)
+  //   "solution"          → Solution (محلول للاستنشاق/ال topical)
+  //   "supplies"          → Supplies (مستلزمات طبية)
   const FORM_LABELS = {
     vial:              "Vial",
     ampule:            "Ampule",
     "prefilled-syringe":"Prefilled Syringe",
-    tablet:            "حبوب",
-    supplies:          "مستلزمات طبية"
+    tablet:            "Tablet",
+    syrup:             "Syrup",
+    suppository:       "Suppository",
+    solution:          "Solution",
+    supplies:          "Supplies"
   };
   // Display order — determines tab order in the bottom-sheet
-  const FORM_ORDER = ["vial", "ampule", "prefilled-syringe", "tablet", "supplies"];
+  const FORM_ORDER = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup", "suppository", "solution", "supplies"];
   // Icons (emoji) for each form
   const FORM_ICONS = {
     vial:                "💉",
     ampule:              "🔵",
     "prefilled-syringe": "💉",
     tablet:              "💊",
+    syrup:               "🧴",
+    suppository:         "🔵",
+    solution:            "💧",
     supplies:            "🧰"
   };
 

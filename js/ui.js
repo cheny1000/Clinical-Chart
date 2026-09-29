@@ -278,7 +278,7 @@
     updateTabCounts(meds);
 
     // Resolve the active tab — must be one of the known forms, else "vial"
-    const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "supplies"];
+    const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup", "suppository", "solution", "supplies"];
     const tab = VALID_FORMS.indexOf(activeTab) !== -1 ? activeTab : "vial";
 
     const q = (filterText || "").trim().toLowerCase();
@@ -660,7 +660,7 @@
     nameAr.value    = med.nameAr || "";
     nameEn.value    = med.nameEn || "";
     // Set form dropdown: fall back to "vial" if form is unknown/empty
-    const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "supplies"];
+    const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup", "suppository", "solution", "supplies"];
     const formVal = VALID_FORMS.indexOf(med.form) !== -1 ? med.form : "vial";
     form.value = formVal;
     dose.value      = med.defaultDose || "";
@@ -702,7 +702,7 @@
     const freqSel = document.getElementById("adm-freq").value;
     const freqCustom = document.getElementById("adm-freq-custom").value.trim();
     const frequency = freqSel === "custom" ? freqCustom : freqSel;
-    const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "supplies"];
+    const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup", "suppository", "solution", "supplies"];
 
     return {
       nameTrade: nameTrade,
