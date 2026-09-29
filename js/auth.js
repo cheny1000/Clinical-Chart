@@ -28,15 +28,13 @@
   //  Supabase Auth later — same Supabase project.)
   const ACCOUNTS = {
     admin: {
-      username: "admin",
-      // Plain-text demo password — REPLACE in production
-      password: "admin123",
+      username: "Admin",
+      password: "19559",
       role: "admin",
       displayName: "المسؤول"
     },
     pharmacist: {
       username: "pharmacist",
-      // Plain-text demo password — REPLACE in production
       password: "pharm123",
       role: "pharmacist",
       displayName: "الصيدلي السريري"

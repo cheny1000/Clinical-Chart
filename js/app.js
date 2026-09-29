@@ -115,11 +115,8 @@
       }
     });
 
-    // Quick login buttons (one tap, no password needed for demo)
-    $("quick-admin").addEventListener("click", () => {
-      const res = Auth.loginAs("admin");
-      if (res.ok) onLoginSuccess();
-    });
+    // Quick login button for pharmacist only (admin must use the form
+    // with username + password for security).
     $("quick-pharmacist").addEventListener("click", () => {
       const res = Auth.loginAs("pharmacist");
       if (res.ok) onLoginSuccess();
