@@ -714,6 +714,105 @@
     };
   }
 
+  // ---------- Print Chart (التشارت) ----------
+  // Builds a printable medication reference chart from the full catalog.
+  // The chart has 6 columns matching the user's hospital chart format:
+  //   1. الاسم بالعربية (Arabic name — nameTrade or nameAr)
+  //   2. الاسم العلمي (Scientific/English name — nameEn)
+  //   3. الاسم التجاري (Trade/brand name — nameTrade if different)
+  //   4. الجرعة (Dose)
+  //   5. التكرار (Frequency)
+  //   6. الشكل (Form — vial/ampule/tablet/etc)
+  // Medications are grouped by form, then by sort_order within each form.
+  function buildChartReport(meds) {
+    const root = document.getElementById("chart-print-root");
+    root.innerHTML = "";
+
+    const FORM_LABELS = (global.PharmacyMedications && global.PharmacyMedications.FORM_LABELS) || {};
+    const FORM_ORDER  = (global.PharmacyMedications && global.PharmacyMedications.FORM_ORDER)  || ["vial", "ampule", "prefilled-syringe", "tablet", "supplies"];
+
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}`;
+    const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+    // Header
+    root.appendChild(h("div", { class: "chart-header" }, [
+      h("div", {}, [
+        h("div", { class: "chart-title" }, "تشارت الأدوية"),
+        h("p", { class: "chart-subtitle" }, "إدارة الصيدلية السريرية — الجناح الداخلي")
+      ]),
+      h("div", { class: "chart-meta" }, [
+        h("div", {}, "التاريخ: " + dateStr),
+        h("div", {}, "الوقت: " + timeStr),
+        h("div", {}, "إجمالي الأدوية: " + meds.length)
+      ])
+    ]));
+
+    // Build table
+    const table = h("table", { class: "chart-table" });
+    const thead = h("thead", {}, h("tr", {}, [
+      h("th", { style: "width:4%;" }, "#"),
+      h("th", { style: "width:18%;" }, "الاسم بالعربية"),
+      h("th", { style: "width:18%;" }, "الاسم العلمي"),
+      h("th", { style: "width:18%;" }, "الاسم التجاري"),
+      h("th", { style: "width:12%;" }, "الجرعة"),
+      h("th", { style: "width:12%;" }, "التكرار"),
+      h("th", { style: "width:18%;" }, "الشكل")
+    ]));
+    table.appendChild(thead);
+
+    const tbody = h("tbody", {});
+
+    // Sort meds: by form (in FORM_ORDER), then by name within each form
+    const sortedMeds = meds.slice().sort((a, b) => {
+      const fa = FORM_ORDER.indexOf(a.form || "vial");
+      const fb = FORM_ORDER.indexOf(b.form || "vial");
+      if (fa !== fb) return fa - fb;
+      return (a.nameTrade || a.nameAr || "").localeCompare(b.nameTrade || b.nameAr || "");
+    });
+
+    sortedMeds.forEach((m, i) => {
+      const formKey = m.form && FORM_LABELS[m.form] ? m.form : "vial";
+      const formLabel = FORM_LABELS[formKey] || formKey;
+      const arabicName = m.nameAr || m.nameTrade || "—";
+      const englishName = m.nameEn || "—";
+      const tradeName = m.nameTrade || "—";
+      const dose = m.defaultDose || "—";
+      const freq = m.defaultFrequency || "—";
+
+      tbody.appendChild(h("tr", {}, [
+        h("td", {}, String(i + 1)),
+        h("td", { class: "chart-med-name" }, arabicName),
+        h("td", { class: "chart-med-en" }, englishName),
+        h("td", { class: "chart-med-name" }, tradeName),
+        h("td", {}, dose),
+        h("td", {}, freq),
+        h("td", {}, [
+          h("span", { class: "chart-form-badge chart-form-" + formKey }, formLabel)
+        ])
+      ]));
+    });
+
+    table.appendChild(tbody);
+    root.appendChild(table);
+
+    // Footer with signatures
+    root.appendChild(h("div", { class: "chart-footer" }, [
+      h("div", { class: "chart-sig" }, [
+        h("div", {}, "الصيدلي المسؤول"),
+        h("div", { class: "chart-sig-line" }, "التوقيع")
+      ]),
+      h("div", { class: "chart-sig" }, [
+        h("div", {}, "ممرض/ة الجناح"),
+        h("div", { class: "chart-sig-line" }, "التوقيع")
+      ]),
+      h("div", { class: "chart-sig" }, [
+        h("div", {}, "الطبيب المعالج"),
+        h("div", { class: "chart-sig-line" }, "التوقيع")
+      ])
+    ]));
+  }
+
   global.PharmacyUI = {
     h,
     renderStats,
@@ -738,6 +837,8 @@
     // sheet tabs
     renderSheetTabs,
     updateTabCounts,
-    setActiveTabUI
+    setActiveTabUI,
+    // chart
+    buildChartReport
   };
 })(window);

@@ -89,7 +89,9 @@
     const isAdmin = Auth.isAdmin();
     const adminBtn = $("open-admin");
     if (adminBtn) adminBtn.hidden = !isAdmin;
-    // logout button is always visible (both roles can log out)
+    // chart button + logout button are always visible (both roles)
+    const chartBtn = $("print-chart-btn");
+    if (chartBtn) chartBtn.hidden = false;
     const logoutBtn = $("logout-btn");
     if (logoutBtn) logoutBtn.hidden = false;
   }
@@ -545,6 +547,18 @@
 
     // ----- Admin: open via header gear -----
     $("open-admin").addEventListener("click", openAdminView);
+
+    // ----- Print Chart (التشارت) -----
+    // Builds the chart from the current catalog and opens the print dialog.
+    // Visible to both admin and pharmacist — it's the final product.
+    $("print-chart-btn").addEventListener("click", () => {
+      if (!state.medications || state.medications.length === 0) {
+        flashHint("لا توجد أدوية في الكتالوج");
+        return;
+      }
+      UI.buildChartReport(state.medications);
+      window.print();
+    });
 
     // Admin back button
     $("admin-back-btn").addEventListener("click", () => {

@@ -78,6 +78,9 @@
           <p>الجناح الداخلي · <span id="current-user-label">—</span></p>
         </div>
         <div class="brand-actions">
+          <button class="brand-chart" id="print-chart-btn" type="button" aria-label="طباعة التشارت" title="طباعة التشارت">
+            <span aria-hidden="true">🖨</span>
+          </button>
           <button class="brand-settings" id="open-admin" type="button" aria-label="إعدادات الأدوية" title="إعدادات الأدوية">
             <span aria-hidden="true">⚙</span>
           </button>
@@ -410,6 +413,9 @@
     </aside>
 
   </div>
+
+  <!-- ===== Print-only chart (hidden on screen, visible when printing) ===== -->
+  <div id="chart-print-root" class="chart-print-root" aria-hidden="true"></div>
 
   <!-- ===== Scripts (modular) ===== -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
