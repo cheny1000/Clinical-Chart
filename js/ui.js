@@ -55,7 +55,9 @@
     }
     document.getElementById("stat-patients").textContent = patientCount;
     document.getElementById("stat-meds").textContent = medCount;
-    document.getElementById("stat-beds").textContent = global.PharmacyWard.TOTAL_BEDS;
+    // stat-beds was removed from HTML — don't crash if missing
+    const bedsEl = document.getElementById("stat-beds");
+    if (bedsEl) bedsEl.textContent = global.PharmacyWard.TOTAL_BEDS;
   }
 
   // ---------- Bed status helper ----------
