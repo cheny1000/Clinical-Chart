@@ -809,8 +809,11 @@
       const tr = h("tr", {});
 
       // Patient cell: name only (no room/bed). Empty if no patient at this row.
+      // Wrapped in <center> tag for reliable center alignment in print mode.
       const patientName = (p && p.name) ? p.name : "";
-      tr.appendChild(h("td", { class: "chart-patient-cell" }, patientName));
+      tr.appendChild(h("td", { class: "chart-patient-cell" }, [
+        h("center", {}, patientName)
+      ]));
 
       // Build the med count lookup for this patient (if any)
       let myMedCounts = null;
