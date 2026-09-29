@@ -484,73 +484,19 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   color: var(--text-muted);
 }
 
-/* ---------- Corridor map ---------- */
-/* The ward is rendered as a vertical corridor: an entrance marker at
-   the top, then a vertical "corridor rail" with room cards laid out
-   along it (one per row). Each room card visually shows its bed
-   layout: split-3-3 (rooms 1-5) or linear-4 (rooms 6-10). */
+/* ---------- Rooms grid ---------- */
+/* Simple grid of room cards — no corridor, no entrance,
+   no connector dots. */
 .rooms-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+@media (min-width: 600px) {
+  .rooms-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* Entrance marker at the top of the corridor */
-.corridor-entrance {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px 16px;
-  background: linear-gradient(180deg, var(--primary-soft) 0%, transparent 100%);
-  border-radius: var(--r-lg);
-  margin-bottom: 10px;
-  border: 2px dashed var(--primary);
-  color: var(--primary-dark);
-  font-weight: 800;
-  font-size: 13px;
-}
-.corridor-entrance .entrance-icon {
-  font-size: 22px;
-  line-height: 1;
-  font-weight: 800;
-  animation: bobDown 1.4s ease-in-out infinite;
-}
-@keyframes bobDown {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(4px); }
-}
-
-/* The corridor rail: vertical line on the right side of the rail
-   container (which is RTL, so visually it appears on the LEFT side
-   of the corridor — matching the user's "10 rooms on the left of
-   the corridor" requirement). Each room card hangs off that line. */
-.corridor {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-right: 28px; /* space for the corridor line on the right edge (visual left in RTL) */
-}
-.corridor::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 8px;
-  width: 6px;
-  background: repeating-linear-gradient(
-    to bottom,
-    var(--primary) 0,
-    var(--primary) 12px,
-    transparent 12px,
-    transparent 22px
-  );
-  border-radius: 3px;
-  opacity: 0.5;
-}
-
-/* Room card hangs off the corridor line — connector notch */
+/* Room card — clean, no connector dot */
 .room-card {
   position: relative;
   background: var(--surface);
@@ -558,20 +504,6 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   border-radius: var(--r-lg);
   padding: 14px;
   box-shadow: var(--shadow-sm);
-}
-/* Connector dot showing where the room door meets the corridor */
-.room-card::after {
-  content: "";
-  position: absolute;
-  top: 24px;
-  right: -22px;
-  width: 14px;
-  height: 14px;
-  background: var(--primary);
-  border: 3px solid #fff;
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px var(--primary);
-  z-index: 1;
 }
 .room-head {
   display: flex;

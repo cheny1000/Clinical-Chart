@@ -65,26 +65,12 @@
     return hasMeds ? "meds" : "occupied";
   }
 
-  // ---------- Corridor map ----------
-  // Renders the ward as a long vertical corridor with rooms on one side.
-  // - A "entrance" marker at the top indicates where you walk in
-  // - A vertical line (the corridor) runs down the side
-  // - Room cards are positioned along the corridor
-  //   - Rooms 1-5 (split-3-3): when you enter the room, 3 beds on the
-  //     right + 3 beds on the left
-  //   - Rooms 6-10 (linear-4): 4 beds in a row
+  // ---------- Rooms grid ----------
+  // Renders room cards in a simple grid (no corridor, no entrance,
+  // no connector dots — just clean room cards).
   function renderRooms(patientsMap) {
     const container = document.getElementById("rooms-grid");
     container.innerHTML = "";
-
-    // Entrance marker
-    container.appendChild(h("div", { class: "corridor-entrance" }, [
-      h("span", { class: "entrance-icon" }, "↓"),
-      h("span", { class: "entrance-label" }, "مدخل الردهة")
-    ]));
-
-    // The corridor itself: vertical line on the left + room cards
-    const corridor = h("div", { class: "corridor" });
 
     global.PharmacyWard.ROOMS.forEach(room => {
       const occupied = room.beds.filter(b => {
@@ -125,10 +111,8 @@
         ]),
         bedsArea
       ]);
-      corridor.appendChild(roomCard);
+      container.appendChild(roomCard);
     });
-
-    container.appendChild(corridor);
   }
 
   // Helper: build a single bed button
