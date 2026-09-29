@@ -686,40 +686,16 @@
       }
     });
 
-    // Admin: reset to defaults
-    $("admin-reset").addEventListener("click", () => {
-      if (!confirm("استعادة قائمة الأدوية الافتراضية؟\nسيتم استبدال جميع التعديلات بقائمة الأدوية التجريبية الأصلية.")) return;
-      Storage.resetMedicationsToDefault();
-      state.medications = Storage.loadMedications();
-      state.admin.editingId = null;
-      state.admin.isNew = false;
-      state.admin.selectedId = null;
-      UI.hideAdminForm();
-      UI.renderAdminMedList(state.medications, null);
-      flashHint("تم استعادة القائمة الافتراضية");
-      pushCatalogAfterEdit();  // Sync the reset to Supabase
-    });
-
-    // Admin: wipe all data
+    // Admin: wipe patients only (keep medications)
     $("admin-wipe").addEventListener("click", () => {
-      if (!confirm("⚠ تحذير: هذا سيمسح جميع بيانات المرضى والأدوية نهائيًا.\nهل أنت متأكد؟")) return;
-      if (!confirm("التأكيد النهائي: لا يمكن التراجع. متابعة؟")) return;
+      if (!confirm("⚠ تحذير: هذا سيمسح جميع بيانات المرضى نهائيًا.\nالأدوية لن تُمسح.\nهل أنت متأكد؟")) return;
       try {
         localStorage.removeItem("pharma.patients.v1");
-        localStorage.removeItem("pharma.medications.v1");
       } catch (e) { /* ignore */ }
       state.patients = {};
-      Storage.resetMedicationsToDefault();
-      state.medications = Storage.loadMedications();
       state.currentBed = null;
-      state.admin.editingId = null;
-      state.admin.isNew = false;
-      state.admin.selectedId = null;
-      UI.hideAdminForm();
-      UI.renderAdminMedList(state.medications, null);
       refreshStatsAndRooms();
-      flashHint("تم مسح جميع البيانات");
-      pushCatalogAfterEdit();  // Sync the reset to Supabase
+      flashHint("تم مسح جميع بيانات المرضى");
     });
 
     // ----- Supabase: test / save / clear -----
