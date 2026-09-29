@@ -651,11 +651,8 @@
         $("adm-name-trade").focus();
         return;
       }
-      if (!data.defaultDose) {
-        flashHint("أدخل الجرعة الافتراضية");
-        $("adm-dose").focus();
-        return;
-      }
+      // dose is OPTIONAL — some forms (syrups, solutions) don't have
+      // a fixed dose, so we allow it to be empty.
       if (!data.defaultFrequency) {
         flashHint("أدخل التكرار الافتراضي");
         $("adm-freq").focus();
