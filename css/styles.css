@@ -11,7 +11,7 @@ html, body { margin: 0; padding: 0; }
   --bg:            #F4F7FB;
   --surface:       #FFFFFF;
   --primary:       #1b443f;
-  --primary-dark:  #1e2e2d;
+  --primary-dark:  #87ac9b;
   --primary-soft:  #E8F0EE;
   --success:       #75b1a9;
   --success-soft:  #E8F5F2;
@@ -102,7 +102,7 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: linear-gradient(180deg, #1e2e2d 0%, #1b443f 100%);
+  background: linear-gradient(180deg, #87ac9b 0%, #1b443f 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -128,17 +128,12 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   margin-bottom: 22px;
 }
 .login-brand-icon {
-  width: 64px;
-  height: 64px;
+  width: 80px;
+  height: 80px;
   margin: 0 auto 12px;
-  background: var(--primary);
-  color: #fff;
   border-radius: var(--r-lg);
-  display: grid;
-  place-items: center;
-  font-size: 36px;
-  font-weight: 800;
-  box-shadow: 0 8px 20px rgba(27, 68, 63, 0.30);
+  display: block;
+  object-fit: contain;
 }
 .login-brand h1 {
   margin: 0;
@@ -1153,7 +1148,7 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 .sheet-tab[data-tab="vial"].active {
   background: #E8F0EE;
   border-color: var(--primary);
-  color: #1e2e2d;
+  color: #87ac9b;
 }
 .sheet-tab[data-tab="ampule"].active {
   background: #E0E7FF;
@@ -1192,7 +1187,7 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 }
 
 /* Admin form badges — one color per form */
-.admin-form-badge.is-vial              { background: #E8F0EE; color: #1e2e2d; border: 1px solid #C8DDD8; }
+.admin-form-badge.is-vial              { background: #E8F0EE; color: #87ac9b; border: 1px solid #C8DDD8; }
 .admin-form-badge.is-ampule            { background: #E0E7FF; color: #3730A3; border: 1px solid #C7D2FE; }
 .admin-form-badge.is-prefilled-syringe { background: #FCE7F3; color: #9D174D; border: 1px solid #FBCFE8; }
 .admin-form-badge.is-tablet            { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
@@ -1741,7 +1736,7 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 }
 .admin-form-badge.is-vial {
   background: #E8F0EE;   /* cool blue for vials */
-  color: #1e2e2d;
+  color: #87ac9b;
   border: 1px solid #C8DDD8;
 }
 .admin-med-meta {
@@ -2143,7 +2138,7 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     text-align: right;
     padding: 8px 10px;
     background: #E8F0EE;
-    color: #1e2e2d;
+    color: #87ac9b;
     font-weight: 800;
     border: 1px solid #C8DDD8;
   }
