@@ -772,7 +772,18 @@
     const patientsToUse = occupiedRows.slice(0, PATIENT_ROWS);
 
     // ----- Matrix table -----
+    // Use a <colgroup> to force explicit column widths. This is the
+    // most reliable way to make cells exactly square in print output
+    // (browsers ignore individual cell width in some cases).
     const table = h("table", { class: "chart-matrix" });
+
+    // Build the colgroup: first col = patient (17mm), rest = 4.5mm each
+    const colgroup = h("colgroup", {});
+    colgroup.appendChild(h("col", { style: "width: 17mm;" }));
+    orderedMeds.forEach(() => {
+      colgroup.appendChild(h("col", { style: "width: 4.5mm;" }));
+    });
+    table.appendChild(colgroup);
 
     // --- Header row ---
     // First cell (top-right) contains the editable header fields:
@@ -838,7 +849,11 @@
             }
           }
         }
-        tr.appendChild(h("td", { class: cellClass }, cellText));
+        // Use a <br> as fallback content for empty cells so the browser
+        // respects the row height. This is more reliable than CSS
+        // min-height on empty <td>.
+        const cellContent = cellText ? cellText : h("br");
+        tr.appendChild(h("td", { class: cellClass }, cellContent));
       });
 
       tbody.appendChild(tr);
