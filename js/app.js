@@ -412,16 +412,6 @@
       } else if (nav === "patients") {
         UI.showView("patients");
         UI.renderPatientsList(state.patients);
-      } else if (nav === "add") {
-        // If we're inside a patient view → open the sheet directly
-        if (state.currentBed) {
-          openSheetFromPatientView();
-        } else {
-          // Otherwise, prompt the user to pick a bed first
-          state.currentBed = null;
-          UI.showView("home");
-          flashHint("اختر سريرًا أولًا لإضافة علاج");
-        }
       }
     });
 
