@@ -391,13 +391,9 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   width: 40px;
   height: 40px;
   border-radius: var(--r-md);
-  background: var(--primary);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-size: 22px;
-  font-weight: 700;
-  box-shadow: 0 4px 10px rgba(27, 68, 63, 0.30);
+  display: block;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .brand-text h1 {

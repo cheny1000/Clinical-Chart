@@ -77,10 +77,6 @@
 
   function showApp() {
     $("login-screen").hidden = true;
-    // Update the user label in the header
-    const user = Auth ? Auth.getCurrentUser() : null;
-    const label = $("current-user-label");
-    if (label) label.textContent = user ? user.displayName : "—";
   }
 
   // Apply role-based visibility (hide ⚙ from pharmacist role)
