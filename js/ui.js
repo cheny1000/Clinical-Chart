@@ -721,10 +721,6 @@
 
     // Fixed dimensions (per user spec)
     const PATIENT_ROWS = 35;
-    const MED_COLS     = 50;
-
-    // Take only the first 50 meds (in sort_order)
-    const orderedMeds = meds.slice(0, MED_COLS);
 
     // Build the list of occupied beds sorted by room+bed
     const Ward = global.PharmacyWard;
@@ -742,12 +738,17 @@
           }
         });
       });
-      occupiedRows.sort((a, b) => {
-        // We sort by room+bed but don't keep them displayed — only for
-        // consistency in row assignment
-        return 0;  // already in room+bed order from the iteration
-      });
     }
+
+    // Filter: only show medications that are actually prescribed to
+    // at least one patient. This keeps the chart compact.
+    const prescribedIds = new Set();
+    occupiedRows.forEach(p => {
+      p.medications.forEach(pm => {
+        if (pm && pm.id) prescribedIds.add(pm.id);
+      });
+    });
+    const orderedMeds = meds.filter(m => prescribedIds.has(m.id));
 
     // Cap to PATIENT_ROWS — extra occupied beds beyond 35 are skipped
     const rowsToRender = PATIENT_ROWS;
