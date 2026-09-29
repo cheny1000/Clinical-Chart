@@ -87,8 +87,6 @@
         bedsArea = h("div", { class: "room-beds split-3-3" }, [
           h("div", { class: "beds-col beds-right" },
             right.map(b => bedButton(room, b, patientsMap))),
-          // Door / entrance indicator between the two columns
-          h("div", { class: "beds-door", title: "باب الغرفة" }, "🚪"),
           h("div", { class: "beds-col beds-left" },
             left.map(b => bedButton(room, b, patientsMap)))
         ]);

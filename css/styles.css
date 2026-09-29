@@ -536,12 +536,10 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 }
 
 /* ---- Beds area inside a room ---- */
-/* split-3-3 layout: when entering the room, 3 beds on RIGHT + 3 on LEFT
-   with the door (🚪) in the middle. We render this as a row with
-   3 columns: right beds | door | left beds. */
+/* split-3-3 layout: 3 beds on RIGHT + 3 beds on LEFT (no door). */
 .room-beds.split-3-3 {
   display: grid;
-  grid-template-columns: 1fr 30px 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
   align-items: stretch;
 }
@@ -552,32 +550,8 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 .beds-col.beds-right { grid-template-columns: 1fr; }
 .beds-col.beds-left  { grid-template-columns: 1fr; }
 
-/* The door indicator (vertical between the two columns of beds) */
-.beds-door {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  background: var(--primary-soft);
-  border-radius: var(--r-sm);
-  color: var(--primary-dark);
-  position: relative;
-  min-height: 60px;
-}
-.beds-door::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--primary);
-  border-radius: 1px;
-  opacity: 0.4;
-}
-
-/* On wider screens (≥ 480px), the split-3-3 shows the 3 right beds as
-   a single row of 3 + the door + 3 left beds as a single row of 3
-   — visually like entering the room. */
+/* On wider screens (≥ 480px), the split-3-3 shows the 3 right beds
+   as a single row of 3 + 3 left beds as a single row of 3. */
 @media (min-width: 480px) {
   .beds-col.beds-right { grid-template-columns: repeat(3, 1fr); }
   .beds-col.beds-left  { grid-template-columns: repeat(3, 1fr); }
