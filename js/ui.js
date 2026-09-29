@@ -764,20 +764,11 @@
     const table = h("table", { class: "chart-matrix" });
 
     // --- Header row ---
-    // First cell (top-right) contains the editable header fields:
-    // "الطابق / الوحدة: ____" + "التاريخ: ____" — pharmacist fills by hand.
-    // Then 50 medication columns follow.
+    // First cell (top-right) shows fixed text: "الطابق الثامن / الوحدة الخامسة"
     const thead = h("thead", {});
     const headRow = h("tr", {});
     headRow.appendChild(h("th", { class: "chart-patient-col-header" }, [
-      h("div", { class: "chart-editable-field" }, [
-        h("span", { class: "chart-editable-label" }, "الطابق / الوحدة: "),
-        h("span", { class: "chart-editable-blank" }, "____________")
-      ]),
-      h("div", { class: "chart-editable-field" }, [
-        h("span", { class: "chart-editable-label" }, "التاريخ: "),
-        h("span", { class: "chart-editable-blank" }, "__________")
-      ])
+      h("center", {}, "الطابق الثامن / الوحدة الخامسة")
     ]));
     orderedMeds.forEach(m => {
       if (!m) {
