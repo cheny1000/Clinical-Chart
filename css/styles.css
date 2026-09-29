@@ -306,7 +306,6 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   color: var(--danger);
   display: grid;
   place-items: center;
-  font-size: 22px;
   flex-shrink: 0;
   transition: background 160ms ease, color 160ms ease, transform 120ms ease;
 }
@@ -327,13 +326,15 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   color: var(--primary);
   display: grid;
   place-items: center;
-  font-size: 20px;
   flex-shrink: 0;
   transition: background 160ms ease, color 160ms ease, transform 120ms ease;
 }
 .brand-chart:active {
   transform: scale(0.94);
   background: var(--primary-soft);
+}
+.brand-chart svg, .brand-settings svg, .brand-logout svg {
+  display: block;
 }
 
 /* ---------- App shell ---------- */
@@ -375,17 +376,15 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   border-radius: var(--r-md);
   background: var(--surface);
   border: 1px solid var(--border);
-  color: var(--text-muted);
+  color: var(--primary);
   display: grid;
   place-items: center;
-  font-size: 22px;
   flex-shrink: 0;
   transition: background 160ms ease, color 160ms ease, transform 120ms ease;
 }
 .brand-settings:active {
   transform: scale(0.94);
   background: var(--primary-soft);
-  color: var(--primary);
 }
 
 .brand-icon {
