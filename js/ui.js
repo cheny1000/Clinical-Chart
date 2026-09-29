@@ -740,15 +740,21 @@
       });
     }
 
-    // Filter: only show medications that are actually prescribed to
-    // at least one patient. This keeps the chart compact.
+    // Build 50 columns: first fill with prescribed meds (in catalog
+    // sort order), then pad with empty columns to reach 50 total.
     const prescribedIds = new Set();
     occupiedRows.forEach(p => {
       p.medications.forEach(pm => {
         if (pm && pm.id) prescribedIds.add(pm.id);
       });
     });
-    const orderedMeds = meds.filter(m => prescribedIds.has(m.id));
+    const prescribedMeds = meds.filter(m => prescribedIds.has(m.id));
+    // Pad with nulls to always have 50 columns
+    const MED_COLS = 50;
+    const orderedMeds = [];
+    for (let i = 0; i < MED_COLS; i++) {
+      orderedMeds.push(prescribedMeds[i] || null);
+    }
 
     // Cap to PATIENT_ROWS — extra occupied beds beyond 35 are skipped
     const rowsToRender = PATIENT_ROWS;
@@ -774,6 +780,12 @@
       ])
     ]));
     orderedMeds.forEach(m => {
+      if (!m) {
+        // Empty column (no med) — still render a header cell to keep
+        // the 50-column structure, just with no text.
+        headRow.appendChild(h("th", { class: "chart-med-col-header chart-med-empty" }, ""));
+        return;
+      }
       const label = m.nameTrade || m.nameAr || m.nameEn || m.id;
       headRow.appendChild(h("th", {
         class: "chart-med-col-header",
@@ -811,10 +823,15 @@
         });
       }
 
-      // One cell per medication (in the same order as the header)
+      // One cell per medication column (50 total, some may be null)
       orderedMeds.forEach(m => {
         let cellText = "";
         let cellClass = "chart-cell";
+        if (!m) {
+          // Empty column — just render an empty cell
+          tr.appendChild(h("td", { class: cellClass }, ""));
+          return;
+        }
         if (myMedCounts) {
           const entry = myMedCounts[m.id];
           if (entry) {
