@@ -772,18 +772,7 @@
     const patientsToUse = occupiedRows.slice(0, PATIENT_ROWS);
 
     // ----- Matrix table -----
-    // Use a <colgroup> to force explicit column widths. This is the
-    // most reliable way to make cells exactly square in print output
-    // (browsers ignore individual cell width in some cases).
     const table = h("table", { class: "chart-matrix" });
-
-    // Build the colgroup: first col = patient (17mm), rest = 4.5mm each
-    const colgroup = h("colgroup", {});
-    colgroup.appendChild(h("col", { style: "width: 17mm;" }));
-    orderedMeds.forEach(() => {
-      colgroup.appendChild(h("col", { style: "width: 4.5mm;" }));
-    });
-    table.appendChild(colgroup);
 
     // --- Header row ---
     // First cell (top-right) contains the editable header fields:
@@ -820,13 +809,8 @@
       const tr = h("tr", {});
 
       // Patient cell: name only (no room/bed). Empty if no patient at this row.
-      // Wrap in <center> tag — the most reliable way to center text in
-      // print mode regardless of RTL direction. text-align:center gets
-      // overridden by dir=rtl in some browsers during printing.
       const patientName = (p && p.name) ? p.name : "";
-      tr.appendChild(h("td", { class: "chart-patient-cell" }, [
-        h("center", {}, patientName)
-      ]));
+      tr.appendChild(h("td", { class: "chart-patient-cell" }, patientName));
 
       // Build the med count lookup for this patient (if any)
       let myMedCounts = null;
@@ -854,11 +838,7 @@
             }
           }
         }
-        // Use a <br> as fallback content for empty cells so the browser
-        // respects the row height. This is more reliable than CSS
-        // min-height on empty <td>.
-        const cellContent = cellText ? cellText : h("br");
-        tr.appendChild(h("td", { class: cellClass }, cellContent));
+        tr.appendChild(h("td", { class: cellClass }, cellText));
       });
 
       tbody.appendChild(tr);
