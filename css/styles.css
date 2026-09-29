@@ -2305,7 +2305,8 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     table-layout: fixed;
   }
 
-  /* Patient column (rightmost) — narrow */
+  /* Patient column (rightmost) — header with two-line text centered
+     vertically and horizontally, larger font. */
   .chart-patient-col-header {
     background: #fff;
     color: #000;
@@ -2313,10 +2314,11 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     padding: 1px 2px;
     border: 1px solid #000;
     text-align: center;
-    font-size: 7px;
+    font-size: 10px;
     width: 70px;
     min-width: 70px;
-    vertical-align: bottom;
+    vertical-align: middle;
+    line-height: 1.3;
   }
 
   /* Medication column headers — vertical text, compact.
