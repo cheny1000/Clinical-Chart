@@ -422,15 +422,16 @@
 
   <!-- ===== Scripts (modular) ===== -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-  <script src="js/medications.js"></script>
-  <script src="js/ward.js"></script>
-  <script src="js/storage.js"></script>
-  <script src="js/supabase-config.js"></script>
-  <script src="js/supabase-client.js"></script>
-  <script src="js/supabase-sync.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/remote-adapter.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/app.js"></script>
+  <!-- Cache-busting: add ?v=timestamp to force browser to reload JS on each visit -->
+  <script>document.write('<script src="js/medications.js?v=' + Date.now() + '"><\/script>');</script>
+  <script>document.write('<script src="js/ward.js?v=' + Date.now() + '"><\/script>');</script>
+  <script>document.write('<script src="js/storage.js?v=' + Date.now() + '"><\/script>');</script>
+  <script>document.write('<script src="js/supabase-config.js?v=' + Date.now() + '"><\/script>');</script>
+  <script>document.write('<script src="js/supabase-client.js?v=' + Date.now() + '"><\/script>');</script>
+  <script>document.write('<script src="js/supabase-sync.js?v=' + Date.now() + '"><\/script>');</script>
+  <script>document.write('<script src="js/auth.js?v=' + Date.now() + '"><\/script>');</script>
+  <script>document.write('<script src="js/remote-adapter.js?v=' + Date.now() + '"><\/script>');</script>
+  <script>document.write('<script src="js/ui.js?v=' + Date.now() + '"><\/script>');</script>
+  <script>document.write('<script src="js/app.js?v=' + Date.now() + '"><\/script>');</script>
 </body>
 </html>
