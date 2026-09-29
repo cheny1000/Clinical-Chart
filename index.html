@@ -233,8 +233,11 @@
                 <div class="admin-field">
                   <label for="adm-form">الشكل الدوائي</label>
                   <select id="adm-form">
-                    <option value="vial">Vial (حقن / وريدية)</option>
-                    <option value="tablet">حبوب (فموية)</option>
+                    <option value="vial">Vial (حقن وريدية/عضلية - مسحوق يُحل)</option>
+                    <option value="ampule">Ampule (أمبول - سائل جاهز)</option>
+                    <option value="prefilled-syringe">Prefilled Syringe (سرنجة جاهزة)</option>
+                    <option value="tablet">حبوب (أقراص/كبسولات/شراب)</option>
+                    <option value="supplies">مستلزمات طبية (محاليل/سرنجات/قساطر)</option>
                   </select>
                 </div>
                 <div class="admin-field">
@@ -374,18 +377,9 @@
         />
       </div>
 
-      <!-- Form tabs: vials (default) / tablets. Only one form shown at a time. -->
+      <!-- Form tabs — rendered dynamically by ui.js renderSheetTabs() -->
       <div class="sheet-tabs" id="sheet-tabs" role="tablist">
-        <button class="sheet-tab active" data-tab="vial" type="button" role="tab" aria-selected="true">
-          <span class="sheet-tab-icon" aria-hidden="true">💉</span>
-          <span class="sheet-tab-label">Vial</span>
-          <span class="sheet-tab-count" id="tab-count-vial">0</span>
-        </button>
-        <button class="sheet-tab" data-tab="tablet" type="button" role="tab" aria-selected="false">
-          <span class="sheet-tab-icon" aria-hidden="true">💊</span>
-          <span class="sheet-tab-label">حبوب</span>
-          <span class="sheet-tab-count" id="tab-count-tablet">0</span>
-        </button>
+        <!-- Tabs are injected by JS based on FORM_ORDER + counts -->
       </div>
 
       <div class="sheet-demo-note">

@@ -442,11 +442,12 @@
       }, 100);
     });
 
-    // Tab clicks (vials / tablets) — switch the active form, keep the search query
+    // Tab clicks — switch the active form, keep the search query.
+    // Tab keys are now any of: vial, ampule, prefilled-syringe, tablet, supplies.
     $("sheet-tabs").addEventListener("click", (e) => {
       const tab = e.target.closest(".sheet-tab");
       if (!tab) return;
-      const newTab = tab.dataset.tab === "tablet" ? "tablet" : "vial";
+      const newTab = tab.dataset.tab;
       if (state.sheet.activeTab === newTab) return; // no change
       state.sheet.activeTab = newTab;
       UI.setActiveTabUI(newTab);
@@ -825,6 +826,8 @@
       return;
     }
     resetSheet();
+    // Render the tabs (auto-picks the first non-empty form as active)
+    state.sheet.activeTab = UI.renderSheetTabs(state.medications, state.sheet.activeTab) || "vial";
     UI.renderMedOptions(state.medications, state.sheet.selected, state.sheet.filter, state.sheet.activeTab);
     bindMedOptionCheckboxes();
     syncSelectedUI();
@@ -839,9 +842,9 @@
     state.sheet.selected.clear();
     state.sheet.selectedList = [];
     state.sheet.filter = "";
-    // Default to vials (the most common form in hospital wards)
+    // Default to "vial" — renderSheetTabs will pick a real default
+    // (first non-empty form) when the sheet opens.
     state.sheet.activeTab = "vial";
-    UI.setActiveTabUI("vial");
     $("med-search").value = "";
     $("selected-list").innerHTML = "";
     $("sheet-add").disabled = true;

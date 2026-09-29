@@ -274,15 +274,16 @@
     const container = document.getElementById("med-options");
     container.innerHTML = "";
 
-    // Update tab counts on every render (across both tabs)
+    // Update tab counts on every render (across all tabs)
     updateTabCounts(meds);
 
-    const tab = activeTab === "tablet" ? "tablet" : "vial";
+    // Resolve the active tab — must be one of the known forms, else "vial"
+    const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "supplies"];
+    const tab = VALID_FORMS.indexOf(activeTab) !== -1 ? activeTab : "vial";
 
     const q = (filterText || "").trim().toLowerCase();
     // Filter: must match active tab's form AND search query (if any)
-    let filtered = meds.filter(m =>
-      (m.form === "tablet" ? "tablet" : "vial") === tab);
+    let filtered = meds.filter(m => (m.form || "vial") === tab);
     if (q) {
       filtered = filtered.filter(m =>
         (m.nameTrade || "").toLowerCase().includes(q) ||
@@ -291,25 +292,36 @@
     }
 
     if (filtered.length === 0) {
-      const otherTabLabel = (tab === "vial") ? "الحبوب" : "Vial";
-      const otherTabKey   = (tab === "vial") ? "tablet" : "vial";
-      const curTabLabel   = (tab === "vial") ? "Vial" : "الحبوب";
-      const hintEl = h("div", {
-        style: "text-align:center;padding:24px 16px;color:var(--text-muted);font-weight:600;font-size:13px;line-height:1.6;"
-      }, [
+      // Find another form that has meds to suggest as an alternative
+      const FORM_ORDER = (global.PharmacyMedications && global.PharmacyMedications.FORM_ORDER) || ["vial", "tablet"];
+      const FORM_LABELS = (global.PharmacyMedications && global.PharmacyMedications.FORM_LABELS) || {};
+      const otherFormsWithMeds = FORM_ORDER
+        .filter(f => f !== tab)
+        .filter(f => meds.some(m => (m.form || "vial") === f));
+      const curTabLabel = FORM_LABELS[tab] || tab;
+
+      const hintChildren = [
         h("div", { style: "font-size:28px;margin-bottom:8px;color:var(--text-faint);font-weight:800;" }, "⌕"),
         h("div", {}, q
           ? `لا توجد نتائج مطابقة في ${curTabLabel}.`
-          : `لا توجد أدوية في ${curTabLabel}.`),
-        h("div", {
-          style: "margin-top:10px;color:var(--primary);font-weight:800;cursor:pointer;text-decoration:underline;",
-          dataset: { switchTab: otherTabKey },
+          : `لا توجد أدوية في ${curTabLabel}.`)
+      ];
+
+      // Show one clickable link per alternative form
+      otherFormsWithMeds.forEach(otherKey => {
+        const otherLabel = FORM_LABELS[otherKey] || otherKey;
+        hintChildren.push(h("div", {
+          style: "margin-top:8px;color:var(--primary);font-weight:800;cursor:pointer;text-decoration:underline;",
           onclick: () => {
-            const otherBtn = document.querySelector(`.sheet-tab[data-tab="${otherTabKey}"]`);
+            const otherBtn = document.querySelector(`.sheet-tab[data-tab="${otherKey}"]`);
             if (otherBtn) otherBtn.click();
           }
-        }, `جرّب ${otherTabLabel} ←`)
-      ]);
+        }, `جرّب ${otherLabel} ←`));
+      });
+
+      const hintEl = h("div", {
+        style: "text-align:center;padding:24px 16px;color:var(--text-muted);font-weight:600;font-size:13px;line-height:1.6;"
+      }, hintChildren);
       container.appendChild(hintEl);
       return;
     }
@@ -341,23 +353,74 @@
     });
   }
 
-  // Update the small counter on each tab button (# vials / # tablets)
-  function updateTabCounts(meds) {
-    let vials = 0, tablets = 0;
+  // Render the form tab buttons dynamically based on FORM_ORDER.
+  // Only show tabs for forms that actually have medications (skip empty).
+  // The first non-empty form (in FORM_ORDER) becomes the default active tab.
+  function renderSheetTabs(meds, activeTab) {
+    const container = document.getElementById("sheet-tabs");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const FORM_ORDER = (global.PharmacyMedications && global.PharmacyMedications.FORM_ORDER) || ["vial", "tablet"];
+    const FORM_LABELS = (global.PharmacyMedications && global.PharmacyMedications.FORM_LABELS) || {};
+    const FORM_ICONS = (global.PharmacyMedications && global.PharmacyMedications.FORM_ICONS) || {};
+
+    // Count meds per form
+    const counts = {};
     meds.forEach(m => {
-      if (m.form === "tablet") tablets++; else vials++;
+      const f = m.form || "vial";
+      counts[f] = (counts[f] || 0) + 1;
     });
-    const vialEl = document.getElementById("tab-count-vial");
-    const tabEl  = document.getElementById("tab-count-tablet");
-    if (vialEl) vialEl.textContent = String(vials);
-    if (tabEl)  tabEl.textContent  = String(tablets);
+
+    // Filter FORM_ORDER to forms that have at least 1 med (always show
+    // all 5 if user wants, but with empty count = 0 we still show them
+    // so the user can switch to see "no meds" hint)
+    const formsToShow = FORM_ORDER.filter(f => counts[f] > 0);
+    if (formsToShow.length === 0) formsToShow.push(FORM_ORDER[0] || "vial");
+
+    // Decide active tab: keep current if it's in the list, otherwise
+    // use the first non-empty form.
+    let active = (activeTab && formsToShow.indexOf(activeTab) !== -1)
+      ? activeTab
+      : formsToShow[0];
+
+    formsToShow.forEach(form => {
+      const isActive = (form === active);
+      container.appendChild(h("button", {
+        class: "sheet-tab" + (isActive ? " active" : ""),
+        type: "button",
+        role: "tab",
+        "aria-selected": isActive ? "true" : "false",
+        dataset: { tab: form }
+      }, [
+        h("span", { class: "sheet-tab-icon", "aria-hidden": "true" }, FORM_ICONS[form] || "•"),
+        h("span", { class: "sheet-tab-label" }, FORM_LABELS[form] || form),
+        h("span", { class: "sheet-tab-count", dataset: { formCount: form } }, String(counts[form] || 0))
+      ]));
+    });
+
+    return active;  // Return the resolved active tab so caller knows
+  }
+
+  // Update the small counter on each tab button (# per form)
+  function updateTabCounts(meds) {
+    const FORM_ORDER = (global.PharmacyMedications && global.PharmacyMedications.FORM_ORDER) || ["vial", "tablet"];
+    const counts = {};
+    FORM_ORDER.forEach(f => counts[f] = 0);
+    meds.forEach(m => {
+      const f = m.form || "vial";
+      counts[f] = (counts[f] || 0) + 1;
+    });
+    document.querySelectorAll(".sheet-tab-count").forEach(el => {
+      const f = el.dataset.formCount;
+      if (f && f in counts) el.textContent = String(counts[f]);
+    });
   }
 
   // Update active tab styling on the tab buttons
   function setActiveTabUI(activeTab) {
-    const tab = activeTab === "tablet" ? "tablet" : "vial";
     document.querySelectorAll(".sheet-tab").forEach(btn => {
-      const isActive = btn.dataset.tab === tab;
+      const isActive = btn.dataset.tab === activeTab;
       btn.classList.toggle("active", isActive);
       btn.setAttribute("aria-selected", isActive ? "true" : "false");
     });
@@ -510,10 +573,10 @@
       if (m.defaultDose) metaParts.push(m.defaultDose);
       if (m.defaultFrequency) metaParts.push(m.defaultFrequency);
 
-      const formLabel = (m.form === "tablet")
-        ? ((global.PharmacyMedications.FORM_LABELS || {}).tablet || "حبوب")
-        : ((global.PharmacyMedications.FORM_LABELS || {}).vial || "Vial");
-      const formClass = "admin-form-badge " + (m.form === "tablet" ? "is-tablet" : "is-vial");
+      const FORM_LABELS = (global.PharmacyMedications && global.PharmacyMedications.FORM_LABELS) || {};
+      const formKey = (m.form && FORM_LABELS[m.form]) ? m.form : "vial";
+      const formLabel = FORM_LABELS[formKey] || formKey;
+      const formClass = "admin-form-badge is-" + formKey;
 
       const row = h("div", {
         class: "admin-med-row" + (selectedId === m.id ? " selected" : ""),
@@ -596,7 +659,10 @@
     nameTrade.value = med.nameTrade || "";
     nameAr.value    = med.nameAr || "";
     nameEn.value    = med.nameEn || "";
-    form.value      = (med.form === "tablet") ? "tablet" : "vial";
+    // Set form dropdown: fall back to "vial" if form is unknown/empty
+    const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "supplies"];
+    const formVal = VALID_FORMS.indexOf(med.form) !== -1 ? med.form : "vial";
+    form.value = formVal;
     dose.value      = med.defaultDose || "";
 
     const freqOptions = global.PharmacyMedications.FREQUENCIES;
@@ -631,17 +697,18 @@
     const nameTrade = document.getElementById("adm-name-trade").value.trim();
     const nameAr = document.getElementById("adm-name-ar").value.trim();
     const nameEn = document.getElementById("adm-name-en").value.trim();
-    const form   = document.getElementById("adm-form").value;  // "vial" | "tablet"
+    const form   = document.getElementById("adm-form").value;
     const dose   = document.getElementById("adm-dose").value.trim();
     const freqSel = document.getElementById("adm-freq").value;
     const freqCustom = document.getElementById("adm-freq-custom").value.trim();
     const frequency = freqSel === "custom" ? freqCustom : freqSel;
+    const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "supplies"];
 
     return {
       nameTrade: nameTrade,
       nameAr:    nameAr,
       nameEn:    nameEn,
-      form:      (form === "tablet") ? "tablet" : "vial",
+      form:      VALID_FORMS.indexOf(form) !== -1 ? form : "vial",
       defaultDose:      dose,
       defaultFrequency: frequency
     };
@@ -669,6 +736,7 @@
     primaryName,
     scientificName,
     // sheet tabs
+    renderSheetTabs,
     updateTabCounts,
     setActiveTabUI
   };

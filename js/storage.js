@@ -33,16 +33,18 @@
   // Older versions stored only nameAr + nameEn. We now use nameTrade
   // (trade/brand name) as the primary display name. If a stored
   // medication lacks nameTrade, we copy it from nameAr (or nameEn).
-  // We also back-fill the `form` field (tablet|vial) — defaulting to
-  // "vial" since most hospital ward medications are injectables.
+  // We also back-fill the `form` field (one of: vial, ampule,
+  // prefilled-syringe, tablet, supplies) — defaulting to "vial"
+  // since most hospital ward medications are injectables.
   // We do the same for patient.medications entries so existing
   // patient data keeps working after the upgrade.
+  const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "supplies"];
   function migrateMed(med) {
     if (!med || typeof med !== "object") return med;
     if (!("nameTrade" in med) || !med.nameTrade) {
       med.nameTrade = med.nameAr || med.nameEn || "";
     }
-    if (!("form" in med) || !med.form) {
+    if (!("form" in med) || !med.form || VALID_FORMS.indexOf(med.form) === -1) {
       med.form = "vial";
     }
     return med;

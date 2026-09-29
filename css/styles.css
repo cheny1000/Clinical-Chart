@@ -1230,10 +1230,49 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   border-color: var(--primary);
   color: #1E3A8A;
 }
+.sheet-tab[data-tab="ampule"].active {
+  background: #E0E7FF;
+  border-color: #4F46E5;
+  color: #3730A3;
+}
+.sheet-tab[data-tab="prefilled-syringe"].active {
+  background: #FCE7F3;
+  border-color: #DB2777;
+  color: #9D174D;
+}
 .sheet-tab[data-tab="tablet"].active {
   background: #FEF3C7;
   border-color: #D97706;
   color: #92400E;
+}
+.sheet-tab[data-tab="supplies"].active {
+  background: #DCFCE7;
+  border-color: #16A34A;
+  color: #166534;
+}
+
+/* Admin form badges — one color per form */
+.admin-form-badge.is-vial              { background: #DBEAFE; color: #1E3A8A; border: 1px solid #BFDBFE; }
+.admin-form-badge.is-ampule            { background: #E0E7FF; color: #3730A3; border: 1px solid #C7D2FE; }
+.admin-form-badge.is-prefilled-syringe { background: #FCE7F3; color: #9D174D; border: 1px solid #FBCFE8; }
+.admin-form-badge.is-tablet            { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
+.admin-form-badge.is-supplies          { background: #DCFCE7; color: #166534; border: 1px solid #BBF7D0; }
+
+/* Mobile-friendly: tabs become scrollable horizontally on small screens
+   so all 5 are reachable */
+@media (max-width: 600px) {
+  .sheet-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+  .sheet-tab {
+    flex-shrink: 0;
+    min-width: 70px;
+    white-space: nowrap;
+  }
+  .sheet-tab-label { font-size: 11px; }
+  .sheet-tab-icon { font-size: 14px; }
 }
 .sheet-tab-icon {
   font-size: 18px;
