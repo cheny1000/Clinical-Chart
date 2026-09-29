@@ -549,14 +549,14 @@
     $("open-admin").addEventListener("click", openAdminView);
 
     // ----- Print Chart (التشارت) -----
-    // Builds the chart from the current catalog and opens the print dialog.
+    // Builds a patient × medication matrix and opens the print dialog.
     // Visible to both admin and pharmacist — it's the final product.
     $("print-chart-btn").addEventListener("click", () => {
       if (!state.medications || state.medications.length === 0) {
         flashHint("لا توجد أدوية في الكتالوج");
         return;
       }
-      UI.buildChartReport(state.medications);
+      UI.buildChartReport(state.patients, state.medications);
       window.print();
     });
 

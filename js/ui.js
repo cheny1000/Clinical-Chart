@@ -715,27 +715,72 @@
   }
 
   // ---------- Print Chart (التشارت) ----------
-  // Builds a printable medication reference chart from the full catalog.
-  // The chart has 6 columns matching the user's hospital chart format:
-  //   1. الاسم بالعربية (Arabic name — nameTrade or nameAr)
-  //   2. الاسم العلمي (Scientific/English name — nameEn)
-  //   3. الاسم التجاري (Trade/brand name — nameTrade if different)
-  //   4. الجرعة (Dose)
-  //   5. التكرار (Frequency)
-  //   6. الشكل (Form — vial/ampule/tablet/etc)
-  // Medications are grouped by form, then by sort_order within each form.
-  function buildChartReport(meds) {
+  // Builds a printable matrix (table) where:
+  //   - Rows  = patients (only occupied beds), rightmost column = patient names
+  //   - Cols  = medications, leftmost columns = medication names
+  //   - Cell at (patient_i, med_j) = the count of doses/day if the patient
+  //     has that medication, else empty
+  // The matrix is sorted by room+bed number for patients, and by sort_order
+  // for medications (so the admin-set order is preserved on the chart).
+  function buildChartReport(patientsMap, meds) {
     const root = document.getElementById("chart-print-root");
     root.innerHTML = "";
 
-    const FORM_LABELS = (global.PharmacyMedications && global.PharmacyMedications.FORM_LABELS) || {};
-    const FORM_ORDER  = (global.PharmacyMedications && global.PharmacyMedications.FORM_ORDER)  || ["vial", "ampule", "prefilled-syringe", "tablet", "supplies"];
+    if (!Array.isArray(meds) || meds.length === 0) {
+      root.appendChild(h("div", {
+        style: "text-align:center;padding:40px;color:#999;font-size:14px;"
+      }, "لا توجد أدوية في الكتالوج"));
+      return;
+    }
+    if (!patientsMap || typeof patientsMap !== "object") {
+      root.appendChild(h("div", {
+        style: "text-align:center;padding:40px;color:#999;font-size:14px;"
+      }, "لا يوجد مرضى مسجلون"));
+      return;
+    }
 
+    // Build the list of occupied beds (room-N-bed-M → patient)
+    const Ward = global.PharmacyWard;
+    const occupiedRows = [];
+    Ward.ROOMS.forEach(room => {
+      room.beds.forEach(bed => {
+        const key = Ward.bedKey(room.id, bed.number);
+        const p = patientsMap[key];
+        if (p && p.name && p.name.trim()) {
+          occupiedRows.push({
+            key: key,
+            roomId: room.id,
+            bedNum: bed.number,
+            name: p.name.trim(),
+            medications: Array.isArray(p.medications) ? p.medications : []
+          });
+        }
+      });
+    });
+
+    if (occupiedRows.length === 0) {
+      root.appendChild(h("div", {
+        style: "text-align:center;padding:40px;color:#999;font-size:14px;"
+      }, "لا توجد أسرّة مشغولة بعد"));
+      return;
+    }
+
+    // Sort patients by room then bed
+    occupiedRows.sort((a, b) =>
+      (a.roomId - b.roomId) || (a.bedNum - b.bedNum));
+
+    // Index meds by id so we can look up which patient has which med
+    const medById = {};
+    const orderedMeds = [];
+    meds.forEach(m => {
+      medById[m.id] = m;
+      orderedMeds.push(m);
+    });
+
+    // Header: chart title + count info
     const now = new Date();
     const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}`;
-    const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
-    // Header
     root.appendChild(h("div", { class: "chart-header" }, [
       h("div", {}, [
         h("div", { class: "chart-title" }, "تشارت الأدوية"),
@@ -743,74 +788,78 @@
       ]),
       h("div", { class: "chart-meta" }, [
         h("div", {}, "التاريخ: " + dateStr),
-        h("div", {}, "الوقت: " + timeStr),
-        h("div", {}, "إجمالي الأدوية: " + meds.length)
+        h("div", {}, "عدد المرضى: " + occupiedRows.length),
+        h("div", {}, "عدد الأدوية: " + orderedMeds.length)
       ])
     ]));
 
-    // Build table
-    const table = h("table", { class: "chart-table" });
-    const thead = h("thead", {}, h("tr", {}, [
-      h("th", { style: "width:4%;" }, "#"),
-      h("th", { style: "width:18%;" }, "الاسم بالعربية"),
-      h("th", { style: "width:18%;" }, "الاسم العلمي"),
-      h("th", { style: "width:18%;" }, "الاسم التجاري"),
-      h("th", { style: "width:12%;" }, "الجرعة"),
-      h("th", { style: "width:12%;" }, "التكرار"),
-      h("th", { style: "width:18%;" }, "الشكل")
-    ]));
-    table.appendChild(thead);
+    // Build the matrix table.
+    // RTL layout: rightmost column = patient names, leftmost = (last med col).
+    // We render in DOM order from right (patient) to left (last med) because
+    // the document is `dir="rtl"`.
+    const table = h("table", { class: "chart-matrix" });
 
-    const tbody = h("tbody", {});
-
-    // Sort meds: by form (in FORM_ORDER), then by name within each form
-    const sortedMeds = meds.slice().sort((a, b) => {
-      const fa = FORM_ORDER.indexOf(a.form || "vial");
-      const fb = FORM_ORDER.indexOf(b.form || "vial");
-      if (fa !== fb) return fa - fb;
-      return (a.nameTrade || a.nameAr || "").localeCompare(b.nameTrade || b.nameAr || "");
-    });
-
-    sortedMeds.forEach((m, i) => {
-      const formKey = m.form && FORM_LABELS[m.form] ? m.form : "vial";
-      const formLabel = FORM_LABELS[formKey] || formKey;
-      const arabicName = m.nameAr || m.nameTrade || "—";
-      const englishName = m.nameEn || "—";
-      const tradeName = m.nameTrade || "—";
-      const dose = m.defaultDose || "—";
-      const freq = m.defaultFrequency || "—";
-
-      tbody.appendChild(h("tr", {}, [
-        h("td", {}, String(i + 1)),
-        h("td", { class: "chart-med-name" }, arabicName),
-        h("td", { class: "chart-med-en" }, englishName),
-        h("td", { class: "chart-med-name" }, tradeName),
-        h("td", {}, dose),
-        h("td", {}, freq),
-        h("td", {}, [
-          h("span", { class: "chart-form-badge chart-form-" + formKey }, formLabel)
-        ])
+    // --- Header row ---
+    // First cell (top-right) = "اسم المريض" label, then one cell per medication.
+    const thead = h("thead", {});
+    const headRow = h("tr", {});
+    headRow.appendChild(h("th", { class: "chart-patient-col-header" }, "اسم المريض"));
+    orderedMeds.forEach(m => {
+      // Show trade name (or scientific) vertically to save width
+      const label = m.nameTrade || m.nameAr || m.nameEn || m.id;
+      headRow.appendChild(h("th", {
+        class: "chart-med-col-header",
+        title: label + (m.nameEn ? " (" + m.nameEn + ")" : "")
+      }, [
+        h("div", { class: "chart-med-label" }, label)
       ]));
     });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
 
+    // --- Body rows: one per patient ---
+    const tbody = h("tbody", {});
+    occupiedRows.forEach((p, pi) => {
+      // Build a quick lookup of this patient's meds by med id → count
+      const myMedCounts = {};
+      p.medications.forEach(pm => {
+        // Extract the numeric count from the frequency (e.g., "1×3" → 3)
+        const match = (pm.frequency || "").match(/×\s*(\d+)/);
+        const n = match ? parseInt(match[1], 10) : 0;
+        // Use 0 for custom freqs — the cell will show "؟" or the raw freq
+        myMedCounts[pm.id] = { count: n, freq: pm.frequency || "" };
+      });
+
+      const tr = h("tr", {});
+      // Patient label cell (rightmost)
+      tr.appendChild(h("td", { class: "chart-patient-cell" }, [
+        h("div", { class: "chart-patient-name" }, p.name),
+        h("div", { class: "chart-patient-loc" }, `غ ${p.roomId} · س ${p.bedNum}`)
+      ]));
+
+      // One cell per medication (in the same order as the header)
+      orderedMeds.forEach(m => {
+        const entry = myMedCounts[m.id];
+        let cellText = "";
+        let cellClass = "chart-cell";
+        if (entry) {
+          if (entry.count > 0) {
+            cellText = String(entry.count);
+            cellClass += " chart-cell-filled";
+          } else {
+            // Custom freq (e.g. "حسب القياس") — show the raw frequency
+            cellText = entry.freq || "؟";
+            cellClass += " chart-cell-custom";
+          }
+        }
+        tr.appendChild(h("td", { class: cellClass }, cellText));
+      });
+
+      tbody.appendChild(tr);
+    });
     table.appendChild(tbody);
-    root.appendChild(table);
 
-    // Footer with signatures
-    root.appendChild(h("div", { class: "chart-footer" }, [
-      h("div", { class: "chart-sig" }, [
-        h("div", {}, "الصيدلي المسؤول"),
-        h("div", { class: "chart-sig-line" }, "التوقيع")
-      ]),
-      h("div", { class: "chart-sig" }, [
-        h("div", {}, "ممرض/ة الجناح"),
-        h("div", { class: "chart-sig-line" }, "التوقيع")
-      ]),
-      h("div", { class: "chart-sig" }, [
-        h("div", {}, "الطبيب المعالج"),
-        h("div", { class: "chart-sig-line" }, "التوقيع")
-      ])
-    ]));
+    root.appendChild(table);
   }
 
   global.PharmacyUI = {
