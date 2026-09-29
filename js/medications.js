@@ -34,9 +34,10 @@
   };
   // Display order — determines tab order in the bottom-sheet
   const FORM_ORDER = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup", "suppository", "solution", "supplies"];
-  // Icons (emoji) for each form
+  // Icons for each form — emoji strings or special image markers
+  // 'img:vial-icon.png' means render an <img> instead of emoji text
   const FORM_ICONS = {
-    vial:                '<img src="img/vial-icon.png" alt="Vial" style="width:16px;height:16px;display:block;" />',
+    vial:                "img:vial-icon.png",
     ampule:              "🔵",
     "prefilled-syringe": "💉",
     tablet:              "💊",

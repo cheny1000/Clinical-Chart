@@ -1231,6 +1231,12 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   font-size: 18px;
   line-height: 1;
 }
+.sheet-tab-icon-img {
+  width: 16px;
+  height: 16px;
+  display: block;
+  object-fit: contain;
+}
 .sheet-tab-label {
   font-weight: 800;
 }

@@ -29,6 +29,21 @@
     return el;
   };
 
+  // ---------- Icon helper ----------
+  // If the icon value starts with "img:", render an <img> element.
+  // Otherwise, render a <span> with the emoji text.
+  function makeIcon(iconValue) {
+    if (typeof iconValue === "string" && iconValue.indexOf("img:") === 0) {
+      const src = iconValue.slice(4);
+      return h("img", {
+        src: src,
+        alt: "",
+        class: "sheet-tab-icon-img"
+      });
+    }
+    return h("span", { class: "sheet-tab-icon", "aria-hidden": "true" }, iconValue);
+  }
+
   // ---------- Display name helpers ----------
   // PRIMARY name = nameTrade (falls back to nameAr then nameEn then "—")
   function primaryName(m) {
@@ -373,7 +388,7 @@
         "aria-selected": isActive ? "true" : "false",
         dataset: { tab: form }
       }, [
-        h("span", { class: "sheet-tab-icon", "aria-hidden": "true" }, FORM_ICONS[form] || "•"),
+        makeIcon(FORM_ICONS[form] || "•"),
         h("span", { class: "sheet-tab-label" }, FORM_LABELS[form] || form),
         h("span", { class: "sheet-tab-count", dataset: { formCount: form } }, String(counts[form] || 0))
       ]));
