@@ -2338,7 +2338,8 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   .chart-med-label {
     writing-mode: vertical-rl;
     text-orientation: mixed;
-    transform: rotate(180deg);
+    /* No rotation — text reads top-to-bottom naturally */
+    /* transform removed — vertical-rl alone reads correctly */
     font-size: 9px;
     font-weight: 700;
     line-height: 1.05;
