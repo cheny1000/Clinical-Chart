@@ -2339,7 +2339,7 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     writing-mode: vertical-rl;
     text-orientation: mixed;
     transform: rotate(180deg);
-    font-size: 7px;
+    font-size: 9px;
     font-weight: 700;
     line-height: 1.05;
     white-space: nowrap;
@@ -2360,7 +2360,7 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     vertical-align: middle;
     width: 70px;
     min-width: 70px;
-    font-size: 7px;
+    font-size: 9px;
     color: #000;
     line-height: 1.15;
   }
