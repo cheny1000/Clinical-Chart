@@ -796,7 +796,9 @@
         class: "chart-med-col-header",
         title: label + (m.nameEn ? " (" + m.nameEn + ")" : "")
       }, [
-        h("div", { class: "chart-med-label" }, label)
+        h("center", {}, [
+          h("div", { class: "chart-med-label" }, label)
+        ])
       ]));
     });
     thead.appendChild(headRow);
