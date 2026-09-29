@@ -764,11 +764,14 @@
     const table = h("table", { class: "chart-matrix" });
 
     // --- Header row ---
-    // First cell (top-right) shows fixed text: "الطابق الثامن / الوحدة الخامسة"
+    // First cell (top-right) shows fixed text on two lines, centered.
     const thead = h("thead", {});
     const headRow = h("tr", {});
     headRow.appendChild(h("th", { class: "chart-patient-col-header" }, [
-      h("center", {}, "الطابق الثامن / الوحدة الخامسة")
+      h("center", {}, [
+        h("div", {}, "الطابق الثامن"),
+        h("div", {}, "الوحدة الخامسة")
+      ])
     ]));
     orderedMeds.forEach(m => {
       if (!m) {
