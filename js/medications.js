@@ -36,7 +36,7 @@
   const FORM_ORDER = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup", "suppository", "solution", "supplies"];
   // Icons (emoji) for each form
   const FORM_ICONS = {
-    vial:                "💉",
+    vial:                '<img src="img/vial-icon.png" alt="Vial" style="width:16px;height:16px;display:block;" />',
     ampule:              "🔵",
     "prefilled-syringe": "💉",
     tablet:              "💊",
