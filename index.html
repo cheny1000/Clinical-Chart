@@ -82,18 +82,6 @@
           </button>
         </div>
       </div>
-
-      <!-- Compact dashboard stats -->
-      <div class="stats" id="stats" aria-label="إحصائيات">
-        <div class="stat">
-          <div class="stat-value" id="stat-patients">0</div>
-          <div class="stat-label">عدد المرضى</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value" id="stat-meds">0</div>
-          <div class="stat-label">عدد العلاجات</div>
-        </div>
-      </div>
     </header>
 
     <!-- ===== Main view container ===== -->
@@ -166,6 +154,10 @@
         <div class="section-title">
           <h2>المرضى</h2>
           <p>قائمة بجميع المرضى الحاليين</p>
+        </div>
+        <div class="patients-stat">
+          <span class="patients-stat-label">عدد المرضى:</span>
+          <span class="patients-stat-value" id="patients-count">0</span>
         </div>
         <div class="patients-list" id="patients-list">
           <!-- patient rows -->

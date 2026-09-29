@@ -48,16 +48,12 @@
   // ---------- Dashboard stats ----------
   function renderStats(patientsMap) {
     let patientCount = 0;
-    let medCount = 0;
     for (const p of Object.values(patientsMap)) {
       if (p && p.name && p.name.trim()) patientCount++;
-      if (p && Array.isArray(p.medications)) medCount += p.medications.length;
     }
-    document.getElementById("stat-patients").textContent = patientCount;
-    document.getElementById("stat-meds").textContent = medCount;
-    // stat-beds was removed from HTML — don't crash if missing
-    const bedsEl = document.getElementById("stat-beds");
-    if (bedsEl) bedsEl.textContent = global.PharmacyWard.TOTAL_BEDS;
+    // Update patients-count in the patients view (if visible)
+    const pcEl = document.getElementById("patients-count");
+    if (pcEl) pcEl.textContent = patientCount;
   }
 
   // ---------- Bed status helper ----------

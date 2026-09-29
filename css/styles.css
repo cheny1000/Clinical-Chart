@@ -876,6 +876,26 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 }
 
 /* ---------- Patients list view ---------- */
+.patients-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--primary-soft);
+  border-radius: var(--r-md);
+  margin-bottom: 12px;
+}
+.patients-stat-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.patients-stat-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--primary);
+}
+
 .patients-list {
   display: flex;
   flex-direction: column;
