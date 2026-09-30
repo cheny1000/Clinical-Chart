@@ -171,7 +171,6 @@
       state.medications = Storage.loadMedications();
       UI.renderAdminMedList(state.medications, null);
       updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
-      flashHint("تمت مزامنة الكتالوج من Supabase");
     } else if (res.skipped) {
       updateSupabaseStatusUI("يعمل محليًا · السحب متأخر", "error");
     } else {
