@@ -730,12 +730,94 @@
           const key = Ward.bedKey(room.id, bed.number);
           const p = patientsMap[key];
           if (p && p.name && p.name.trim()) {
+            // IMPORTANT: deep-copy the patient's medications array so
+            // the random-supply injection below doesn't mutate the
+            // actual stored data. The chart only sees a temporary
+            // snapshot; localStorage and state.patients stay clean.
+            const medsCopy = (Array.isArray(p.medications) ? p.medications : [])
+              .map(pm => pm && typeof pm === "object" ? Object.assign({}, pm) : pm);
             occupiedRows.push({
               name: p.name.trim(),
-              medications: Array.isArray(p.medications) ? p.medications : []
+              medications: medsCopy
             });
           }
         });
+      });
+    }
+
+    // -------- Random supplies injection (chart-only, not persisted) --------
+    // The chart shows two auto-randomized supplies per print:
+    //   1. 1cc Syringe: given to 60-80% of patients (random ratio
+    //      chosen per print), each receiving freq 1×3 or 1×4 (50/50).
+    //   2. I.V. Set: given to ALL patients (100%, no exception),
+    //      each receiving freq 1×1 or 1×2 with a 2:1 ratio (≈67%
+    //      get 1, ≈33% get 2).
+    //
+    // The injection only happens here, on the deep-copy above. The
+    // user's stored patient data (state.patients, localStorage) is
+    // NOT modified. Every print gets a fresh random distribution.
+    //
+    // If the supplies aren't in the catalog (user deleted them),
+    // we still inject them with hardcoded defaults — the chart is
+    // a printed artifact and doesn't need the catalog to render.
+    let stats = { syringe1ccCount: 0, ivSetCount: 0 };
+    if (occupiedRows.length > 0) {
+      // Look up the catalog entries for syringe-1cc and iv-set (if
+      // they exist). We use their metadata when available; otherwise
+      // we fall back to hardcoded values that match the catalog.
+      const syringe1ccMed = meds.find(m => m && m.id === "syringe-1cc");
+      const ivSetMed      = meds.find(m => m && m.id === "iv-set");
+      const syringe1ccDefaults = syringe1ccMed || {
+        id: "syringe-1cc", nameTrade: "1cc Syringe",
+        nameAr: "سرنجة 1 سي سي", nameEn: "1cc Syringe", form: "supplies"
+      };
+      const ivSetDefaults = ivSetMed || {
+        id: "iv-set", nameTrade: "I.V. Set",
+        nameAr: "خط وريدي", nameEn: "I.V. Set", form: "supplies"
+      };
+
+      // Pick a random ratio between 60% and 80% for syringe-1cc
+      const ratio = 0.60 + Math.random() * 0.20; // 0.60 .. 0.80
+      const targetSyringeCount = Math.round(occupiedRows.length * ratio);
+
+      // Choose which `targetSyringeCount` patients get the syringe.
+      // We shuffle the indices and take the first N.
+      const indices = occupiedRows.map((_, i) => i);
+      for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+      const syringeRecipients = new Set(indices.slice(0, targetSyringeCount));
+
+      // Inject per-patient
+      occupiedRows.forEach((row, i) => {
+        // 1cc Syringe (only the chosen subset)
+        if (syringeRecipients.has(i)) {
+          const freqNum = Math.random() < 0.5 ? 3 : 4;
+          row.medications.push({
+            id:        syringe1ccDefaults.id,
+            nameTrade: syringe1ccDefaults.nameTrade,
+            nameAr:    syringe1ccDefaults.nameAr || "",
+            nameEn:    syringe1ccDefaults.nameEn || "",
+            form:      "supplies",
+            dose:      syringe1ccMed && syringe1ccMed.defaultDose ? syringe1ccMed.defaultDose : "1 سرنجة",
+            frequency: "1×" + freqNum
+          });
+          stats.syringe1ccCount++;
+        }
+        // I.V. Set (everyone, no exception)
+        // 2:1 ratio → P(1) = 2/3 ≈ 67%, P(2) = 1/3 ≈ 33%
+        const ivFreqNum = Math.random() < (2/3) ? 1 : 2;
+        row.medications.push({
+          id:        ivSetDefaults.id,
+          nameTrade: ivSetDefaults.nameTrade,
+          nameAr:    ivSetDefaults.nameAr || "",
+          nameEn:    ivSetDefaults.nameEn || "",
+          form:      "supplies",
+          dose:      ivSetMed && ivSetMed.defaultDose ? ivSetMed.defaultDose : "1 خط",
+          frequency: "1×" + ivFreqNum
+        });
+        stats.ivSetCount++;
       });
     }
 
@@ -745,10 +827,40 @@
         if (pm && pm.id) prescribedIds.add(pm.id);
       });
     });
+    // prescribedMeds = catalog meds that are prescribed. PLUS any
+    // injected random supplies that aren't in the catalog (e.g. user
+    // deleted syringe-1cc / iv-set but we still injected them with
+    // fallback defaults). We add those fallbacks so their columns
+    // appear in the chart.
     const prescribedMeds = meds.filter(m => prescribedIds.has(m.id));
+    // Find any prescribed ids that aren't in the catalog, and
+    // synthesize catalog-like entries for them from the injected
+    // rows (so they get a column header in the chart).
+    const catalogIds = new Set(meds.map(m => m && m.id).filter(Boolean));
+    const missingFromCatalog = [];
+    prescribedIds.forEach(id => {
+      if (!catalogIds.has(id)) {
+        // Find the first injected row that has this id and use its
+        // metadata as the column header source.
+        for (const row of occupiedRows) {
+          const found = (row.medications || []).find(pm => pm && pm.id === id);
+          if (found) {
+            missingFromCatalog.push({
+              id:        found.id,
+              nameTrade: found.nameTrade,
+              nameAr:    found.nameAr    || "",
+              nameEn:    found.nameEn    || "",
+              form:      found.form      || "supplies"
+            });
+            break;
+          }
+        }
+      }
+    });
+    const allPrescribedMeds = prescribedMeds.concat(missingFromCatalog);
     const orderedMeds = [];
     for (let i = 0; i < MED_COLS; i++) {
-      orderedMeds.push(prescribedMeds[i] || null);
+      orderedMeds.push(allPrescribedMeds[i] || null);
     }
 
     const numPages = Math.max(1, Math.ceil(occupiedRows.length / PATIENTS_PER_PAGE));
@@ -833,6 +945,10 @@
       pageDiv.appendChild(table);
       root.appendChild(pageDiv);
     }
+    // Return the random-injection stats so the caller (app.js) can
+    // show a summary message like "تم توزيع 14 سرنجة 1cc + 20 خط
+    // وريدي على 20 مريض". The stats object is fresh on every call.
+    return stats;
   }
 
   global.PharmacyUI = {

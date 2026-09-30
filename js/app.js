@@ -991,7 +991,24 @@
         flashHint("لا توجد أدوية في الكتالوج");
         return;
       }
-      UI.buildChartReport(state.patients, state.medications);
+      // buildChartReport now returns stats about the random supply
+      // injection (how many 1cc syringes and I.V. sets were added).
+      // We surface them in a brief message so the pharmacist knows
+      // why some supplies appear in the chart even though they
+      // weren't explicitly prescribed to those patients.
+      const chartStats = UI.buildChartReport(state.patients, state.medications);
+      if (chartStats && (chartStats.syringe1ccCount > 0 || chartStats.ivSetCount > 0)) {
+        const totalPatients = Object.values(state.patients || {})
+          .filter(p => p && p.name && p.name.trim()).length;
+        const parts = [];
+        if (chartStats.syringe1ccCount > 0) {
+          parts.push(chartStats.syringe1ccCount + " سرنجة 1cc");
+        }
+        if (chartStats.ivSetCount > 0) {
+          parts.push(chartStats.ivSetCount + " خط وريدي");
+        }
+        flashHint("تم توزيع " + parts.join(" + ") + " عشوائيًا على " + totalPatients + " مريض");
+      }
 
       // Detect installed PWA on iOS. window.print() is not reliably
       // supported in iOS Safari's standalone mode (when the app is
