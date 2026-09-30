@@ -66,7 +66,20 @@
   }
 
   // -------- Auth: show / hide login screen --------
+  // We toggle the `is-authed` / `is-unauthed` class on <html> so the
+  // pre-paint CSS gate (in <head>) stays in sync with runtime auth
+  // state. The HTML default has `#app` visible and `#login-screen`
+  // hidden, but the CSS in <head> overrides that based on the class
+  // on <html>, so we must update the class whenever auth state changes
+  // (login, logout, session expiry, etc.).
+  function setAuthClass(loggedIn) {
+    const html = document.documentElement;
+    html.classList.toggle("is-authed",   !!loggedIn);
+    html.classList.toggle("is-unauthed", !loggedIn);
+  }
+
   function showLogin() {
+    setAuthClass(false);
     $("login-screen").hidden = false;
     // Reset any previous form state
     $("login-username").value = "";
@@ -77,6 +90,7 @@
   }
 
   function showApp() {
+    setAuthClass(true);
     $("login-screen").hidden = true;
   }
 

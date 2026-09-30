@@ -31,6 +31,33 @@
   <link rel="apple-touch-icon" sizes="192x192" href="img/icon-192.png" />
   <link rel="apple-touch-icon" sizes="512x512" href="img/icon-512.png" />
   <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    /* Pre-paint auth gate: hide the wrong screen before JS loads to
+       prevent a flash of unauthenticated content (1-2s where the
+       home page is visible before the login overlay appears).
+       The script in <head> sets one of these classes synchronously. */
+    html.is-authed    #login-screen { display: none !important; }
+    html.is-unauthed  #app          { display: none !important; }
+    /* While we're still deciding (no class set yet — extremely rare
+       race), hide the app to be safe. */
+    html:not(.is-authed):not(.is-unauthed) #app { display: none !important; }
+  </style>
+  <script>
+    // Synchronous pre-paint auth check.
+    // Must run in <head> before any visible content is painted so the
+    // correct screen is visible from the very first frame.
+    try {
+      var raw = localStorage.getItem('pharma.session.v1');
+      var isAuthed = false;
+      if (raw) {
+        var s = JSON.parse(raw);
+        isAuthed = !!(s && s.username && s.role);
+      }
+      document.documentElement.classList.add(isAuthed ? 'is-authed' : 'is-unauthed');
+    } catch (e) {
+      document.documentElement.classList.add('is-unauthed');
+    }
+  </script>
 </head>
 <body>
   <!-- ===== Login overlay (shown until user logs in) ===== -->
