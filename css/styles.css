@@ -1429,34 +1429,37 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   background: #fff;
   border: 1.5px solid var(--border);
   border-right: 4px solid var(--primary);
-  border-radius: var(--r-md);
-  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  padding: 4px 6px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   animation: viewIn 200ms ease-out;
 }
-.sel-item-head {
+.sel-item-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 6px;
+  flex-wrap: nowrap;
 }
 .sel-item-name {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   flex: 1;
   min-width: 0;
   color: var(--text);
   user-select: none;
   -webkit-user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sel-item-del {
-  width: 28px; height: 28px;
+  width: 22px; height: 22px;
   border-radius: var(--r-sm);
   background: var(--danger-soft);
   color: var(--danger);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   display: grid; place-items: center;
   flex-shrink: 0;
@@ -1501,12 +1504,12 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   direction: ltr;
 }
 .freq-step-btn {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   border-radius: 0;
   background: #fff;
   color: var(--primary);
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 800;
   line-height: 1;
   cursor: pointer;
@@ -1543,12 +1546,12 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 }
 
 .freq-step-number {
-  min-width: 26px;
-  height: 28px;
-  padding: 0 4px;
+  min-width: 20px;
+  height: 22px;
+  padding: 0 3px;
   display: grid;
   place-items: center;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   color: var(--text);
   background: var(--bg);

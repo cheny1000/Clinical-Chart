@@ -490,20 +490,17 @@
     selected.forEach((m, idx) => {
       container.appendChild(
         h("div", { class: "sel-item", dataset: { selIndex: idx } }, [
-          h("div", { class: "sel-item-head" }, [
+          // Single row: name | dose | -/+ | delete — all on one line
+          h("div", { class: "sel-item-row" }, [
             h("div", { class: "sel-item-name" }, primaryName(m)),
+            h("span", { class: "sel-item-dose" }, m.dose || "—"),
+            renderFreqStepper(m.frequency),
             h("button", {
               class: "sel-item-del",
               type: "button",
-              dataset: { selIndex: idx, action: "del-selected" }
+              dataset: { selIndex: idx, action: "del-selected" },
+              title: "حذف"
             }, "✕")
-          ]),
-          // Stepper row: - / + buttons with frequency count in the middle,
-          // plus the dose on the same row for compactness.
-          h("div", { class: "sel-item-controls" }, [
-            h("span", { class: "sel-item-dose" }, m.dose || "—"),
-            renderFreqStepper(m.frequency),
-            h("span", { class: "sel-item-freq" }, m.frequency || "—")
           ])
         ])
       );
