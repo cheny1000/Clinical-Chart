@@ -100,9 +100,11 @@
     const isAdmin = Auth.isAdmin();
     const adminBtn = $("open-admin");
     if (adminBtn) adminBtn.hidden = !isAdmin;
-    // chart button + logout button are always visible (both roles)
+    // chart button + sync button + logout button are always visible (both roles)
     const chartBtn = $("print-chart-btn");
     if (chartBtn) chartBtn.hidden = false;
+    const syncBtn = $("sync-now-btn");
+    if (syncBtn) syncBtn.hidden = false;
     const logoutBtn = $("logout-btn");
     if (logoutBtn) logoutBtn.hidden = false;
   }
@@ -251,6 +253,87 @@
       state.patients = Storage.loadPatients();
       refreshStatsAndRooms();
       flashHint(`تم دمج ${pres.count} مريض من السحابة`);
+    }
+  }
+
+  // -------- Manual sync from the header button --------
+  // Single tap → pulls catalog (force) + merge-pulls patients, with
+  // a simple success message ("تمت المزامنة بنجاح") or a detailed
+  // error message. Disables the button + spins the icon while the
+  // sync is running so the user can't double-trigger it.
+  let _syncInFlight = false;
+  async function syncNow() {
+    if (_syncInFlight) return; // prevent double-tap
+    if (!SB || !SBSync || !SB.isConfigured()) {
+      flashHint("Supabase غير مُهيّأ — افتح الإعدادات لربط الحساب");
+      return;
+    }
+
+    const btn = $("sync-now-btn");
+    const wasDisabled = btn ? btn.disabled : false;
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.add("is-syncing");
+    }
+    _syncInFlight = true;
+    updateSupabaseStatusUI("جارٍ المزامنة…", "loading");
+
+    let okCount = 0;
+    let failCount = 0;
+    let firstError = "";
+
+    try {
+      // 1) Pull catalog (force = true to bypass the "unsynced local
+      //    edits" guard, since the user explicitly asked for a sync)
+      const cres = await SBSync.pullCatalog(true);
+      if (cres.ok) {
+        state.medications = Storage.loadMedications();
+        UI.renderAdminMedList(state.medications, null);
+        okCount++;
+      } else if (cres.skipped) {
+        // skipped is not really a failure — local catalog is fresher
+        okCount++;
+      } else {
+        failCount++;
+        firstError = firstError || ("الكتالوج: " + cres.error);
+      }
+
+      // 2) Merge-pull patients (non-destructive, last-write-wins)
+      const pres = await SBSync.pullPatients();
+      if (pres.ok) {
+        state.patients = Storage.loadPatients();
+        refreshStatsAndRooms();
+        okCount++;
+      } else {
+        failCount++;
+        firstError = firstError || ("المرضى: " + pres.error);
+      }
+
+      // 3) Report result
+      if (failCount === 0) {
+        updateSupabaseStatusUI(
+          `مربوط · ${state.medications.length} دواء · ${Object.keys(state.patients).length} مريض`,
+          "connected"
+        );
+        flashHint("تمت المزامنة بنجاح");
+      } else if (okCount === 0) {
+        updateSupabaseStatusUI("فشلت المزامنة: " + firstError, "error");
+        flashHint("فشلت المزامنة: " + firstError);
+      } else {
+        // partial: one part failed, the other succeeded
+        updateSupabaseStatusUI("مزامنة جزئية — فشل: " + firstError, "error");
+        flashHint("مزامنة جزئية — فشل: " + firstError);
+      }
+    } catch (e) {
+      const msg = (e && e.message) ? e.message : String(e);
+      updateSupabaseStatusUI("فشلت المزامنة: " + msg, "error");
+      flashHint("فشلت المزامنة: " + msg);
+    } finally {
+      _syncInFlight = false;
+      if (btn) {
+        btn.classList.remove("is-syncing");
+        btn.disabled = wasDisabled;
+      }
     }
   }
 
@@ -710,6 +793,13 @@
         });
       });
     });
+
+    // ----- Sync now (manual) -----
+    // Pulls the catalog + patients from Supabase (non-destructive merge
+    // for patients). Visible to both admin and pharmacist. Disables
+    // itself and spins the icon while the sync is running to prevent
+    // double-clicks.
+    $("sync-now-btn").addEventListener("click", syncNow);
 
     // Admin back button
     $("admin-back-btn").addEventListener("click", () => {
