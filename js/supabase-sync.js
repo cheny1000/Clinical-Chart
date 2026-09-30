@@ -236,9 +236,80 @@
     }
   }
 
+  // ---------- Patient sync (bed_key → patient) ----------
+  // Push all local patients to Supabase (upsert by bed_key).
+  async function pushPatients() {
+    if (!SB || !SB.isConfigured()) return { ok: false, error: "غير مُهيّأ" };
+    const client = SB.getClient();
+    if (!client) return { ok: false, error: "تعذّر إنشاء عميل Supabase" };
+
+    const patients = Local.loadPatients();
+    const entries = Object.entries(patients).map(([bedKey, p]) => ({
+      bed_key:    bedKey,
+      room_id:    parseInt(bedKey.match(/room-(\d+)/)?.[1] || "0", 10),
+      bed_number: parseInt(bedKey.match(/bed-(\d+)/)?.[1] || "0", 10),
+      name:       p.name || "",
+      medications: JSON.stringify(p.medications || []),
+      updated_at:  new Date().toISOString()
+    }));
+
+    try {
+      if (entries.length > 0) {
+        const { error: upErr } = await client
+          .from("patients")
+          .upsert(entries, { onConflict: "bed_key" });
+        if (upErr) return { ok: false, error: upErr.message };
+      }
+      // Delete beds that no longer have a patient locally
+      const localKeys = entries.map(e => e.bed_key);
+      if (localKeys.length > 0) {
+        const inList = "(" + localKeys.map(k => JSON.stringify(k)).join(",") + ")";
+        await client.from("patients").delete().not("bed_key", "in", inList);
+      } else {
+        await client.from("patients").delete().neq("bed_key", "__never__");
+      }
+      return { ok: true, count: entries.length };
+    } catch (e) {
+      return { ok: false, error: (e && e.message) ? e.message : String(e) };
+    }
+  }
+
+  // Pull all patients from Supabase → overwrite local.
+  async function pullPatients() {
+    if (!SB || !SB.isConfigured()) return { ok: false, error: "غير مُهيّأ" };
+    const client = SB.getClient();
+    if (!client) return { ok: false, error: "تعذّر إنشاء عميل Supabase" };
+
+    try {
+      const { data, error } = await client
+        .from("patients")
+        .select("*");
+      if (error) return { ok: false, error: error.message };
+      if (!Array.isArray(data)) return { ok: false, error: "استجابة غير متوقعة" };
+
+      const patients = {};
+      data.forEach(row => {
+        if (!row.bed_key) return;
+        patients[row.bed_key] = {
+          name: row.name || "",
+          medications: (() => {
+            try { return typeof row.medications === "string" ? JSON.parse(row.medications) : (row.medications || []); }
+            catch (e) { return []; }
+          })()
+        };
+      });
+      Local.savePatients(patients);
+      return { ok: true, count: Object.keys(patients).length };
+    } catch (e) {
+      return { ok: false, error: (e && e.message) ? e.message : String(e) };
+    }
+  }
+
   global.PharmacySupabaseSync = {
     pullCatalog,
     pushCatalog,
+    pushPatients,
+    pullPatients,
     medToRow,
     rowToMed,
     loadSyncState,

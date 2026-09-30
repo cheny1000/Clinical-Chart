@@ -150,20 +150,23 @@
       return;
     }
     updateSupabaseStatusUI("جارٍ المزامنة…", "loading");
+    // Pull catalog (medications)
     const res = await SBSync.pullCatalog();
     if (res.ok) {
       state.medications = Storage.loadMedications();
       UI.renderAdminMedList(state.medications, null);
-      refreshStatsAndRooms();
       updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
       flashHint("تمت مزامنة الكتالوج من Supabase");
     } else if (res.skipped) {
-      // Pull was skipped to protect local edits — keep the local catalog
       updateSupabaseStatusUI("يعمل محليًا · السحب متأخر", "error");
-      flashHint("الكتالوج المحلي محفوظ (آخر رفع لـ Supabase فشل)");
     } else {
       updateSupabaseStatusUI("خطأ: " + res.error, "error");
-      console.warn("[Supabase] pull failed:", res.error);
+    }
+    // Pull patients too
+    const pres = await SBSync.pullPatients();
+    if (pres.ok) {
+      state.patients = Storage.loadPatients();
+      refreshStatsAndRooms();
     }
   }
 
@@ -286,6 +289,12 @@
   function persistPatient(bedKey) {
     Storage.upsertPatient(bedKey, state.patients[bedKey]);
     refreshStatsAndRooms();
+    // Push patients to Supabase (fire-and-forget)
+    if (SBSync && SBSync.pushPatients) {
+      SBSync.pushPatients().then(r => {
+        if (!r.ok) console.warn("[Supabase] patient push failed:", r.error);
+      });
+    }
   }
 
   // -------- Event wiring --------
@@ -395,6 +404,12 @@
       state.currentBed = null;
       refreshStatsAndRooms();
       UI.showView("home");
+      // Sync deleted patient to Supabase
+      if (SBSync && SBSync.pushPatients) {
+        SBSync.pushPatients().then(r => {
+          if (!r.ok) console.warn("[Supabase] patient delete push failed:", r.error);
+        });
+      }
     });
 
     // ----- Bottom navigation -----
@@ -696,6 +711,12 @@
       state.currentBed = null;
       refreshStatsAndRooms();
       flashHint("تم مسح جميع بيانات المرضى");
+      // Sync wipe to Supabase
+      if (SBSync && SBSync.pushPatients) {
+        SBSync.pushPatients().then(r => {
+          if (!r.ok) console.warn("[Supabase] wipe push failed:", r.error);
+        });
+      }
     });
 
     // ----- Supabase: test / save / clear -----
