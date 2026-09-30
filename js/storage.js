@@ -153,10 +153,43 @@
   // has NEVER saved anything (key doesn't exist). Once the user has
   // saved (even an empty array), we respect their choice — deleting
   // all meds should NOT silently restore defaults on next boot.
+  //
+  // HOWEVER: there are a few "required supplies" that the app's
+  // auto-add rules depend on (e.g. '5cc Syringe' is auto-added with
+  // every vial/ampule). If a returning user has a saved catalog that
+  // predates the auto-add rule, we inject the required supplies on
+  // the next load. This is a one-time migration — once injected,
+  // they show up like any other catalog item and the user can edit
+  // or delete them (though deleting them will break the auto-add
+  // rule for new vials/ampules added afterwards).
+  const REQUIRED_SUPPLIES = [
+    {
+      id: "syringe-5cc",
+      nameTrade: "5cc Syringe",
+      nameAr:    "سرنجة 5 سي سي",
+      nameEn:    "5cc Syringe",
+      form:      "supplies",
+      defaultDose:      "1 سرنجة",
+      defaultFrequency: "حسب الحاجة"
+    }
+  ];
+  function injectRequiredSupplies(list) {
+    if (!Array.isArray(list)) return list;
+    const existingIds = new Set(list.map(m => m && m.id).filter(Boolean));
+    let changed = false;
+    for (const req of REQUIRED_SUPPLIES) {
+      if (!existingIds.has(req.id)) {
+        list.push(Object.assign({}, req));
+        changed = true;
+      }
+    }
+    return { list, changed };
+  }
+
   function loadMedications() {
     const raw = localStorage.getItem(STORAGE_KEYS.MEDICATIONS);
     if (raw === null) {
-      // First run: seed defaults
+      // First run: seed defaults (already includes all required supplies)
       const def = (global.PharmacyMedications && global.PharmacyMedications.DEFAULT_MEDICATIONS) || [];
       safeSet(STORAGE_KEYS.MEDICATIONS, def);
       return def;
@@ -165,7 +198,14 @@
     const stored = safeParse(raw, []);
     if (Array.isArray(stored)) {
       // Migrate: ensure nameTrade + form are present on every catalog entry
-      const res = migrateMedsList(stored);
+      let res = migrateMedsList(stored);
+      // Inject any required supplies that are missing (e.g. user's
+      // saved catalog predates the introduction of 'syringe-5cc').
+      const inj = injectRequiredSupplies(res.list);
+      if (inj.changed) {
+        res.list = inj.list;
+        res.changed = true;
+      }
       if (res.changed) safeSet(STORAGE_KEYS.MEDICATIONS, res.list);
       return res.list;
     }
@@ -233,6 +273,8 @@
     getLocalCatalogSyncedAt,
     setLocalCatalogSyncedAt,
     hasUnsyncedLocalEdits,
+    // auto-add rule support
+    REQUIRED_SUPPLIES,
     // bulk
     loadAll
   };

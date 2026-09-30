@@ -495,6 +495,72 @@
     }
   }
 
+  // -------- Auto-add supplies for injections --------
+  // When the user adds a vial or ampule to a patient, the patient
+  // also needs a syringe to administer the medication. This function
+  // appends one 'syringe-5cc' entry per vial/ampule in the just-added
+  // selection. The syringe is taken from Storage.REQUIRED_SUPPLIES
+  // (defined in storage.js, also injected into the user's catalog
+  // on load if missing).
+  //
+  // Rules:
+  //   - Only triggered by form === 'vial' or form === 'ampule'.
+  //   - prefilled-syringe already comes with its own syringe, so it
+  //     does NOT trigger an auto-add.
+  //   - If 'syringe-5cc' isn't in the catalog (user deleted it), the
+  //     rule silently skips — we don't add a generic supply the user
+  //     didn't ask for.
+  //   - The auto-added syringes always use the supply's default
+  //     dose/frequency (set in medications.js / REQUIRED_SUPPLIES).
+  //   - The user said "always add" — no de-duplication check against
+  //     existing syringes on the patient. So 3 new vials → 3 new
+  //     syringe entries (even if the patient already had syringes).
+  //
+  // Args:
+  //   patient       : the patient object (with .medications array)
+  //   justAdded     : array of meds the user just selected (from
+  //                   state.sheet.selectedList)
+  //   catalog       : the full medications catalog (to look up the
+  //                   syringe-5cc default dose/frequency)
+  //
+  // Returns: the array of syringe entries actually added (so the
+  // caller can include the count in the success message).
+  function autoAddSuppliesForInjections(patient, justAdded, catalog) {
+    if (!patient || !Array.isArray(justAdded) || justAdded.length === 0) return [];
+    if (!Array.isArray(catalog) || catalog.length === 0) return [];
+
+    // Look up the syringe med in the catalog
+    const REQUIRED = Storage.REQUIRED_SUPPLIES || [];
+    const syringeId = REQUIRED.find(r => r.id === "syringe-5cc") ? "syringe-5cc" : null;
+    if (!syringeId) return [];
+    const syringeMed = catalog.find(m => m && m.id === syringeId);
+    if (!syringeMed) return []; // user deleted the syringe from catalog
+
+    // Count how many of the just-added items are vial/ampule
+    const injectionCount = justAdded.filter(s =>
+      s && (s.form === "vial" || s.form === "ampule")
+    ).length;
+    if (injectionCount === 0) return [];
+
+    // Append `injectionCount` syringe entries to the patient
+    if (!Array.isArray(patient.medications)) patient.medications = [];
+    const added = [];
+    for (let i = 0; i < injectionCount; i++) {
+      const entry = {
+        id:        syringeMed.id,
+        nameTrade: syringeMed.nameTrade,
+        nameAr:    syringeMed.nameAr    || "",
+        nameEn:    syringeMed.nameEn    || "",
+        form:      syringeMed.form      || "supplies",
+        dose:      syringeMed.defaultDose      || "1 سرنجة",
+        frequency: syringeMed.defaultFrequency || "حسب الحاجة"
+      };
+      patient.medications.push(entry);
+      added.push(entry);
+    }
+    return added;
+  }
+
   // -------- PWA install button (Android Chrome / Edge / etc.) --------
   // The browser fires `beforeinstallprompt` when it considers the
   // site installable (manifest + SW + served over HTTPS). We capture
@@ -837,6 +903,8 @@
       if (!state.currentBed) return;
       if (state.sheet.selectedList.length === 0) return;
       const p = ensurePatient(state.currentBed.key);
+
+      // 1) Add the user-selected meds to the patient
       state.sheet.selectedList.forEach(s => {
         p.medications.push({
           id:        s.id,
@@ -848,9 +916,27 @@
           frequency: s.frequency
         });
       });
+      const userAddedCount = state.sheet.selectedList.length;
+
+      // 2) Auto-add supplies for vials/ampules (each vial or ampule
+      //    needs a syringe to administer). We use the '5cc Syringe'
+      //    supply defined in Storage.REQUIRED_SUPPLIES.
+      //    Rule: 1 syringe per vial/ampule added by the user. If the
+      //    supply med isn't in the catalog (user deleted it), skip
+      //    silently — the rule only applies when the supply exists.
+      const autoAdded = autoAddSuppliesForInjections(p, state.sheet.selectedList, state.medications);
+      const autoCount = autoAdded.length;
+
       persistPatient(state.currentBed.key);
       closeSheet();
-      flashHint("تمت إضافة " + state.sheet.selectedList.length + " علاج");
+      // Message reflects both the user's picks AND the auto-added
+      // syringes so the pharmacist isn't confused by extra items
+      // appearing in the patient's med list.
+      if (autoCount > 0) {
+        flashHint(`تمت إضافة ${userAddedCount} علاج + ${autoCount} سرنجة تلقائيًا`);
+      } else {
+        flashHint("تمت إضافة " + userAddedCount + " علاج");
+      }
       // Return to rooms view immediately so the pharmacist can move to
       // the next patient without an extra tap on the back button.
       state.currentBed = null;
