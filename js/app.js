@@ -498,32 +498,37 @@
   // -------- Auto-managed syringe entry (one per patient) --------
   // The '5cc Syringe' supply (id: syringe-5cc) is auto-managed for
   // each patient. There is at most ONE syringe entry per patient,
-  // and its frequency reflects the TOTAL count of vials + ampules
-  // on that patient (each vial/ampule needs one syringe to admin).
+  // and its frequency reflects the TOTAL number of syringes needed
+  // across all the patient's vials and ampules.
   //
-  // Rules (re-applied on every patient med change):
-  //   - Count vials + ampules (excluding the syringe itself).
-  //   - If count > 0:
-  //       - If no syringe entry exists → add one with freq `1×N`.
-  //       - If one syringe entry exists → update its freq to `1×N`.
-  //       - If multiple syringe entries exist (e.g. user manually
-  //         added one) → keep the first, update its freq, drop the
-  //         rest (consolidation).
-  //   - If count === 0:
-  //       - Remove all syringe entries (no injections → no syringe).
-  //   - The syringe entry is fully SYSTEM-MANAGED. The user cannot
-  //     manually change its frequency (any edit gets overridden on
-  //     the next recompute, which runs on every add/delete/edit).
-  //     The user can delete the syringe entry, but it'll be re-added
-  //     on the next change if there are still vials/ampules. To
-  //     permanently remove the syringe, the user must delete all
-  //     vials/ampules.
-  //   - If syringe-5cc is missing from the catalog (user deleted it
-  //     from the catalog admin), the rule silently skips — no
-  //     syringe is auto-added/managed.
+  // COUNTING RULE (the user's clinical rule):
+  //   - For each vial/ampule on the patient, parse its frequency
+  //     (e.g. '1×2' → 2). The number after '×' is how many times
+  //     per day the medication is administered, and each administration
+  //     needs a fresh syringe.
+  //   - Sum those numbers across all vials + ampules → total syringe
+  //     count for the day.
+  //   - For non-numeric frequencies ('حسب القياس', 'حسب البروتوكول',
+  //     'حسب الحاجة', etc.) → count as 1 syringe (assumption: the
+  //     medication IS administered at least once, just not on a
+  //     fixed schedule).
   //
-  // The chart parses the number after × in the frequency, so `1×N`
-  // displays as "N" in the syringe column.
+  // Example:
+  //   Ceftriaxone (vial, 1×2) + Vancomycin (vial, 1×2) → 2 + 2 = 4
+  //   → syringe entry has frequency '1×4' → chart shows '4'
+  //
+  // The rest of the rule (one entry per patient, auto-add/remove,
+  // recompute on every change) stays the same as before.
+  function _syringesForFrequency(freq) {
+    if (!freq || typeof freq !== "string") return 1; // treat missing as 1
+    // Look for the pattern `×N` or `xN` (any multiplication mark)
+    // followed by a number.
+    const m = freq.match(/[×x]\s*(\d+)/);
+    if (m) return parseInt(m[1], 10);
+    // Non-numeric frequency (e.g. 'حسب القياس') → assume 1
+    return 1;
+  }
+
   function recomputeSyringeForPatient(patient, catalog) {
     if (!patient || !Array.isArray(patient.medications)) return;
     if (!Array.isArray(catalog)) return;
@@ -531,11 +536,19 @@
     const syringeMed = catalog.find(m => m && m.id === "syringe-5cc");
     if (!syringeMed) return; // user deleted syringe from catalog
 
-    // Count vials + ampules on the patient (the syringe itself has
-    // form: "supplies" so it's not counted here).
-    const injectionCount = patient.medications.filter(pm =>
-      pm && (pm.form === "vial" || pm.form === "ampule")
-    ).length;
+    // Sum the per-dose counts across all vials + ampules on the
+    // patient. Each vial/ampule's frequency tells us how many
+    // times/day it's administered, and each administration needs a
+    // fresh syringe.
+    let totalSyringes = 0;
+    let hasInjections = false;
+    patient.medications.forEach(pm => {
+      if (!pm) return;
+      if (pm.form === "vial" || pm.form === "ampule") {
+        hasInjections = true;
+        totalSyringes += _syringesForFrequency(pm.frequency);
+      }
+    });
 
     // Find all syringe entries (there could be 0, 1, or more if the
     // user manually added one). We consolidate to at most one.
@@ -544,15 +557,15 @@
       if (pm && pm.id === "syringe-5cc") syringeIndices.push(i);
     });
 
-    if (injectionCount === 0) {
+    if (!hasInjections || totalSyringes === 0) {
       // No injections → remove all syringe entries (no syringe needed)
       for (let i = syringeIndices.length - 1; i >= 0; i--) {
         patient.medications.splice(syringeIndices[i], 1);
       }
     } else {
       // Has injections → ensure exactly one syringe entry with
-      // frequency = `1×N` where N = injectionCount
-      const newFreq = "1×" + injectionCount;
+      // frequency = `1×N` where N = totalSyringes
+      const newFreq = "1×" + totalSyringes;
       if (syringeIndices.length === 0) {
         // Add a new syringe entry
         patient.medications.push({
