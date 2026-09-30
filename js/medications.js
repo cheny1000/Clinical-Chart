@@ -42,7 +42,7 @@
     "prefilled-syringe": "💉",
     tablet:              "💊",
     syrup:               "🧴",
-    suppository:         "🔵",
+    suppository:         "img:img/suppository-icon.png",
     solution:            "💧",
     supplies:            "🧰"
   };
