@@ -41,7 +41,7 @@
     ampule:              "img:img/ampule-icon.png",
     "prefilled-syringe": "💉",
     tablet:              "💊",
-    syrup:               "🧴",
+    syrup:               "img:img/syrup-icon.png",
     suppository:         "img:img/suppository-icon.png",
     solution:            "💧",
     supplies:            "🧰"
