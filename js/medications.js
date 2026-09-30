@@ -43,7 +43,7 @@
     tablet:              "img:img/tablet-icon.png",
     syrup:               "img:img/syrup-icon.png",
     suppository:         "img:img/suppository-icon.png",
-    solution:            "💧",
+    solution:            "img:img/solution-icon.png",
     supplies:            "img:img/supplies-icon.png"
   };
 
