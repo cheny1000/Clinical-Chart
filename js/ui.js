@@ -707,17 +707,7 @@
   }
 
   // ---------- Print Chart (التشارت) ----------
-  // Builds a printable matrix (table) with FIXED dimensions:
-  //   - 35 rows for patients (left empty if fewer patients)
-  //   - 50 columns for medications (from the catalog, in sort_order)
-  //   - The first column (rightmost, where patient names go) header
-  //     contains "الطابق / الوحدة" + "التاريخ" — editable fields the
-  //     pharmacist fills by hand. The column itself has 35 empty rows
-  //     for the pharmacist to write patient names manually on the
-  //     printed sheet.
-  //   - Cell at (row_i, med_j) = the count of doses/day if the patient
-  //     at row i has that medication, else empty
-  // The matrix is sorted by room+bed for patients.
+  // Auto-pagination: 35 patients per page, header + med columns repeat.
   function buildChartReport(patientsMap, meds) {
     const root = document.getElementById("chart-print-root");
     root.innerHTML = "";
@@ -729,10 +719,9 @@
       return;
     }
 
-    // Fixed dimensions (per user spec)
-    const PATIENT_ROWS = 35;
+    const PATIENTS_PER_PAGE = 35;
+    const MED_COLS = 50;
 
-    // Build the list of occupied beds sorted by room+bed
     const Ward = global.PharmacyWard;
     const occupiedRows = [];
     if (patientsMap && typeof patientsMap === "object") {
@@ -750,8 +739,6 @@
       });
     }
 
-    // Build 50 columns: first fill with prescribed meds (in catalog
-    // sort order), then pad with empty columns to reach 50 total.
     const prescribedIds = new Set();
     occupiedRows.forEach(p => {
       p.medications.forEach(pm => {
@@ -759,104 +746,93 @@
       });
     });
     const prescribedMeds = meds.filter(m => prescribedIds.has(m.id));
-    // Pad with nulls to always have 50 columns
-    const MED_COLS = 50;
     const orderedMeds = [];
     for (let i = 0; i < MED_COLS; i++) {
       orderedMeds.push(prescribedMeds[i] || null);
     }
 
-    // Cap to PATIENT_ROWS — extra occupied beds beyond 35 are skipped
-    const rowsToRender = PATIENT_ROWS;
-    const patientsToUse = occupiedRows.slice(0, PATIENT_ROWS);
+    const numPages = Math.max(1, Math.ceil(occupiedRows.length / PATIENTS_PER_PAGE));
 
-    // ----- Matrix table -----
-    const table = h("table", { class: "chart-matrix" });
+    for (let page = 0; page < numPages; page++) {
+      const startIdx = page * PATIENTS_PER_PAGE;
+      const pagePatients = occupiedRows.slice(startIdx, startIdx + PATIENTS_PER_PAGE);
 
-    // --- Header row ---
-    // First cell (top-right) shows fixed text on two lines, centered.
-    const thead = h("thead", {});
-    const headRow = h("tr", {});
-    headRow.appendChild(h("th", { class: "chart-patient-col-header" }, [
-      h("center", {}, [
-        h("div", {}, "الطابق الثامن"),
-        h("div", {}, "الوحدة الخامسة")
-      ])
-    ]));
-    orderedMeds.forEach(m => {
-      if (!m) {
-        // Empty column (no med) — still render a header cell to keep
-        // the 50-column structure, just with no text.
-        headRow.appendChild(h("th", { class: "chart-med-col-header chart-med-empty" }, ""));
-        return;
-      }
-      const label = m.nameTrade || m.nameAr || m.nameEn || m.id;
-      headRow.appendChild(h("th", {
-        class: "chart-med-col-header",
-        title: label + (m.nameEn ? " (" + m.nameEn + ")" : "")
-      }, [
+      const pageDiv = h("div", { class: "chart-page" + (page > 0 ? " chart-page-break" : "") });
+      const table = h("table", { class: "chart-matrix" });
+
+      const thead = h("thead", {});
+      const headRow = h("tr", {});
+      headRow.appendChild(h("th", { class: "chart-patient-col-header" }, [
         h("center", {}, [
-          h("div", { class: "chart-med-label" }, label)
+          h("div", {}, "الطابق الثامن"),
+          h("div", {}, "الوحدة الخامسة")
         ])
       ]));
-    });
-    thead.appendChild(headRow);
-    table.appendChild(thead);
-
-    // --- Body rows: 35 fixed rows ---
-    const tbody = h("tbody", {});
-    for (let i = 0; i < rowsToRender; i++) {
-      const p = patientsToUse[i];
-      const tr = h("tr", {});
-
-      // Patient cell: name only (no room/bed). Empty if no patient at this row.
-      // Wrapped in <center> tag for reliable center alignment in print mode.
-      const patientName = (p && p.name) ? p.name : "";
-      tr.appendChild(h("td", { class: "chart-patient-cell" }, [
-        h("center", {}, patientName)
-      ]));
-
-      // Build the med count lookup for this patient (if any)
-      let myMedCounts = null;
-      if (p && Array.isArray(p.medications) && p.medications.length > 0) {
-        myMedCounts = {};
-        p.medications.forEach(pm => {
-          const match = (pm.frequency || "").match(/×\s*(\d+)/);
-          const n = match ? parseInt(match[1], 10) : 0;
-          myMedCounts[pm.id] = { count: n, freq: pm.frequency || "" };
-        });
-      }
-
-      // One cell per medication column (50 total, some may be null)
       orderedMeds.forEach(m => {
-        let cellText = "";
-        let cellClass = "chart-cell";
         if (!m) {
-          // Empty column — just render an empty cell
-          tr.appendChild(h("td", { class: cellClass }, ""));
+          headRow.appendChild(h("th", { class: "chart-med-col-header chart-med-empty" }, ""));
           return;
         }
-        if (myMedCounts) {
-          const entry = myMedCounts[m.id];
-          if (entry) {
-            if (entry.count > 0) {
-              cellText = String(entry.count);
-            } else {
-              cellText = entry.freq || "؟";
-              cellClass += " chart-cell-custom";
+        const label = m.nameTrade || m.nameAr || m.nameEn || m.id;
+        headRow.appendChild(h("th", {
+          class: "chart-med-col-header",
+          title: label + (m.nameEn ? " (" + m.nameEn + ")" : "")
+        }, [
+          h("center", {}, [
+            h("div", { class: "chart-med-label" }, label)
+          ])
+        ]));
+      });
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      const tbody = h("tbody", {});
+      for (let i = 0; i < PATIENTS_PER_PAGE; i++) {
+        const p = pagePatients[i];
+        const tr = h("tr", {});
+
+        const patientName = (p && p.name) ? p.name : "";
+        tr.appendChild(h("td", { class: "chart-patient-cell" }, [
+          h("center", {}, patientName)
+        ]));
+
+        let myMedCounts = null;
+        if (p && Array.isArray(p.medications) && p.medications.length > 0) {
+          myMedCounts = {};
+          p.medications.forEach(pm => {
+            const match = (pm.frequency || "").match(/×\s*(\d+)/);
+            const n = match ? parseInt(match[1], 10) : 0;
+            myMedCounts[pm.id] = { count: n, freq: pm.frequency || "" };
+          });
+        }
+
+        orderedMeds.forEach(m => {
+          let cellText = "";
+          let cellClass = "chart-cell";
+          if (!m) {
+            tr.appendChild(h("td", { class: cellClass }, ""));
+            return;
+          }
+          if (myMedCounts) {
+            const entry = myMedCounts[m.id];
+            if (entry) {
+              if (entry.count > 0) {
+                cellText = String(entry.count);
+              } else {
+                cellText = entry.freq || "؟";
+                cellClass += " chart-cell-custom";
+              }
             }
           }
-        }
-        tr.appendChild(h("td", { class: cellClass }, cellText));
-      });
+          tr.appendChild(h("td", { class: cellClass }, cellText));
+        });
 
-      tbody.appendChild(tr);
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+      pageDiv.appendChild(table);
+      root.appendChild(pageDiv);
     }
-    table.appendChild(tbody);
-
-    root.appendChild(table);
-
-    // ----- NO footer (per user request, save space) -----
   }
 
   global.PharmacyUI = {

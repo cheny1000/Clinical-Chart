@@ -2422,6 +2422,11 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 
   /* No alternating row colors (user requested plain look) */
 
+  /* Page break between chart pages (for > 35 patients) */
+  .chart-page-break {
+    page-break-before: always;
+  }
+
   /* Ensure borders print */
   .chart-matrix th, .chart-matrix td {
     -webkit-print-color-adjust: exact;
