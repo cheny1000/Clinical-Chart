@@ -700,7 +700,16 @@
         return;
       }
       UI.buildChartReport(state.patients, state.medications);
-      window.print();
+      // Defer window.print() by one animation frame so the browser
+      // (especially iOS Safari) has a chance to lay out the chart DOM
+      // before the print dialog opens. Without this, iOS Safari may
+      // open the dialog before the chart-print-root has finished
+      // laying out, producing a PDF with the chart cut off.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.print();
+        });
+      });
     });
 
     // Admin back button
