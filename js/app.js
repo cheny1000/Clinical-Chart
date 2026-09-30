@@ -495,70 +495,83 @@
     }
   }
 
-  // -------- Auto-add supplies for injections --------
-  // When the user adds a vial or ampule to a patient, the patient
-  // also needs a syringe to administer the medication. This function
-  // appends one 'syringe-5cc' entry per vial/ampule in the just-added
-  // selection. The syringe is taken from Storage.REQUIRED_SUPPLIES
-  // (defined in storage.js, also injected into the user's catalog
-  // on load if missing).
+  // -------- Auto-managed syringe entry (one per patient) --------
+  // The '5cc Syringe' supply (id: syringe-5cc) is auto-managed for
+  // each patient. There is at most ONE syringe entry per patient,
+  // and its frequency reflects the TOTAL count of vials + ampules
+  // on that patient (each vial/ampule needs one syringe to admin).
   //
-  // Rules:
-  //   - Only triggered by form === 'vial' or form === 'ampule'.
-  //   - prefilled-syringe already comes with its own syringe, so it
-  //     does NOT trigger an auto-add.
-  //   - If 'syringe-5cc' isn't in the catalog (user deleted it), the
-  //     rule silently skips — we don't add a generic supply the user
-  //     didn't ask for.
-  //   - The auto-added syringes always use the supply's default
-  //     dose/frequency (set in medications.js / REQUIRED_SUPPLIES).
-  //   - The user said "always add" — no de-duplication check against
-  //     existing syringes on the patient. So 3 new vials → 3 new
-  //     syringe entries (even if the patient already had syringes).
+  // Rules (re-applied on every patient med change):
+  //   - Count vials + ampules (excluding the syringe itself).
+  //   - If count > 0:
+  //       - If no syringe entry exists → add one with freq `1×N`.
+  //       - If one syringe entry exists → update its freq to `1×N`.
+  //       - If multiple syringe entries exist (e.g. user manually
+  //         added one) → keep the first, update its freq, drop the
+  //         rest (consolidation).
+  //   - If count === 0:
+  //       - Remove all syringe entries (no injections → no syringe).
+  //   - The syringe entry is fully SYSTEM-MANAGED. The user cannot
+  //     manually change its frequency (any edit gets overridden on
+  //     the next recompute, which runs on every add/delete/edit).
+  //     The user can delete the syringe entry, but it'll be re-added
+  //     on the next change if there are still vials/ampules. To
+  //     permanently remove the syringe, the user must delete all
+  //     vials/ampules.
+  //   - If syringe-5cc is missing from the catalog (user deleted it
+  //     from the catalog admin), the rule silently skips — no
+  //     syringe is auto-added/managed.
   //
-  // Args:
-  //   patient       : the patient object (with .medications array)
-  //   justAdded     : array of meds the user just selected (from
-  //                   state.sheet.selectedList)
-  //   catalog       : the full medications catalog (to look up the
-  //                   syringe-5cc default dose/frequency)
-  //
-  // Returns: the array of syringe entries actually added (so the
-  // caller can include the count in the success message).
-  function autoAddSuppliesForInjections(patient, justAdded, catalog) {
-    if (!patient || !Array.isArray(justAdded) || justAdded.length === 0) return [];
-    if (!Array.isArray(catalog) || catalog.length === 0) return [];
+  // The chart parses the number after × in the frequency, so `1×N`
+  // displays as "N" in the syringe column.
+  function recomputeSyringeForPatient(patient, catalog) {
+    if (!patient || !Array.isArray(patient.medications)) return;
+    if (!Array.isArray(catalog)) return;
 
-    // Look up the syringe med in the catalog
-    const REQUIRED = Storage.REQUIRED_SUPPLIES || [];
-    const syringeId = REQUIRED.find(r => r.id === "syringe-5cc") ? "syringe-5cc" : null;
-    if (!syringeId) return [];
-    const syringeMed = catalog.find(m => m && m.id === syringeId);
-    if (!syringeMed) return []; // user deleted the syringe from catalog
+    const syringeMed = catalog.find(m => m && m.id === "syringe-5cc");
+    if (!syringeMed) return; // user deleted syringe from catalog
 
-    // Count how many of the just-added items are vial/ampule
-    const injectionCount = justAdded.filter(s =>
-      s && (s.form === "vial" || s.form === "ampule")
+    // Count vials + ampules on the patient (the syringe itself has
+    // form: "supplies" so it's not counted here).
+    const injectionCount = patient.medications.filter(pm =>
+      pm && (pm.form === "vial" || pm.form === "ampule")
     ).length;
-    if (injectionCount === 0) return [];
 
-    // Append `injectionCount` syringe entries to the patient
-    if (!Array.isArray(patient.medications)) patient.medications = [];
-    const added = [];
-    for (let i = 0; i < injectionCount; i++) {
-      const entry = {
-        id:        syringeMed.id,
-        nameTrade: syringeMed.nameTrade,
-        nameAr:    syringeMed.nameAr    || "",
-        nameEn:    syringeMed.nameEn    || "",
-        form:      syringeMed.form      || "supplies",
-        dose:      syringeMed.defaultDose      || "1 سرنجة",
-        frequency: syringeMed.defaultFrequency || "حسب الحاجة"
-      };
-      patient.medications.push(entry);
-      added.push(entry);
+    // Find all syringe entries (there could be 0, 1, or more if the
+    // user manually added one). We consolidate to at most one.
+    const syringeIndices = [];
+    patient.medications.forEach((pm, i) => {
+      if (pm && pm.id === "syringe-5cc") syringeIndices.push(i);
+    });
+
+    if (injectionCount === 0) {
+      // No injections → remove all syringe entries (no syringe needed)
+      for (let i = syringeIndices.length - 1; i >= 0; i--) {
+        patient.medications.splice(syringeIndices[i], 1);
+      }
+    } else {
+      // Has injections → ensure exactly one syringe entry with
+      // frequency = `1×N` where N = injectionCount
+      const newFreq = "1×" + injectionCount;
+      if (syringeIndices.length === 0) {
+        // Add a new syringe entry
+        patient.medications.push({
+          id:        "syringe-5cc",
+          nameTrade: syringeMed.nameTrade,
+          nameAr:    syringeMed.nameAr    || "",
+          nameEn:    syringeMed.nameEn    || "",
+          form:      "supplies",
+          dose:      syringeMed.defaultDose      || "1 سرنجة",
+          frequency: newFreq
+        });
+      } else {
+        // Update the first syringe entry, remove any duplicates
+        patient.medications[syringeIndices[0]].frequency = newFreq;
+        for (let i = syringeIndices.length - 1; i >= 1; i--) {
+          patient.medications.splice(syringeIndices[i], 1);
+        }
+      }
     }
-    return added;
   }
 
   // -------- PWA install button (Android Chrome / Edge / etc.) --------
@@ -740,6 +753,11 @@
       const p = state.patients[state.currentBed.key];
       if (!p || !Array.isArray(p.medications)) return;
       p.medications.splice(idx, 1);
+      // Recompute the auto-managed syringe entry: if a vial/ampule
+      // was deleted, the syringe's count needs to drop; if the user
+      // deleted the syringe itself, the recompute re-adds it (since
+      // the rule says: syringe exists iff there are vials/ampules).
+      recomputeSyringeForPatient(p, state.medications);
       persistPatient(state.currentBed.key);
       refreshPatientViewOnly();
     });
@@ -756,7 +774,16 @@
         p.medications[idx].frequency = t.value;
       }
       clearTimeout(p._saveTimer);
-      p._saveTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
+      p._saveTimer = setTimeout(() => {
+        // Recompute the syringe in case the user edited it manually
+        // (the syringe's frequency is system-managed and should
+        // always reflect the vial + ampule count, not the user's
+        // manual edit). If they edited a non-syringe med, the
+        // recompute is a no-op.
+        recomputeSyringeForPatient(p, state.medications);
+        persistPatient(state.currentBed.key);
+        refreshPatientViewOnly();
+      }, 400);
     });
     $("meds-list").addEventListener("change", (e) => {
       const t = e.target;
@@ -766,7 +793,11 @@
       if (!p || !Array.isArray(p.medications)) return;
       const idx = parseInt(t.dataset.medIndex, 10);
       p.medications[idx].frequency = t.value;
+      // Same recompute as the input handler — covers the case where
+      // the user picks a frequency from a dropdown on the syringe row.
+      recomputeSyringeForPatient(p, state.medications);
       persistPatient(state.currentBed.key);
+      refreshPatientViewOnly();
     });
 
     // Delete patient
@@ -918,25 +949,18 @@
       });
       const userAddedCount = state.sheet.selectedList.length;
 
-      // 2) Auto-add supplies for vials/ampules (each vial or ampule
-      //    needs a syringe to administer). We use the '5cc Syringe'
-      //    supply defined in Storage.REQUIRED_SUPPLIES.
-      //    Rule: 1 syringe per vial/ampule added by the user. If the
-      //    supply med isn't in the catalog (user deleted it), skip
-      //    silently — the rule only applies when the supply exists.
-      const autoAdded = autoAddSuppliesForInjections(p, state.sheet.selectedList, state.medications);
-      const autoCount = autoAdded.length;
+      // 2) Recompute the auto-managed syringe entry. This updates
+      //    (or creates, or removes) the single syringe-5cc entry so
+      //    its frequency = total vial + ampule count on the patient.
+      //    The user said NOT to show a message about the syringe —
+      //    the syringe is silently maintained in the background.
+      recomputeSyringeForPatient(p, state.medications);
 
       persistPatient(state.currentBed.key);
       closeSheet();
-      // Message reflects both the user's picks AND the auto-added
-      // syringes so the pharmacist isn't confused by extra items
-      // appearing in the patient's med list.
-      if (autoCount > 0) {
-        flashHint(`تمت إضافة ${userAddedCount} علاج + ${autoCount} سرنجة تلقائيًا`);
-      } else {
-        flashHint("تمت إضافة " + userAddedCount + " علاج");
-      }
+      // No mention of the auto-managed syringe — just the meds the
+      // user explicitly added.
+      flashHint("تمت إضافة " + userAddedCount + " علاج");
       // Return to rooms view immediately so the pharmacist can move to
       // the next patient without an extra tap on the back button.
       state.currentBed = null;
