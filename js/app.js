@@ -337,6 +337,93 @@
     }
   }
 
+  // -------- iOS PWA print workaround --------
+  // window.print() doesn't work in iOS Safari's standalone mode
+  // (when the app is added to the home screen). The workaround: open
+  // a NEW Safari tab containing only the chart + the print CSS, then
+  // call window.print() inside that new tab. Safari proper has full
+  // AirPrint support, so the print dialog opens normally.
+  //
+  // Returns true if the new window was opened successfully, false
+  // otherwise (popup blocked, no permission, etc.).
+  function printChartInNewWindow() {
+    const chartRoot = document.getElementById("chart-print-root");
+    if (!chartRoot) return false;
+
+    // Get the chart HTML (already built by UI.buildChartReport)
+    const chartHTML = chartRoot.innerHTML;
+
+    // Open a new tab. _blank + no features so iOS Safari opens a
+    // full Safari tab (not a PWA child window).
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return false; // popup blocked
+
+    // Self-contained HTML doc with:
+    // - Google Fonts (Tajawal, Cairo) for proper Arabic rendering
+    // - The chart print CSS (extracted from styles.css, no @media
+    //   print wrapper needed since the whole document is the print
+    //   content)
+    // - The chart HTML
+    // - An inline script that triggers print() after the fonts
+    //   have had a chance to load, then closes the tab.
+    const doc = printWindow.document;
+    doc.open();
+    doc.write([
+      '<!DOCTYPE html>',
+      '<html lang="ar" dir="rtl">',
+      '<head>',
+      '<meta charset="UTF-8">',
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
+      '<title>طباعة التشارت</title>',
+      '<link rel="preconnect" href="https://fonts.googleapis.com">',
+      '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
+      '<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">',
+      '<style>',
+      '@page { size: A4 landscape; margin: 3mm; }',
+      'body { background: #fff; margin: 0; padding: 0; color: #000; font-family: "Tajawal", "Cairo", "Arial", sans-serif; }',
+      '.chart-print-root { display: block; }',
+      '.chart-page { display: block; }',
+      '.chart-matrix { width: 100%; border-collapse: collapse; font-size: 7px; table-layout: fixed; }',
+      '.chart-patient-col-header { background: #fff; color: #000; font-weight: 800; padding: 1px 2px; border: 1px solid #000; text-align: center; font-size: 10px; width: 70px; min-width: 70px; vertical-align: middle; line-height: 1.3; }',
+      '.chart-med-col-header { background: #fff; color: #000; border: 1px solid #000; padding: 1px 0; text-align: center; vertical-align: middle; height: 65px; width: 18px; min-width: 18px; }',
+      '.chart-med-label { writing-mode: vertical-rl; text-orientation: mixed; font-size: 11px; font-weight: 700; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-height: 60px; margin: auto 0; display: block; }',
+      '.chart-patient-cell { background: #fff; font-weight: 700; padding: 0 3px; border: 1px solid #000; text-align: center; vertical-align: middle; width: 70px; min-width: 70px; height: 18px; font-size: 9px; color: #000; line-height: 18px; }',
+      '.chart-cell { border: 1px solid #000; text-align: center; vertical-align: middle; padding: 0; font-size: 11px; font-weight: 800; color: #000; width: 18px; min-width: 18px; height: 18px; line-height: 18px; background: #fff; box-sizing: border-box; }',
+      '.chart-matrix tr { height: 18px; }',
+      '.chart-cell-custom { font-size: 8px; font-weight: 700; line-height: 1; }',
+      '.chart-page-break { page-break-before: always; }',
+      '.chart-matrix th, .chart-matrix td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+      '</style>',
+      '</head>',
+      '<body>',
+      '<div class="chart-print-root">',
+      chartHTML,
+      '</div>',
+      '<script>',
+      // Wait for fonts to load before printing. We try a few
+      // strategies: (1) wait for window.load (fonts cached), then
+      // (2) wait a short delay to ensure layout has settled.
+      'window.addEventListener("load", function() {',
+      // 800ms gives the fonts time to load even on slow networks.
+      // The chart is already rendered visually; print is just
+      // snapshotting what's on screen.
+      '  setTimeout(function() {',
+      '    try { window.print(); } catch (e) {}',
+      // Try to close the tab after printing. iOS Safari may block
+      // window.close() for tabs the user opened (vs. those opened
+      // by script), but since we opened this via window.open(), it
+      // should be closeable. Wrap in try/catch in case it isn't.
+      '    setTimeout(function() { try { window.close(); } catch (e) {} }, 1000);',
+      '  }, 800);',
+      '});',
+      '<\/script>',
+      '</body>',
+      '</html>'
+    ].join('\n'));
+    doc.close();
+    return true;
+  }
+
   // Update the small status badge in the Supabase settings panel.
   function updateSupabaseStatusUI(text, kind) {
     const el = $("sb-status");
@@ -782,16 +869,37 @@
         return;
       }
       UI.buildChartReport(state.patients, state.medications);
-      // Defer window.print() by one animation frame so the browser
-      // (especially iOS Safari) has a chance to lay out the chart DOM
-      // before the print dialog opens. Without this, iOS Safari may
-      // open the dialog before the chart-print-root has finished
-      // laying out, producing a PDF with the chart cut off.
-      requestAnimationFrame(() => {
+
+      // Detect installed PWA on iOS. window.print() is not reliably
+      // supported in iOS Safari's standalone mode (when the app is
+      // added to the home screen). The workaround: open the chart in
+      // a new Safari tab, which has full print support, and auto-
+      // trigger print from there.
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const isStandalone =
+        window.matchMedia("(display-mode: standalone)").matches ||
+        navigator.standalone === true;
+
+      if (isIOS && isStandalone) {
+        // Use the new-window workaround for iOS PWA
+        if (!printChartInNewWindow()) {
+          // window.open() was blocked → fall back to direct print
+          // (which usually doesn't work in iOS PWA, but it's our only
+          // option if pop-ups are blocked). Show a hint so the user
+          // knows why their browser tab didn't open.
+          flashHint("تعذّر فتح نافذة الطباعة — جرّب في متصفح Safari مباشرة");
+          requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+        }
+      } else {
+        // Browser (any platform) or Android PWA: window.print() works.
+        // Defer by two animation frames so iOS Safari has time to lay
+        // out the chart DOM before the print dialog opens.
         requestAnimationFrame(() => {
-          window.print();
+          requestAnimationFrame(() => {
+            window.print();
+          });
         });
-      });
+      }
     });
 
     // ----- Sync now (manual) -----
