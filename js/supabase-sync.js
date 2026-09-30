@@ -237,44 +237,142 @@
   }
 
   // ---------- Patient sync (bed_key → patient) ----------
-  // Push all local patients to Supabase (upsert by bed_key).
+  // Strategy: MERGE (not overwrite).
+  //
+  //   pullPatients()
+  //     - Fetch all rows from Supabase
+  //     - Merge with the LOCAL map using last-write-wins on `updated_at`
+  //     - Save the merged map back to localStorage
+  //     - Push the merged map back to Supabase (so any local-only
+  //       entries — present only on this device — propagate to the
+  //       cloud and from there to other devices)
+  //
+  //   pushPatients()
+  //     - UPSERT only. NEVER bulk-delete rows that aren't in local,
+  //       because those rows belong to other devices and we'd be
+  //       wiping their data. (Bulk delete is only available via the
+  //       explicit `pushPatientsWipe()` used by the admin "wipe all"
+  //       action.)
+  //
+  //   pushPatientDelete(bedKey)
+  //     - Delete a single bed_key from the cloud. Used by the per-bed
+  //       "delete patient" action so a deletion on one device propagates
+  //       to others on their next pull.
+  //
+  // Each local patient carries an `updatedAt` (ms) field set by
+  // `Storage.upsertPatient()`. The cloud stores `updated_at` as
+  // TIMESTAMPTZ (ISO 8601 string). `mergePatients()` normalizes both.
+
+  function _toMs(v) {
+    if (v == null) return 0;
+    if (typeof v === "number") return v;
+    if (typeof v === "string") {
+      const t = Date.parse(v);
+      return isNaN(t) ? 0 : t;
+    }
+    return 0;
+  }
+
+  // Convert a local patient object → Supabase row.
+  function patientToRow(bedKey, p) {
+    const m = bedKey.match(/room-(\d+)-bed-(\d+)/);
+    const roomId = m ? parseInt(m[1], 10) : 0;
+    const bedNum = m ? parseInt(m[2], 10) : 0;
+    return {
+      bed_key:     bedKey,
+      room_id:     roomId,
+      bed_number: bedNum,
+      name:        (p && p.name) ? p.name : "",
+      medications: JSON.stringify((p && p.medications) || []),
+      // Use the local updatedAt if present (ms → ISO); otherwise now.
+      updated_at:  new Date(_toMs(p && p.updatedAt) || Date.now()).toISOString()
+    };
+  }
+
+  // Convert a Supabase row → local patient object. Preserves the
+  // cloud's `updated_at` as a JS number (ms) under `updatedAt` so the
+  // merge function can compare apples to apples.
+  function rowToPatient(row) {
+    let meds = [];
+    try {
+      meds = typeof row.medications === "string"
+        ? JSON.parse(row.medications)
+        : (row.medications || []);
+    } catch (e) { meds = []; }
+    return {
+      name:        row.name || "",
+      medications: Array.isArray(meds) ? meds : [],
+      updatedAt:   _toMs(row.updated_at)
+    };
+  }
+
+  // Upsert ALL local patients to Supabase. Does NOT delete cloud rows
+  // that aren't local — those belong to other devices.
   async function pushPatients() {
     if (!SB || !SB.isConfigured()) return { ok: false, error: "غير مُهيّأ" };
     const client = SB.getClient();
     if (!client) return { ok: false, error: "تعذّر إنشاء عميل Supabase" };
 
     const patients = Local.loadPatients();
-    const entries = Object.entries(patients).map(([bedKey, p]) => ({
-      bed_key:    bedKey,
-      room_id:    parseInt(bedKey.match(/room-(\d+)/)?.[1] || "0", 10),
-      bed_number: parseInt(bedKey.match(/bed-(\d+)/)?.[1] || "0", 10),
-      name:       p.name || "",
-      medications: JSON.stringify(p.medications || []),
-      updated_at:  new Date().toISOString()
-    }));
+    const entries = Object.entries(patients).map(([k, p]) => patientToRow(k, p));
 
     try {
       if (entries.length > 0) {
-        const { error: upErr } = await client
-          .from("patients")
-          .upsert(entries, { onConflict: "bed_key" });
-        if (upErr) return { ok: false, error: upErr.message };
+        const CHUNK = 100;
+        for (let i = 0; i < entries.length; i += CHUNK) {
+          const slice = entries.slice(i, i + CHUNK);
+          const { error: upErr } = await client
+            .from("patients")
+            .upsert(slice, { onConflict: "bed_key" });
+          if (upErr) return { ok: false, error: upErr.message };
+        }
       }
-      // Delete beds that no longer have a patient locally
-      const localKeys = entries.map(e => e.bed_key);
-      if (localKeys.length > 0) {
-        const inList = "(" + localKeys.map(k => JSON.stringify(k)).join(",") + ")";
-        await client.from("patients").delete().not("bed_key", "in", inList);
-      } else {
-        await client.from("patients").delete().neq("bed_key", "__never__");
-      }
+      // No bulk delete — see header comment.
       return { ok: true, count: entries.length };
     } catch (e) {
       return { ok: false, error: (e && e.message) ? e.message : String(e) };
     }
   }
 
-  // Pull all patients from Supabase → overwrite local.
+  // Delete a single bed_key from the cloud (used when the user
+  // explicitly deletes a patient on this device).
+  async function pushPatientDelete(bedKey) {
+    if (!SB || !SB.isConfigured()) return { ok: false, error: "غير مُهيّأ" };
+    const client = SB.getClient();
+    if (!client) return { ok: false, error: "تعذّر إنشاء عميل Supabase" };
+    try {
+      const { error } = await client
+        .from("patients")
+        .delete()
+        .eq("bed_key", bedKey);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: (e && e.message) ? e.message : String(e) };
+    }
+  }
+
+  // Wipe ALL patients from the cloud (used by the admin "wipe all
+  // patients" action). This is the ONLY place that bulk-deletes.
+  async function pushPatientsWipe() {
+    if (!SB || !SB.isConfigured()) return { ok: false, error: "غير مُهيّأ" };
+    const client = SB.getClient();
+    if (!client) return { ok: false, error: "تعذّر إنشاء عميل Supabase" };
+    try {
+      const { error } = await client
+        .from("patients")
+        .delete()
+        .neq("bed_key", "__never__"); // matches all rows
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: (e && e.message) ? e.message : String(e) };
+    }
+  }
+
+  // Pull all patients from Supabase and MERGE with local.
+  // After merging locally, also push the merged result back so any
+  // local-only entries propagate to the cloud.
   async function pullPatients() {
     if (!SB || !SB.isConfigured()) return { ok: false, error: "غير مُهيّأ" };
     const client = SB.getClient();
@@ -287,19 +385,34 @@
       if (error) return { ok: false, error: error.message };
       if (!Array.isArray(data)) return { ok: false, error: "استجابة غير متوقعة" };
 
-      const patients = {};
+      // Build the remote map (bed_key → patient)
+      const remote = {};
       data.forEach(row => {
         if (!row.bed_key) return;
-        patients[row.bed_key] = {
-          name: row.name || "",
-          medications: (() => {
-            try { return typeof row.medications === "string" ? JSON.parse(row.medications) : (row.medications || []); }
-            catch (e) { return []; }
-          })()
-        };
+        remote[row.bed_key] = rowToPatient(row);
       });
-      Local.savePatients(patients);
-      return { ok: true, count: Object.keys(patients).length };
+
+      // Merge with local (last-write-wins on updatedAt)
+      const localNow = Local.loadPatients();
+      const merged = Local.mergePatients(localNow, remote);
+
+      // Persist the merged map locally. Use the raw save (not
+      // upsertPatient) so we don't overwrite the existing updatedAt
+      // stamps with "now".
+      Local.savePatients(merged);
+
+      // Push the merged result back so local-only entries propagate
+      // to the cloud (and from there to other devices). Best-effort:
+      // failure here just means another device will pull a slightly
+      // older cloud, which is fine.
+      const pushRes = await pushPatients();
+      // We don't propagate pushRes.error to the caller — the pull
+      // itself succeeded and the merge is consistent locally.
+      return {
+        ok: true,
+        count: Object.keys(merged).length,
+        pushedBack: pushRes.ok
+      };
     } catch (e) {
       return { ok: false, error: (e && e.message) ? e.message : String(e) };
     }
@@ -310,6 +423,10 @@
     pushCatalog,
     pushPatients,
     pullPatients,
+    pushPatientDelete,
+    pushPatientsWipe,
+    patientToRow,
+    rowToPatient,
     medToRow,
     rowToMed,
     loadSyncState,

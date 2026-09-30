@@ -9,6 +9,8 @@
   <meta name="theme-color" content="#2563EB" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="الصيدلية السريرية" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
@@ -19,6 +21,15 @@
     href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;800&display=swap"
     rel="stylesheet"
   />
+  <!-- PWA manifest + icons -->
+  <link rel="manifest" href="manifest.json?v=2" />
+  <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="img/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="img/icon-512.png" />
+  <link rel="apple-touch-icon" href="img/apple-touch-icon-180.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon-180.png" />
+  <link rel="apple-touch-icon" sizes="192x192" href="img/icon-192.png" />
+  <link rel="apple-touch-icon" sizes="512x512" href="img/icon-512.png" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -52,6 +63,15 @@
           <span class="login-quick-text">
             <strong>الصيدلي السريري</strong>
             <small>الغرف والمرضى فقط</small>
+          </span>
+        </button>
+        <button type="button" class="login-quick-btn install" id="install-app-btn" hidden>
+          <span class="login-quick-icon install-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </span>
+          <span class="login-quick-text">
+            <strong>تحميل التطبيق</strong>
+            <small>تثبيت على الهاتف</small>
           </span>
         </button>
       </div>
@@ -393,5 +413,17 @@
   <script>document.write('<script src="js/remote-adapter.js?v=' + Date.now() + '"><\/script>');</script>
   <script>document.write('<script src="js/ui.js?v=' + Date.now() + '"><\/script>');</script>
   <script>document.write('<script src="js/app.js?v=' + Date.now() + '"><\/script>');</script>
+
+  <!-- ===== PWA: register service worker for offline support ===== -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker
+          .register('sw.js?v=2', { scope: './' })
+          .then(function (reg) { console.log('[SW] registered', reg.scope); })
+          .catch(function (err) { console.warn('[SW] registration failed', err); });
+      });
+    }
+  </script>
 </body>
 </html>

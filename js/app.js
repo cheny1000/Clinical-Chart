@@ -44,6 +44,7 @@
     hydrate();
     bindAuthEvents();
     bindEvents();
+    bindPwaInstall();
     applyRoleVisibility();
     // Show login overlay if not logged in, otherwise show the app
     if (Auth && Auth.isLoggedIn()) {
@@ -219,18 +220,24 @@
       flashHint("Supabase غير مُهيّأ");
       return;
     }
-    if (!confirm("سحب الكتالوج من السحابة سيستبدل نسختك المحلية.\nهل تريد المتابعة؟")) return;
+    if (!confirm("سحب الكتالوج من السحابة سيستبدل نسختك المحلية.\nملاحظة: بيانات المرضى لن تُستبدل بل ستُدمج (الأحدث يفوز).\nهل تريد المتابعة؟")) return;
     updateSupabaseStatusUI("جارٍ السحب…", "loading");
     const res = await SBSync.pullCatalog(true);  // force = true
     if (res.ok) {
       state.medications = Storage.loadMedications();
       UI.renderAdminMedList(state.medications, null);
-      refreshStatsAndRooms();
       updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
       flashHint(`تم سحب ${res.count} دواء من السحابة`);
     } else {
       updateSupabaseStatusUI("فشل السحب: " + res.error, "error");
       flashHint("فشل السحب من السحابة: " + res.error);
+    }
+    // Also merge-pull patients (non-destructive)
+    const pres = await SBSync.pullPatients();
+    if (pres.ok) {
+      state.patients = Storage.loadPatients();
+      refreshStatsAndRooms();
+      flashHint(`تم دمج ${pres.count} مريض من السحابة`);
     }
   }
 
@@ -289,12 +296,127 @@
   function persistPatient(bedKey) {
     Storage.upsertPatient(bedKey, state.patients[bedKey]);
     refreshStatsAndRooms();
-    // Push patients to Supabase (fire-and-forget)
+    // Push patients to Supabase (fire-and-forget, with one retry)
     if (SBSync && SBSync.pushPatients) {
       SBSync.pushPatients().then(r => {
-        if (!r.ok) console.warn("[Supabase] patient push failed:", r.error);
+        if (!r.ok) {
+          console.warn("[Supabase] patient push failed, retrying once:", r.error);
+          // Retry once after a short delay (network blip recovery)
+          setTimeout(() => {
+            SBSync.pushPatients().then(r2 => {
+              if (!r2.ok) console.warn("[Supabase] patient push retry failed:", r2.error);
+            });
+          }, 2000);
+        }
       });
     }
+  }
+
+  // -------- PWA install button (Android Chrome / Edge / etc.) --------
+  // The browser fires `beforeinstallprompt` when it considers the
+  // site installable (manifest + SW + served over HTTPS). We capture
+  // the event, show the install button, and on click call prompt().
+  // On iOS Safari there's no `beforeinstallprompt` — the user must
+  // tap Share → Add to Home Screen manually. We detect iOS and show
+  // a one-time hint explaining how to do it.
+  let deferredInstallPrompt = null;
+
+  function bindPwaInstall() {
+    const btn = $("install-app-btn");
+    if (!btn) return;
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      navigator.standalone === true;
+
+    // If already installed/running as standalone, hide the button.
+    if (isStandalone) {
+      btn.hidden = true;
+      return;
+    }
+
+    // Always show the install button on the login screen (not just
+    // when the browser fires beforeinstallprompt — Chrome on desktop
+    // sometimes never fires it even when the app is technically
+    // installable, and we want the user to always have a way to
+    // install via the button).
+    btn.hidden = false;
+
+    // Capture the event when it does fire so we can use the native
+    // prompt (better UX than instructions).
+    window.addEventListener("beforeinstallprompt", (e) => {
+      // Prevent the mini-infobar from showing on Android Chrome
+      e.preventDefault();
+      deferredInstallPrompt = e;
+    });
+
+    btn.addEventListener("click", async () => {
+      // iOS Safari → show instructions (no native prompt available)
+      if (isIOS && !deferredInstallPrompt) {
+        showIosInstallHint();
+        return;
+      }
+      // Android/Chrome with native prompt → use it
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        const { outcome } = await deferredInstallPrompt.userChoice;
+        if (outcome === "accepted") {
+          flashHint("تم تثبيت التطبيق على جهازك");
+        }
+        deferredInstallPrompt = null;
+        btn.hidden = true;
+        return;
+      }
+      // No native prompt available (desktop Chrome without
+      // engagement, Firefox, etc.) → show generic browser-menu
+      // instructions.
+      showGenericInstallHint();
+    });
+
+    // Once installed, hide the button for good.
+    window.addEventListener("appinstalled", () => {
+      btn.hidden = true;
+      flashHint("تم تثبيت التطبيق بنجاح");
+    });
+  }
+
+  function showGenericInstallHint() {
+    // Generic instructions for browsers without a native prompt.
+    const isChrome = /Chrome/.test(navigator.userAgent) && !/Edg|OPR/.test(navigator.userAgent);
+    const isEdge   = /Edg/.test(navigator.userAgent);
+    const isFirefox = /Firefox/.test(navigator.userAgent);
+
+    let browserName = "متصفحك";
+    let steps = "";
+    if (isChrome) {
+      browserName = "Google Chrome";
+      steps = "1) افتح قائمة Chrome (⋮ في أعلى اليمين)\n2) اختر \"تثبيت التطبيق\" أو \"Install app\"\n3) اضغط \"تثبيت\"";
+    } else if (isEdge) {
+      browserName = "Microsoft Edge";
+      steps = "1) افتح قائمة Edge (⋯ في أعلى اليمين)\n2) اختر \"التطبيقات\" → \"تثبيت هذا الموقع كتطبيق\"\n3) اضغط \"تثبيت\"";
+    } else if (isFirefox) {
+      browserName = "Firefox";
+      steps = "1) لا يدعم Firefox تثبيت PWA رسميًا\n2) يمكنك إضافة اختصار للصفحة الرئيسية بدلاً من ذلك";
+    } else {
+      steps = "ابحث في قائمة المتصفح عن خيار \"تثبيت التطبيق\" أو \"Install app\"";
+    }
+    alert(
+      "لتثبيت التطبيق عبر " + browserName + ":\n\n" + steps + "\n\n" +
+      "ملاحظة: يجب فتح الموقع عبر HTTPS حتى يتوفر خيار التثبيت."
+    );
+  }
+
+  function showIosInstallHint() {
+    // Lightweight instructions for iOS Safari (no native prompt).
+    confirm(
+      "لتثبيت التطبيق على iPhone/iPad:\n\n" +
+      "1) افتح هذا الرابط في متصفح Safari\n" +
+      "2) اضغط زر المشاركة (المربع مع السهم لأعلى)\n" +
+      "3) اختر \"إضافة إلى الشاشة الرئيسية\"\n" +
+      "4) اضغط \"إضافة\"\n\n" +
+      "هل تريد إغلاق هذه الرسالة؟"
+    );
   }
 
   // -------- Event wiring --------
@@ -336,8 +458,16 @@
       // collapse empty-name patient (no name and no meds)
       const p = state.patients[state.currentBed.key];
       if (p && (!p.name || !p.name.trim()) && (!p.medications || p.medications.length === 0)) {
-        Storage.deletePatient(state.currentBed.key);
-        delete state.patients[state.currentBed.key];
+        const bedKey = state.currentBed.key;
+        Storage.deletePatient(bedKey);
+        delete state.patients[bedKey];
+        // Propagate the collapse to the cloud so it doesn't come back
+        // on the next pull (which would otherwise merge it back in).
+        if (SBSync && SBSync.pushPatientDelete) {
+          SBSync.pushPatientDelete(bedKey).then(r => {
+            if (!r.ok) console.warn("[Supabase] auto-collapse delete failed:", r.error);
+          });
+        }
       } else {
         persistPatient(state.currentBed.key);
       }
@@ -399,14 +529,15 @@
         ? `هل تريد تفريغ السرير وحذف المريض "${name}"؟`
         : "هل تريد تفريغ هذا السرير؟";
       if (!confirm(msg)) return;
-      Storage.deletePatient(state.currentBed.key);
-      delete state.patients[state.currentBed.key];
+      const bedKey = state.currentBed.key;
+      Storage.deletePatient(bedKey);
+      delete state.patients[bedKey];
       state.currentBed = null;
       refreshStatsAndRooms();
       UI.showView("home");
-      // Sync deleted patient to Supabase
-      if (SBSync && SBSync.pushPatients) {
-        SBSync.pushPatients().then(r => {
+      // Sync the single deleted bed to Supabase (don't bulk-delete)
+      if (SBSync && SBSync.pushPatientDelete) {
+        SBSync.pushPatientDelete(bedKey).then(r => {
           if (!r.ok) console.warn("[Supabase] patient delete push failed:", r.error);
         });
       }
@@ -711,9 +842,11 @@
       state.currentBed = null;
       refreshStatsAndRooms();
       flashHint("تم مسح جميع بيانات المرضى");
-      // Sync wipe to Supabase
-      if (SBSync && SBSync.pushPatients) {
-        SBSync.pushPatients().then(r => {
+      // Sync wipe to Supabase — explicit bulk delete (the only place
+      // that does this; everywhere else we upsert-merge to avoid
+      // wiping data that other devices may still need to push up).
+      if (SBSync && SBSync.pushPatientsWipe) {
+        SBSync.pushPatientsWipe().then(r => {
           if (!r.ok) console.warn("[Supabase] wipe push failed:", r.error);
         });
       }
@@ -759,7 +892,6 @@
       if (res.ok) {
         state.medications = Storage.loadMedications();
         UI.renderAdminMedList(state.medications, null);
-        refreshStatsAndRooms();
         updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
         flashHint("تمت المزامنة من Supabase");
       } else {
@@ -772,6 +904,13 @@
           updateSupabaseStatusUI("مربوط لكن فشلت المزامنة: " + pushRes.error, "error");
           flashHint("فشلت المزامنة مع Supabase");
         }
+      }
+      // Also merge-pull patients so the user's local patients stay
+      // in sync with any other device that pushed data to the cloud.
+      const pres = await SBSync.pullPatients();
+      if (pres.ok) {
+        state.patients = Storage.loadPatients();
+        refreshStatsAndRooms();
       }
     });
 

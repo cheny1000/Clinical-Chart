@@ -27,3 +27,10 @@ node_modules/
 
 # Test artifacts / screenshots that are not part of the app
 download/_screens/
+
+# Z.ai agent environment (skills + scripts not part of the published app)
+skills/
+scripts/
+upload/
+tool-results/
+worklog.md

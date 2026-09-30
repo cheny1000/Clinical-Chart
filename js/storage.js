@@ -66,6 +66,10 @@
   }
 
   // ----- Patients -----
+  // Each patient may carry an `updatedAt` (ms timestamp) used by the
+  // Supabase sync layer to do last-write-wins merging. If missing
+  // (legacy data), we treat it as 0 so a cloud row with a real
+  // updated_at always wins the first merge.
   function loadPatients() {
     const all = safeParse(localStorage.getItem(STORAGE_KEYS.PATIENTS), {});
     // Migrate patient.medications entries: back-fill nameTrade
@@ -91,6 +95,11 @@
   }
   function upsertPatient(bedKey, patient) {
     const all = loadPatients();
+    // Stamp the patient with the current time so the sync layer
+    // can resolve conflicts with last-write-wins.
+    if (patient && typeof patient === "object") {
+      patient.updatedAt = Date.now();
+    }
     all[bedKey] = patient;
     return savePatients(all);
   }
@@ -102,6 +111,41 @@
   function allPatientsArray() {
     const all = loadPatients();
     return Object.entries(all).map(([key, p]) => ({ ...p, _key: key }));
+  }
+
+  // Merge a remote (cloud) patients map with the local map.
+  // For each bed_key:
+  //   - only in local → keep local
+  //   - only in remote → keep remote
+  //   - in both → keep the one with the newer `updatedAt`
+  // `updatedAt` may be a JS number (ms) or an ISO 8601 string
+  // (from Supabase's TIMESTAMPTZ). We normalize both to ms.
+  function _toMs(v) {
+    if (v == null) return 0;
+    if (typeof v === "number") return v;
+    if (typeof v === "string") {
+      const t = Date.parse(v);
+      return isNaN(t) ? 0 : t;
+    }
+    return 0;
+  }
+  function mergePatients(localMap, remoteMap) {
+    const local = localMap || {};
+    const remote = remoteMap || {};
+    const keys = new Set(Object.keys(local).concat(Object.keys(remote)));
+    const out = {};
+    for (const k of keys) {
+      const lp = local[k];
+      const rp = remote[k];
+      if (lp && !rp) { out[k] = lp; continue; }
+      if (rp && !lp) { out[k] = rp; continue; }
+      const lt = _toMs(lp.updatedAt);
+      const rt = _toMs(rp.updatedAt);
+      // Last-write-wins. Tie → keep local (don't surprise the user
+      // by overwriting what they just edited on this device).
+      out[k] = rt > lt ? rp : lp;
+    }
+    return out;
   }
 
   // ----- Medications catalog -----
@@ -180,6 +224,7 @@
     upsertPatient,
     deletePatient,
     allPatientsArray,
+    mergePatients,
     // medications catalog
     loadMedications,
     saveMedications,
