@@ -38,7 +38,7 @@
   // 'img:vial-icon.png' means render an <img> instead of emoji text
   const FORM_ICONS = {
     vial:                "img:img/vial-icon.png",
-    ampule:              "🔵",
+    ampule:              "img:img/ampule-icon.png",
     "prefilled-syringe": "💉",
     tablet:              "💊",
     syrup:               "🧴",
