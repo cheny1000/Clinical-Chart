@@ -44,7 +44,7 @@
     syrup:               "img:img/syrup-icon.png",
     suppository:         "img:img/suppository-icon.png",
     solution:            "💧",
-    supplies:            "🧰"
+    supplies:            "img:img/supplies-icon.png"
   };
 
   // Demo medication catalog — editable by administrator
