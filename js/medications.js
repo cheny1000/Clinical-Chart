@@ -40,7 +40,7 @@
     vial:                "img:img/vial-icon.png",
     ampule:              "img:img/ampule-icon.png",
     "prefilled-syringe": "💉",
-    tablet:              "💊",
+    tablet:              "img:img/tablet-icon.png",
     syrup:               "img:img/syrup-icon.png",
     suppository:         "img:img/suppository-icon.png",
     solution:            "💧",
