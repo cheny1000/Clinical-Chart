@@ -306,6 +306,15 @@
       form:      "supplies",
       defaultDose:      "500 ml",
       defaultFrequency: "حسب الحاجة"
+    },
+    {
+      id: "nacl-100ml",
+      nameTrade: "NaCl 0.9% 100 ml",
+      nameAr:    "مغذي ملح 100 مل",
+      nameEn:    "Sodium Chloride 0.9% 100 ml",
+      form:      "supplies",
+      defaultDose:      "100 ml",
+      defaultFrequency: "حسب الحاجة"
     }
   ];
   function injectRequiredSupplies(list) {

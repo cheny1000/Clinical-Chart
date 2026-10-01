@@ -84,6 +84,7 @@
     { id: "ng-tube-18",           nameTrade: "NG Tube size 18", nameAr: "أنبوب معدي 18", nameEn: "NG Tube 18",         form: "supplies", defaultDose: "1 قطعة", defaultFrequency: "حسب الحاجة" },
     { id: "cannula",              nameTrade: "Cannula",        nameAr: "كانيولا", nameEn: "Cannula",                  form: "supplies", defaultDose: "1 قطعة", defaultFrequency: "حسب الحاجة" },
     { id: "dextrose-saline",      nameTrade: "Dextrose Saline 0.9% / 5%", nameAr: "ديكستروز سالين", nameEn: "Dextrose Saline 0.9% / 5%", form: "supplies", defaultDose: "500 ml", defaultFrequency: "حسب الحاجة" },
+    { id: "nacl-100ml",           nameTrade: "NaCl 0.9% 100 ml", nameAr: "مغذي ملح 100 مل", nameEn: "Sodium Chloride 0.9% 100 ml", form: "supplies", defaultDose: "100 ml", defaultFrequency: "حسب الحاجة" },
     { id: "sodium-chloride-09",  nameTrade: "NaCl 0.9%",      nameAr: "", nameEn: "Sodium Chloride 0.9%", form: "supplies", defaultDose: "500 ml", defaultFrequency: "حسب الحاجة" },
     { id: "glucose-5",           nameTrade: "Glucose 5%",     nameAr: "", nameEn: "Glucose 5%",            form: "supplies", defaultDose: "500 ml", defaultFrequency: "حسب الحاجة" },
     { id: "ringers-lactate",     nameTrade: "Ringer Lactate", nameAr: "", nameEn: "Ringer's Lactate",     form: "supplies", defaultDose: "500 ml", defaultFrequency: "حسب الحاجة" }
