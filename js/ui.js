@@ -974,31 +974,50 @@
 
         // 2) 100 ml NaCl — based on this patient's VIALS ONLY
         //    (ampules don't need reconstitution).
-        //    EXCEPTION: Flagyl (metronidazole) vial does NOT need
-        //    NaCl — it's reconstituted with a different solution or
-        //    given differently. So if the patient has Flagyl vial,
-        //    skip adding NaCl 100ml entirely.
+        //    EXCEPTIONS (these vials are NOT reconstituted with NaCl
+        //    0.9% 100ml — they use a different solution or are given
+        //    differently). If the patient has ANY of these vials,
+        //    NaCl 100ml is NOT added for that patient at all:
+        //      - Flagyl (Metronidazole) vial
+        //      - Ciprofloxacin 200mg vial
+        //      - Albumin (Human Albumin 20%) vial
+        //      - Heparin vial
+        //      - Hydrocortisone vial
+        //      - Paracetamol/Paracetol vial
+        //      - Insulin (all forms: Human Insulin, Lente, Mixtard,
+        //        Soluble) vial
+        //    Detection matches by id OR by trade/en/ar name
+        //    (case-insensitive).
         let totalVials = 0;
         let hasVials = false;
-        let hasFlagylVial = false;
+        let hasExceptionVial = false;
         row.medications.forEach(pm => {
           if (!pm) return;
           if (pm.form === "vial") {
             hasVials = true;
             totalVials += syringesForFrequency(pm.frequency);
-            // Detect Flagyl / Metronidazole vial by id or name
+            // Detect any of the exception vials by id or name
             const idLower = (pm.id || "").toLowerCase();
             const nameLower = ((pm.nameTrade || "") + " " + (pm.nameEn || "") + " " + (pm.nameAr || "")).toLowerCase();
-            if (
-              idLower.indexOf("flagyl") >= 0 || idLower.indexOf("metronid") >= 0 ||
-              nameLower.indexOf("flagyl") >= 0 || nameLower.indexOf("metronid") >= 0 ||
-              nameLower.indexOf("فلاجيل") >= 0 || nameLower.indexOf("ميترون") >= 0
-            ) {
-              hasFlagylVial = true;
+            // Check for each exception keyword
+            const EXCEPTION_KEYWORDS = [
+              "flagyl", "metronid", "فلاجيل", "ميترون",           // Flagyl
+              "ciprofloxacin", "cipro", "سيبروف",                  // Ciprofloxacin 200mg
+              "albumin", "ألبومين",                                 // Albumin
+              "heparin", "هيبارين",                                 // Heparin
+              "hydrocort", "هيدرو",                                 // Hydrocortisone
+              "paracet", "باراسيت",                                 // Paracetamol/Paracetol vial
+              "insulin", "إنسولين"                                  // Insulin (all forms)
+            ];
+            for (const kw of EXCEPTION_KEYWORDS) {
+              if (idLower.indexOf(kw) >= 0 || nameLower.indexOf(kw) >= 0) {
+                hasExceptionVial = true;
+                break;
+              }
             }
           }
         });
-        if (hasVials && totalVials > 0 && !hasFlagylVial) {
+        if (hasVials && totalVials > 0 && !hasExceptionVial) {
           row.medications.push({
             id:        nacl100Med.id,
             nameTrade: nacl100Med.nameTrade,
