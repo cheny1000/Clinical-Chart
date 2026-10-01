@@ -505,9 +505,14 @@
 
   // -------- Patient helpers --------
   function ensurePatient(bedKey) {
-    if (!state.patients[bedKey]) state.patients[bedKey] = { name: "", medications: [] };
+    if (!state.patients[bedKey]) state.patients[bedKey] = { name: "", plateNumber: "", medications: [] };
     if (!Array.isArray(state.patients[bedKey].medications)) {
       state.patients[bedKey].medications = [];
+    }
+    // Backfill plateNumber for patients created before this field
+    // existed (legacy patient objects don't have the property).
+    if (!("plateNumber" in state.patients[bedKey])) {
+      state.patients[bedKey].plateNumber = "";
     }
     return state.patients[bedKey];
   }
@@ -761,6 +766,23 @@
       p.name = e.target.value;
       clearTimeout(nameTimer);
       nameTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
+    });
+
+    // Plate number input (optional) — save debounced like the name.
+    // Plate is a free-text field the pharmacist fills in for some
+    // patients; it's optional and doesn't affect anything else.
+    let plateTimer = null;
+    $("patient-plate-input").addEventListener("input", (e) => {
+      if (!state.currentBed) return;
+      const p = ensurePatient(state.currentBed.key);
+      p.plateNumber = e.target.value;
+      clearTimeout(plateTimer);
+      plateTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
+    });
+    $("patient-plate-input").addEventListener("blur", () => {
+      if (!state.currentBed) return;
+      clearTimeout(plateTimer);
+      persistPatient(state.currentBed.key);
     });
     $("patient-name-input").addEventListener("blur", () => {
       if (!state.currentBed) return;

@@ -284,13 +284,14 @@
     const roomId = m ? parseInt(m[1], 10) : 0;
     const bedNum = m ? parseInt(m[2], 10) : 0;
     return {
-      bed_key:     bedKey,
-      room_id:     roomId,
-      bed_number: bedNum,
-      name:        (p && p.name) ? p.name : "",
-      medications: JSON.stringify((p && p.medications) || []),
+      bed_key:      bedKey,
+      room_id:      roomId,
+      bed_number:   bedNum,
+      name:         (p && p.name) ? p.name : "",
+      plate_number: (p && p.plateNumber) ? String(p.plateNumber) : "",
+      medications:  JSON.stringify((p && p.medications) || []),
       // Use the local updatedAt if present (ms → ISO); otherwise now.
-      updated_at:  new Date(_toMs(p && p.updatedAt) || Date.now()).toISOString()
+      updated_at:   new Date(_toMs(p && p.updatedAt) || Date.now()).toISOString()
     };
   }
 
@@ -306,6 +307,7 @@
     } catch (e) { meds = []; }
     return {
       name:        row.name || "",
+      plateNumber: row.plate_number || "",
       medications: Array.isArray(meds) ? meds : [],
       updatedAt:   _toMs(row.updated_at)
     };

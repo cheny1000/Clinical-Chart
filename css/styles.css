@@ -683,31 +683,6 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 .bed-btn.state-meds .bed-num { color: #166534; }
 .bed-btn.state-meds .bed-state::before { content: "بعلاج"; }
 
-/* Special med combos (override the green 'state-meds' background
-   with a solid color or split per the user's clinical rule):
-   - state-meronem           : solid red (Meronem only)
-   - state-albumin           : solid yellow (Albumin only)
-   - state-albumin-meronem   : half yellow + half red
-   The 'state-meds' base class still controls the border/text color
-   and label ('بعلاج'); the modifier classes only override the
-   background. */
-.bed-btn.state-meronem {
-  background: #FCA5A5;
-  border-color: #B91C1C;
-}
-.bed-btn.state-albumin {
-  background: #FDE68A;
-  border-color: #B45309;
-}
-.bed-btn.state-albumin-meronem {
-  background: linear-gradient(
-    to right,
-    #FDE68A 0%, #FDE68A 50%,
-    #FCA5A5 50%, #FCA5A5 100%
-  );
-  border-color: #7C2D12;
-}
-
 .bed-btn .bed-icon {
   width: 24px;
   height: 24px;
@@ -781,6 +756,36 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   box-shadow: 0 0 0 3px rgba(27, 68, 63, 0.15);
 }
 .patient-name-input::placeholder {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+/* Plate number row — second input under the patient name, smaller
+   and lighter (it's optional). Mirrors the name input style but with
+   smaller font, lighter weight, and a subtle accent color so the
+   user can tell it apart from the name field. */
+.patient-plate-row { display: flex; margin-top: 8px; }
+.patient-plate-input {
+  flex: 1;
+  width: 100%;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  background: #FAFAFA;
+  color: var(--text-muted);
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.patient-plate-input:focus {
+  border-style: solid;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(27, 68, 63, 0.10);
+  color: var(--text);
+  background: #fff;
+}
+.patient-plate-input::placeholder {
   color: var(--text-faint);
   font-weight: 500;
 }
@@ -1033,6 +1038,24 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   font-size: 12px;
   color: var(--text-muted);
   margin-top: 2px;
+}
+/* Plate number — appears at the end of the room/bed line if present */
+.patient-row .pr-plate {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+/* Albumin yellow dot — small marker next to the patient name */
+.patient-row .pr-albumin-dot {
+  display: inline-block;
+  margin-right: 6px;
+  color: #CA8A04;
+  font-size: 13px;
+  line-height: 1;
+  vertical-align: middle;
+}
+.patient-row.has-albumin .pr-name {
+  /* Subtle visual cue: slightly bolder name for Albumin patients */
+  font-weight: 800;
 }
 .patient-row .pr-meds {
   font-size: 11px;

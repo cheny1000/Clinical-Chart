@@ -162,22 +162,12 @@
     const key = global.PharmacyWard.bedKey(room.id, bed.number);
     const patient = patientsMap[key] || null;
     const status = bedStatus(patient);
-    // Compute special flags for Albumin/Meronem (only meaningful when
-    // the patient has meds). Add a modifier class on top of the base
-    // state class so the gradient CSS can override the background.
-    let cls = `bed-btn state-${status}`;
-    if (status === "meds") {
-      const f = bedSpecialFlags(patient);
-      if (f.hasAlbumin && f.hasMeronem) {
-        cls += " state-albumin-meronem";
-      } else if (f.hasAlbumin) {
-        cls += " state-albumin";
-      } else if (f.hasMeronem) {
-        cls += " state-meronem";
-      }
-    }
+    // Bed colors are back to the default (green/yellow/gray).
+    // Albumin/Meronem detection is now only used in the patients
+    // list view (renderPatientsList) where we show a small yellow
+    // badge next to the patient name when they have Albumin.
     return h("button", {
-      class: cls,
+      class: `bed-btn state-${status}`,
       dataset: { roomId: room.id, bed: bed.number, key: key },
       type: "button"
     }, [
@@ -194,6 +184,10 @@
 
     const nameInput = document.getElementById("patient-name-input");
     nameInput.value = (patient && patient.name) ? patient.name : "";
+
+    // Plate number (optional field under the name input)
+    const plateInput = document.getElementById("patient-plate-input");
+    plateInput.value = (patient && patient.plateNumber) ? String(patient.plateNumber) : "";
 
     const medsList = document.getElementById("meds-list");
     const emptyMeds = document.getElementById("empty-meds");
@@ -288,15 +282,37 @@
       const bedNum = match[2] ? parseInt(match[2], 10) : null;
       const hasMeds = Array.isArray(p.medications) && p.medications.length > 0;
       const initial = (p.name || "").trim().charAt(0) || "؟";
+      // Detect Albumin (yellow badge) for visual triage in the list
+      const flags = bedSpecialFlags(p);
+      const hasAlbumin = flags.hasAlbumin;
+      // Plate number (optional field, shown under the room/bed line
+      // if the patient has one)
+      const plateNumber = p.plateNumber && String(p.plateNumber).trim()
+        ? String(p.plateNumber).trim()
+        : "";
+
+      const nameChildren = [p.name];
+      if (hasAlbumin) {
+        // Small yellow dot/badge next to the name to mark Albumin
+        nameChildren.push(h("span", {
+          class: "pr-albumin-dot",
+          title: "Albumin — يحتاج متابعة"
+        }, "●"));
+      }
+
+      const locChildren = [`غرفة ${roomId} · سرير ${bedNum}`];
+      if (plateNumber) {
+        locChildren.push(h("span", { class: "pr-plate" }, " · طبلة " + plateNumber));
+      }
 
       const row = h("div", {
-        class: "patient-row" + (hasMeds ? " has-meds" : ""),
+        class: "patient-row" + (hasMeds ? " has-meds" : "") + (hasAlbumin ? " has-albumin" : ""),
         dataset: { roomId: roomId, bed: bedNum, key: p.key }
       }, [
         h("div", { class: "pr-avatar" }, initial),
         h("div", { class: "pr-info" }, [
-          h("div", { class: "pr-name" }, p.name),
-          h("div", { class: "pr-loc" }, `غرفة ${roomId} · سرير ${bedNum}`)
+          h("div", { class: "pr-name" }, nameChildren),
+          h("div", { class: "pr-loc" }, locChildren)
         ]),
         hasMeds
           ? h("div", { class: "pr-meds" }, p.medications.length + " علاج")

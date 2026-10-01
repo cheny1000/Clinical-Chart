@@ -35,9 +35,23 @@ CREATE TABLE IF NOT EXISTS patients (
   room_id        INT  NOT NULL,
   bed_number     INT  NOT NULL,
   name           TEXT NOT NULL DEFAULT '',
+  plate_number   TEXT NOT NULL DEFAULT '',       -- optional free-text "رقم الطبلة" the pharmacist fills in
   medications    JSONB NOT NULL DEFAULT '[]',   -- array of {id,nameTrade,nameAr,nameEn,form,dose,frequency}
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- For existing installations that already created the patients table
+-- without plate_number, add the column (idempotent — wrapped in a
+-- DO block so re-running this script doesn't error out).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'patients' AND column_name = 'plate_number'
+  ) THEN
+    ALTER TABLE patients ADD COLUMN plate_number TEXT NOT NULL DEFAULT '';
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS patients_room_bed_idx
   ON patients (room_id, bed_number);
