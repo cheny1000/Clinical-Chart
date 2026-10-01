@@ -18,7 +18,7 @@
   //   "ampule"            → Ampule (أمبول - سائل جاهز للحقن)
   //   "prefilled-syringe" → Prefilled Syringe (سرنجة جاهزة - مثل Enoxaparin)
   //   "tablet"            → Tablet (أقراص / كبسولات)
-  //   "syrup-and-oral-drop" → Syrup and Oral Drop (شراب فموي + نقط للفم)
+  //   "syrup-and-oral-drop" → OSD (Ointment, Syrup, Drops)
   //   "suppository"       → Suppository (تحاميل)
   //   "solution"          → Solution (محلول للاستنشاق/ال topical)
   //   "supplies"          → Supplies (مستلزمات طبية)
@@ -27,7 +27,7 @@
     ampule:            "Ampule",
     "prefilled-syringe":"Prefilled Syringe",
     tablet:            "Tablet",
-    "syrup-and-oral-drop": "Syrup and Oral Drop",
+    "syrup-and-oral-drop": "OSD",
     suppository:       "Suppository",
     solution:          "Solution",
     supplies:          "Supplies"
