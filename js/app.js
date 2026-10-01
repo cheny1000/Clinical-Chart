@@ -1255,33 +1255,54 @@
       }
     });
 
-    // Admin: restore the default catalog and push it to the cloud.
-    // Useful when the cloud has an outdated catalog (e.g. from before
-    // the cloud-source-of-truth model) and the user wants to force
-    // the cloud to match the latest DEFAULT_MEDICATIONS list.
+    // Admin: merge missing default meds into the current catalog and
+    // push the result to the cloud. Unlike 'restore' (which replaces
+    // the catalog with the defaults), this MERGES: keeps all the
+    // user's existing meds (including custom ones they added) AND
+    // adds any default med that's missing by id.
+    //
+    // Use case: user has 64 meds in their cloud (32 old defaults +
+    // 32 custom additions). DEFAULT_MEDICATIONS now has 56 meds
+    // (32 old + 24 new). Merging gives 64 + 24 = 88 meds.
     $("admin-restore-default-catalog").addEventListener("click", async () => {
-      if (!confirm("⚠ سيتم استبدال الكتالوج الحالي بالكتالوج الافتراضي (56 دواء) ورفعه للسحابة.\nكل الأجهزة سترى الكتالوج الجديد بعد المزامنة.\nهل أنت متأكد؟")) return;
       const def = (Meds && Meds.DEFAULT_MEDICATIONS) || [];
       if (!Array.isArray(def) || def.length === 0) {
         flashHint("لا يوجد كتالوج افتراضي متاح");
         return;
       }
-      state.medications = def.slice();
-      Storage.saveMedications(def);
-      UI.renderAdminMedList(def, null);
-      flashHint("تم استعادة الكتالوج محليًا — جارٍ الرفع للسحابة…");
-      // Push to cloud (so every device gets the full catalog on next sync)
+      // Find which default meds are missing from the current catalog
+      const existingIds = new Set(state.medications.map(m => m && m.id).filter(Boolean));
+      const missing = def.filter(m => m && m.id && !existingIds.has(m.id));
+      if (missing.length === 0) {
+        flashHint("كل الأدوية الافتراضية موجودة بالفعل في الكتالوج");
+        return;
+      }
+      if (!confirm(`سيتم إضافة ${missing.length} دواء جديد من الكتالوج الافتراضي إلى الكتالوج الحالي (${state.medications.length} دواء).\nالكتالوج سيصبح ${state.medications.length + missing.length} دواء ويرتفع للسحابة.\nكل الأجهزة ستراه بعد المزامنة.\nهل تريد المتابعة؟`)) return;
+      // Snapshot for revert
+      const snapshot = state.medications.slice();
+      // Merge: append missing default meds to the current catalog
+      // (preserves user's custom meds AND the existing order)
+      const merged = state.medications.concat(missing);
+      state.medications = merged;
+      Storage.saveMedications(merged);
+      UI.renderAdminMedList(merged, null);
+      flashHint(`تمت إضافة ${missing.length} دواء محليًا — جارٍ الرفع للسحابة…`);
+      // Push merged catalog to the cloud so other devices also get them
       if (SBSync && SBSync.pushCatalog && SB && SB.isConfigured()) {
         const res = await SBSync.pushCatalog();
         if (res.ok) {
           updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
           flashHint(`تم رفع ${res.count} دواء للسحابة — كل الأجهزة ستراها`);
         } else {
+          // Revert on failure so the user knows the cloud didn't get it
+          state.medications = snapshot;
+          Storage.saveMedications(snapshot);
+          UI.renderAdminMedList(snapshot, null);
           updateSupabaseStatusUI("فشل الرفع: " + res.error, "error");
-          flashHint("تم الاستعادة محليًا لكن فشل الرفع — تحقق من الشبكة");
+          flashHint("فشل الرفع — تم إلغاء الإضافة. تحقق من الشبكة وحاول مرة أخرى");
         }
       } else {
-        flashHint("تم استعادة الكتالوج محليًا (Supabase غير مُهيّأ)");
+        flashHint(`تمت إضافة ${missing.length} دواء محليًا (Supabase غير مُهيّأ — الأجهزة الأخرى لن تراها)`);
       }
     });
 
