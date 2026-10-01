@@ -78,6 +78,37 @@
     return hasMeds ? "meds" : "occupied";
   }
 
+  // Detect if a patient has Albumin and/or Meronem prescribed.
+  // Used to color the bed button with a split gradient (yellow/red/green)
+  // per the user's clinical rule:
+  //   - Meronem only    → half red + half green
+  //   - Albumin only    → half yellow + half green
+  //   - Albumin+Meronem → thirds yellow + red + green
+  // Match by id OR by name (case-insensitive) so any user-added
+  // variant like 'meronem-500mg' or 'Albumin 25%' is detected.
+  function bedSpecialFlags(patient) {
+    const flags = { hasAlbumin: false, hasMeronem: false };
+    if (!patient || !Array.isArray(patient.medications)) return flags;
+    for (const pm of patient.medications) {
+      if (!pm) continue;
+      const id = (pm.id || "").toLowerCase();
+      const name = ((pm.nameTrade || "") + " " + (pm.nameEn || "") + " " + (pm.nameAr || "")).toLowerCase();
+      // Albumin: match id or name contains 'albumin' or 'ألبومين'
+      if (id.indexOf("albumin") >= 0 || name.indexOf("albumin") >= 0 || name.indexOf("ألبومين") >= 0) {
+        flags.hasAlbumin = true;
+      }
+      // Meronem/Meropenem: match id or name contains 'meronem' or 'meropenem' or 'ميرونيم' or 'ميروبينيم'
+      if (
+        id.indexOf("meronem") >= 0 || id.indexOf("meropenem") >= 0 ||
+        name.indexOf("meronem") >= 0 || name.indexOf("meropenem") >= 0 ||
+        name.indexOf("ميرونيم") >= 0 || name.indexOf("ميروبينيم") >= 0
+      ) {
+        flags.hasMeronem = true;
+      }
+    }
+    return flags;
+  }
+
   // ---------- Rooms grid ----------
   // Renders room cards in a simple grid (no corridor, no entrance,
   // no connector dots — just clean room cards).
@@ -131,8 +162,22 @@
     const key = global.PharmacyWard.bedKey(room.id, bed.number);
     const patient = patientsMap[key] || null;
     const status = bedStatus(patient);
+    // Compute special flags for Albumin/Meronem (only meaningful when
+    // the patient has meds). Add a modifier class on top of the base
+    // state class so the gradient CSS can override the background.
+    let cls = `bed-btn state-${status}`;
+    if (status === "meds") {
+      const f = bedSpecialFlags(patient);
+      if (f.hasAlbumin && f.hasMeronem) {
+        cls += " state-albumin-meronem";
+      } else if (f.hasAlbumin) {
+        cls += " state-albumin";
+      } else if (f.hasMeronem) {
+        cls += " state-meronem";
+      }
+    }
     return h("button", {
-      class: `bed-btn state-${status}`,
+      class: cls,
       dataset: { roomId: room.id, bed: bed.number, key: key },
       type: "button"
     }, [
