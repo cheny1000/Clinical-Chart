@@ -1255,6 +1255,36 @@
       }
     });
 
+    // Admin: restore the default catalog and push it to the cloud.
+    // Useful when the cloud has an outdated catalog (e.g. from before
+    // the cloud-source-of-truth model) and the user wants to force
+    // the cloud to match the latest DEFAULT_MEDICATIONS list.
+    $("admin-restore-default-catalog").addEventListener("click", async () => {
+      if (!confirm("⚠ سيتم استبدال الكتالوج الحالي بالكتالوج الافتراضي (56 دواء) ورفعه للسحابة.\nكل الأجهزة سترى الكتالوج الجديد بعد المزامنة.\nهل أنت متأكد؟")) return;
+      const def = (Meds && Meds.DEFAULT_MEDICATIONS) || [];
+      if (!Array.isArray(def) || def.length === 0) {
+        flashHint("لا يوجد كتالوج افتراضي متاح");
+        return;
+      }
+      state.medications = def.slice();
+      Storage.saveMedications(def);
+      UI.renderAdminMedList(def, null);
+      flashHint("تم استعادة الكتالوج محليًا — جارٍ الرفع للسحابة…");
+      // Push to cloud (so every device gets the full catalog on next sync)
+      if (SBSync && SBSync.pushCatalog && SB && SB.isConfigured()) {
+        const res = await SBSync.pushCatalog();
+        if (res.ok) {
+          updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
+          flashHint(`تم رفع ${res.count} دواء للسحابة — كل الأجهزة ستراها`);
+        } else {
+          updateSupabaseStatusUI("فشل الرفع: " + res.error, "error");
+          flashHint("تم الاستعادة محليًا لكن فشل الرفع — تحقق من الشبكة");
+        }
+      } else {
+        flashHint("تم استعادة الكتالوج محليًا (Supabase غير مُهيّأ)");
+      }
+    });
+
     // Admin: wipe patients only (keep medications)
     $("admin-wipe").addEventListener("click", () => {
       if (!confirm("⚠ تحذير: هذا سيمسح جميع بيانات المرضى نهائيًا.\nالأدوية لن تُمسح.\nهل أنت متأكد؟")) return;
