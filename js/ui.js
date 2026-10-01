@@ -974,10 +974,9 @@
 
         // 2) 100 ml NaCl — based on this patient's VIALS ONLY
         //    (ampules don't need reconstitution).
-        //    EXCEPTIONS (these vials are NOT reconstituted with NaCl
-        //    0.9% 100ml — they use a different solution or are given
-        //    differently). If the patient has ANY of these vials,
-        //    NaCl 100ml is NOT added for that patient at all:
+        //    EXCEPTIONS: certain vials are NOT reconstituted with
+        //    NaCl 0.9% 100ml (they use a different solution or are
+        //    given differently):
         //      - Flagyl (Metronidazole) vial
         //      - Ciprofloxacin 200mg vial
         //      - Albumin (Human Albumin 20%) vial
@@ -986,38 +985,44 @@
         //      - Paracetamol/Paracetol vial
         //      - Insulin (all forms: Human Insulin, Lente, Mixtard,
         //        Soluble) vial
+        //    RULE: count only NON-EXCEPTION vials. NaCl is added
+        //    with freq = sum of those vials' frequencies. If the
+        //    patient has zero non-exception vials (all vials are
+        //    exceptions), NaCl is NOT added.
+        //    Example: Ceftriaxone (vial, 1×2) + Heparin (vial, 1×1)
+        //    → NaCl freq = 1×2 (only Ceftriaxone counted, Heparin
+        //    is an exception and skipped).
         //    Detection matches by id OR by trade/en/ar name
         //    (case-insensitive).
         let totalVials = 0;
-        let hasVials = false;
-        let hasExceptionVial = false;
         row.medications.forEach(pm => {
           if (!pm) return;
-          if (pm.form === "vial") {
-            hasVials = true;
-            totalVials += syringesForFrequency(pm.frequency);
-            // Detect any of the exception vials by id or name
-            const idLower = (pm.id || "").toLowerCase();
-            const nameLower = ((pm.nameTrade || "") + " " + (pm.nameEn || "") + " " + (pm.nameAr || "")).toLowerCase();
-            // Check for each exception keyword
-            const EXCEPTION_KEYWORDS = [
-              "flagyl", "metronid", "فلاجيل", "ميترون",           // Flagyl
-              "ciprofloxacin", "cipro", "سيبروف",                  // Ciprofloxacin 200mg
-              "albumin", "ألبومين",                                 // Albumin
-              "heparin", "هيبارين",                                 // Heparin
-              "hydrocort", "هيدرو",                                 // Hydrocortisone
-              "paracet", "باراسيت",                                 // Paracetamol/Paracetol vial
-              "insulin", "إنسولين"                                  // Insulin (all forms)
-            ];
-            for (const kw of EXCEPTION_KEYWORDS) {
-              if (idLower.indexOf(kw) >= 0 || nameLower.indexOf(kw) >= 0) {
-                hasExceptionVial = true;
-                break;
-              }
+          if (pm.form !== "vial") return;
+          // Check if this vial is an exception
+          const idLower = (pm.id || "").toLowerCase();
+          const nameLower = ((pm.nameTrade || "") + " " + (pm.nameEn || "") + " " + (pm.nameAr || "")).toLowerCase();
+          const EXCEPTION_KEYWORDS = [
+            "flagyl", "metronid", "فلاجيل", "ميترون",           // Flagyl
+            "ciprofloxacin", "cipro", "سيبروف",                  // Ciprofloxacin 200mg
+            "albumin", "ألبومين",                                 // Albumin
+            "heparin", "هيبارين",                                 // Heparin
+            "hydrocort", "هيدرو",                                 // Hydrocortisone
+            "paracet", "باراسيت",                                 // Paracetamol/Paracetol vial
+            "insulin", "إنسولين"                                  // Insulin (all forms)
+          ];
+          let isException = false;
+          for (const kw of EXCEPTION_KEYWORDS) {
+            if (idLower.indexOf(kw) >= 0 || nameLower.indexOf(kw) >= 0) {
+              isException = true;
+              break;
             }
           }
+          // Only count non-exception vials toward the NaCl total
+          if (!isException) {
+            totalVials += syringesForFrequency(pm.frequency);
+          }
         });
-        if (hasVials && totalVials > 0 && !hasExceptionVial) {
+        if (totalVials > 0) {
           row.medications.push({
             id:        nacl100Med.id,
             nameTrade: nacl100Med.nameTrade,
