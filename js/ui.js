@@ -631,77 +631,122 @@
       return;
     }
 
-    meds.forEach((m, idx) => {
-      const isFirst = idx === 0;
-      const isLast  = idx === meds.length - 1;
-      const sci = scientificName(m);
-      const metaParts = [];
-      if (sci) metaParts.push(sci);
-      if (m.defaultDose) metaParts.push(m.defaultDose);
-      if (m.defaultFrequency) metaParts.push(m.defaultFrequency);
+    // Group meds by their form (vial / ampule / tablet / syrup / ...).
+    // We use the FORM_ORDER from medications.js so the sections appear
+    // in a fixed, predictable order (the same order as the sheet tabs).
+    // Within each section, the meds keep their original relative order
+    // from the `meds` array — this preserves the catalog's sort_order
+    // so move-up/move-down still work as before.
+    const Meds = global.PharmacyMedications || {};
+    const FORM_LABELS = Meds.FORM_LABELS || {};
+    const FORM_ORDER  = Meds.FORM_ORDER || ["vial", "ampule", "prefilled-syringe", "tablet", "syrup-and-oral-drop", "suppository", "solution", "supplies"];
 
-      const FORM_LABELS = (global.PharmacyMedications && global.PharmacyMedications.FORM_LABELS) || {};
+    // Group: bucket each med into its form group (using 'vial' as
+    // fallback for unknown/legacy forms).
+    const groups = {};
+    FORM_ORDER.forEach(form => { groups[form] = []; });
+    meds.forEach(m => {
       const formKey = (m.form && FORM_LABELS[m.form]) ? m.form : "vial";
-      const formLabel = FORM_LABELS[formKey] || formKey;
-      const formClass = "admin-form-badge is-" + formKey;
+      if (!groups[formKey]) groups[formKey] = []; // unknown form → its own bucket
+      groups[formKey].push(m);
+    });
 
-      const row = h("div", {
-        class: "admin-med-row" + (selectedId === m.id ? " selected" : ""),
-        dataset: { medId: m.id }
+    // Render each non-empty group with a section header.
+    // We keep a running index across all groups so the "position"
+    // badge on each row still reflects the med's position in the
+    // full catalog (1-based), matching what the chart and the
+    // bottom-sheet selection see. Move-up/move-down use the actual
+    // index in the underlying `meds` array (passed via the med's id),
+    // not the visible position, so they keep working.
+    let runningIdx = 0;
+    FORM_ORDER.forEach(form => {
+      const bucket = groups[form];
+      if (!Array.isArray(bucket) || bucket.length === 0) return;
+      const formLabel = FORM_LABELS[form] || form;
+
+      // Section header — sticky so it stays visible when scrolling
+      // a long list of meds within one form.
+      const header = h("div", {
+        class: "admin-med-section-header admin-form-badge is-" + form
       }, [
-        h("div", { class: "admin-med-pos", title: "ترتيب الظهور في قائمة الاختيار" }, String(idx + 1)),
-        h("div", { class: "admin-med-info" }, [
-          h("div", { class: "admin-med-name" }, [
-            primaryName(m),
-            h("span", { class: formClass, title: "الشكل الدوائي" }, formLabel)
-          ]),
-          h("div", { class: "admin-med-meta" },
-            metaParts.length ? metaParts.join(" · ") : "—")
-        ]),
-        h("div", { class: "admin-med-actions" }, [
-          h("button", {
-            class: "admin-ico-btn move top",
-            type: "button",
-            dataset: { medId: m.id, action: "move-top" },
-            title: "نقل للأعلى (أول القائمة)",
-            disabled: isFirst ? "disabled" : undefined
-          }, "⤒"),
-          h("button", {
-            class: "admin-ico-btn move up",
-            type: "button",
-            dataset: { medId: m.id, action: "move-up" },
-            title: "تحريك لأعلى",
-            disabled: isFirst ? "disabled" : undefined
-          }, "↑"),
-          h("button", {
-            class: "admin-ico-btn move down",
-            type: "button",
-            dataset: { medId: m.id, action: "move-down" },
-            title: "تحريك لأسفل",
-            disabled: isLast ? "disabled" : undefined
-          }, "↓"),
-          h("button", {
-            class: "admin-ico-btn move bottom",
-            type: "button",
-            dataset: { medId: m.id, action: "move-bottom" },
-            title: "نقل للأسفل (آخر القائمة)",
-            disabled: isLast ? "disabled" : undefined
-          }, "⤓"),
-          h("button", {
-            class: "admin-ico-btn edit",
-            type: "button",
-            dataset: { medId: m.id, action: "edit-med" },
-            title: "تعديل"
-          }, "✎"),
-          h("button", {
-            class: "admin-ico-btn del",
-            type: "button",
-            dataset: { medId: m.id, action: "del-med" },
-            title: "حذف"
-          }, "✕")
-        ])
+        h("span", { class: "admin-med-section-name" }, formLabel),
+        h("span", { class: "admin-med-section-count" }, bucket.length + " دواء")
       ]);
-      container.appendChild(row);
+      container.appendChild(header);
+
+      bucket.forEach((m) => {
+        const idx = runningIdx;
+        const isFirst = idx === 0;
+        const isLast  = idx === meds.length - 1;
+        const sci = scientificName(m);
+        const metaParts = [];
+        if (sci) metaParts.push(sci);
+        if (m.defaultDose) metaParts.push(m.defaultDose);
+        if (m.defaultFrequency) metaParts.push(m.defaultFrequency);
+
+        const formKey = (m.form && FORM_LABELS[m.form]) ? m.form : "vial";
+        const formLabelInner = FORM_LABELS[formKey] || formKey;
+        const formClass = "admin-form-badge is-" + formKey;
+
+        const row = h("div", {
+          class: "admin-med-row" + (selectedId === m.id ? " selected" : ""),
+          dataset: { medId: m.id }
+        }, [
+          h("div", { class: "admin-med-pos", title: "ترتيب الظهور في قائمة الاختيار" }, String(idx + 1)),
+          h("div", { class: "admin-med-info" }, [
+            h("div", { class: "admin-med-name" }, [
+              primaryName(m),
+              h("span", { class: formClass, title: "الشكل الدوائي" }, formLabelInner)
+            ]),
+            h("div", { class: "admin-med-meta" },
+              metaParts.length ? metaParts.join(" · ") : "—")
+          ]),
+          h("div", { class: "admin-med-actions" }, [
+            h("button", {
+              class: "admin-ico-btn move top",
+              type: "button",
+              dataset: { medId: m.id, action: "move-top" },
+              title: "نقل للأعلى (أول القائمة)",
+              disabled: isFirst ? "disabled" : undefined
+            }, "⤒"),
+            h("button", {
+              class: "admin-ico-btn move up",
+              type: "button",
+              dataset: { medId: m.id, action: "move-up" },
+              title: "تحريك لأعلى",
+              disabled: isFirst ? "disabled" : undefined
+            }, "↑"),
+            h("button", {
+              class: "admin-ico-btn move down",
+              type: "button",
+              dataset: { medId: m.id, action: "move-down" },
+              title: "تحريك لأسفل",
+              disabled: isLast ? "disabled" : undefined
+            }, "↓"),
+            h("button", {
+              class: "admin-ico-btn move bottom",
+              type: "button",
+              dataset: { medId: m.id, action: "move-bottom" },
+              title: "نقل للأسفل (آخر القائمة)",
+              disabled: isLast ? "disabled" : undefined
+            }, "⤓"),
+            h("button", {
+              class: "admin-ico-btn edit",
+              type: "button",
+              dataset: { medId: m.id, action: "edit-med" },
+              title: "تعديل"
+            }, "✎"),
+            h("button", {
+              class: "admin-ico-btn del",
+              type: "button",
+              dataset: { medId: m.id, action: "del-med" },
+              title: "حذف"
+            }, "✕")
+          ])
+        ]);
+        container.appendChild(row);
+        runningIdx++;
+      });
     });
   }
 

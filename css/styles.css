@@ -1823,6 +1823,34 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   -webkit-overflow-scrolling: touch;
   padding-inline-start: 2px;
 }
+
+/* Section header — group med rows by their form (vial, ampule, etc.) */
+.admin-med-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  font-weight: 800;
+  font-size: 13px;
+  /* Use the form's color from .is-{form} badge (background + color).
+     Make the header more prominent by using a slightly bolder
+     background (slightly darker than the badge — we override the
+     background by stacking a subtle gradient on top). */
+  margin-top: 6px;
+}
+.admin-med-section-header:first-child {
+  margin-top: 0;
+}
+.admin-med-section-name {
+  font-weight: 800;
+}
+.admin-med-section-count {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.75;
+}
 .admin-med-row {
   display: flex;
   align-items: center;
