@@ -1053,8 +1053,18 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   line-height: 1;
   vertical-align: middle;
 }
-.patient-row.has-albumin .pr-name {
-  /* Subtle visual cue: slightly bolder name for Albumin patients */
+/* Meronem red dot — small marker next to the patient name */
+.patient-row .pr-meronem-dot {
+  display: inline-block;
+  margin-right: 6px;
+  color: #B91C1C;
+  font-size: 13px;
+  line-height: 1;
+  vertical-align: middle;
+}
+.patient-row.has-albumin .pr-name,
+.patient-row.has-meronem .pr-name {
+  /* Subtle visual cue: slightly bolder name for marked patients */
   font-weight: 800;
 }
 .patient-row .pr-meds {

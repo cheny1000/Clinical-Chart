@@ -282,9 +282,11 @@
       const bedNum = match[2] ? parseInt(match[2], 10) : null;
       const hasMeds = Array.isArray(p.medications) && p.medications.length > 0;
       const initial = (p.name || "").trim().charAt(0) || "؟";
-      // Detect Albumin (yellow badge) for visual triage in the list
+      // Detect Albumin (yellow dot) and Meronem (red dot) for visual
+      // triage in the patients list.
       const flags = bedSpecialFlags(p);
       const hasAlbumin = flags.hasAlbumin;
+      const hasMeronem = flags.hasMeronem;
       // Plate number (optional field, shown under the room/bed line
       // if the patient has one)
       const plateNumber = p.plateNumber && String(p.plateNumber).trim()
@@ -293,10 +295,17 @@
 
       const nameChildren = [p.name];
       if (hasAlbumin) {
-        // Small yellow dot/badge next to the name to mark Albumin
+        // Small yellow dot next to the name to mark Albumin
         nameChildren.push(h("span", {
           class: "pr-albumin-dot",
           title: "Albumin — يحتاج متابعة"
+        }, "●"));
+      }
+      if (hasMeronem) {
+        // Small red dot next to the name to mark Meronem (500mg or 1g)
+        nameChildren.push(h("span", {
+          class: "pr-meronem-dot",
+          title: "Meronem — يحتاج متابعة"
         }, "●"));
       }
 
@@ -305,8 +314,13 @@
         locChildren.push(h("span", { class: "pr-plate" }, " · طبلة " + plateNumber));
       }
 
+      const rowCls =
+        "patient-row" +
+        (hasMeds ? " has-meds" : "") +
+        (hasAlbumin ? " has-albumin" : "") +
+        (hasMeronem ? " has-meronem" : "");
       const row = h("div", {
-        class: "patient-row" + (hasMeds ? " has-meds" : "") + (hasAlbumin ? " has-albumin" : ""),
+        class: rowCls,
         dataset: { roomId: roomId, bed: bedNum, key: p.key }
       }, [
         h("div", { class: "pr-avatar" }, initial),
