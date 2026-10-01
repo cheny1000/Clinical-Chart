@@ -118,11 +118,24 @@
     { id: "ringers-lactate",     nameTrade: "Ringer Lactate", nameAr: "", nameEn: "Ringer's Lactate",     form: "supplies", defaultDose: "500 ml", defaultFrequency: "حسب الحاجة" }
   ];
 
+  // Bump this number whenever you add new medications to
+  // DEFAULT_MEDICATIONS and want existing users to receive them on
+  // their next app open. The storage layer compares this version to
+  // the user's `pharma.catalog.seed.v1` localStorage key; if the
+  // version is higher, missing meds are merged into the user's
+  // saved catalog (one-time, then the stamp is updated).
+  //
+  // History:
+  //   v1 = added 24 new meds (Amoxycillin, Ceftazidime, etc.) +
+  //        NaCl 100ml + 5cc Syringe auto-add rule + 14 supplies
+  const DEFAULT_MEDICATIONS_VERSION = 1;
+
   global.PharmacyMedications = {
     FREQUENCIES,
     FORM_LABELS,
     FORM_ORDER,
     FORM_ICONS,
-    DEFAULT_MEDICATIONS
+    DEFAULT_MEDICATIONS,
+    DEFAULT_MEDICATIONS_VERSION
   };
 })(window);

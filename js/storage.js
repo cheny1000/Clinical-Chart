@@ -15,7 +15,8 @@
     PATIENTS:    "pharma.patients.v1",     // map: bedKey -> patient
     MEDICATIONS: "pharma.medications.v1",  // array: default med catalog
     MEDICATIONS_LAST_MODIFIED: "pharma.medications.modified.v1", // ms timestamp
-    MEDICATIONS_LAST_SYNCED: "pharma.medications.synced.v1"      // ms timestamp
+    MEDICATIONS_LAST_SYNCED: "pharma.medications.synced.v1",     // ms timestamp
+    CATALOG_SEED_VERSION: "pharma.catalog.seed.v1"               // last DEFAULT_MEDICATIONS version merged in
   };
 
   function safeParse(raw, fallback) {
@@ -330,12 +331,54 @@
     return { list, changed };
   }
 
+  // Merge any NEW default-meds (in DEFAULT_MEDICATIONS but missing
+  // from the user's saved catalog) into the user's catalog. This is
+  // triggered when DEFAULT_MEDICATIONS' version number (in
+  // medications.js) is bumped above the version the user last saw.
+  //
+  // Behavior:
+  //   - For each med in DEFAULT_MEDICATIONS that isn't already in
+  //     the user's catalog (matched by id), append it.
+  //   - User's existing edits/deletes are RESPECTED — if the user
+  //     previously deleted a med by id, the merge will still add it
+  //     back (because we can't distinguish "deleted" from "never
+  //     had"). To prevent this from re-adding user-deleted meds on
+  //     every app open, we record the version we merged up to and
+  //     only run the merge when the version changes.
+  //
+  // This means: bumping DEFAULT_MEDICATIONS_VERSION is a one-time
+  // trigger; after the user's catalog is updated, future opens
+  // (with the same DEFAULT_MEDICATIONS_VERSION) won't re-add
+  // anything they delete.
+  function mergeNewDefaultMeds(list) {
+    if (!Array.isArray(list)) return { list, changed: false };
+    const defaults = (global.PharmacyMedications && global.PharmacyMedications.DEFAULT_MEDICATIONS) || [];
+    if (!Array.isArray(defaults) || defaults.length === 0) {
+      return { list, changed: false };
+    }
+    const existingIds = new Set(list.map(m => m && m.id).filter(Boolean));
+    let changed = false;
+    for (const def of defaults) {
+      if (def && def.id && !existingIds.has(def.id)) {
+        list.push(Object.assign({}, def));
+        changed = true;
+      }
+    }
+    return { list, changed };
+  }
+
   function loadMedications() {
     const raw = localStorage.getItem(STORAGE_KEYS.MEDICATIONS);
     if (raw === null) {
-      // First run: seed defaults (already includes all required supplies)
+      // First run: seed defaults (already includes all required supplies
+      // and the latest default meds). Record the seed version so future
+      // opens don't re-trigger the merge.
       const def = (global.PharmacyMedications && global.PharmacyMedications.DEFAULT_MEDICATIONS) || [];
       safeSet(STORAGE_KEYS.MEDICATIONS, def);
+      try {
+        const v = (global.PharmacyMedications && global.PharmacyMedications.DEFAULT_MEDICATIONS_VERSION) || 0;
+        localStorage.setItem(STORAGE_KEYS.CATALOG_SEED_VERSION, String(v));
+      } catch (e) { /* ignore */ }
       return def;
     }
     // The user has a stored catalog (even if empty) — respect it.
@@ -350,6 +393,27 @@
         res.list = inj.list;
         res.changed = true;
       }
+      // Merge any new default meds that are missing AND whose absence
+      // is due to the user's catalog predating a
+      // DEFAULT_MEDICATIONS_VERSION bump (not because the user
+      // deliberately deleted them — we can't tell those apart, so we
+      // use the version stamp to make this a one-time event).
+      try {
+        const curVersion = parseInt(localStorage.getItem(STORAGE_KEYS.CATALOG_SEED_VERSION) || "0", 10);
+        const defVersion = (global.PharmacyMedications && global.PharmacyMedications.DEFAULT_MEDICATIONS_VERSION) || 0;
+        if (defVersion > curVersion) {
+          const merged = mergeNewDefaultMeds(res.list);
+          if (merged.changed) {
+            res.list = merged.list;
+            res.changed = true;
+          }
+          // Always update the seed version stamp — even if the merge
+          // didn't add anything (because the user already had the
+          // new meds, perhaps from a cloud sync) — so we don't keep
+          // checking on every load.
+          localStorage.setItem(STORAGE_KEYS.CATALOG_SEED_VERSION, String(defVersion));
+        }
+      } catch (e) { /* ignore */ }
       if (res.changed) safeSet(STORAGE_KEYS.MEDICATIONS, res.list);
       return res.list;
     }
