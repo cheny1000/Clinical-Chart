@@ -1073,9 +1073,38 @@
       }
     });
     const allPrescribedMeds = prescribedMeds.concat(missingFromCatalog);
+
+    // Prioritize the auto-injected supplies so they always get a
+    // column in the chart. Without this, a catalog with 50+
+    // prescribed meds could fill the 50-column limit before reaching
+    // the supplies at the end (and the user would see "NaCl 100ml"
+    // and "Cannula" missing from the chart).
+    const PRIORITY_SUPPLY_IDS = [
+      "syringe-5cc",      // auto: sum of vial+ampule freqs
+      "nacl-100ml",       // auto: sum of vial-only freqs
+      "syringe-1cc",      // random 60-80%
+      "iv-set",           // everyone
+      "cannula"           // random 70%
+    ];
+    // Split: priority supplies first, then the rest in catalog order.
+    const priorityBucket = [];
+    const restBucket = [];
+    allPrescribedMeds.forEach(m => {
+      if (m && PRIORITY_SUPPLY_IDS.indexOf(m.id) !== -1) {
+        priorityBucket.push(m);
+      } else {
+        restBucket.push(m);
+      }
+    });
+    // Sort priority bucket by the PRIORITY_SUPPLY_IDS order so they
+    // appear in the chart in a predictable, stable order.
+    priorityBucket.sort((a, b) => {
+      return PRIORITY_SUPPLY_IDS.indexOf(a.id) - PRIORITY_SUPPLY_IDS.indexOf(b.id);
+    });
     const orderedMeds = [];
+    const ordered = priorityBucket.concat(restBucket);
     for (let i = 0; i < MED_COLS; i++) {
-      orderedMeds.push(allPrescribedMeds[i] || null);
+      orderedMeds.push(ordered[i] || null);
     }
 
     const numPages = Math.max(1, Math.ceil(occupiedRows.length / PATIENTS_PER_PAGE));
