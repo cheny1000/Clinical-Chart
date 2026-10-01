@@ -1044,21 +1044,21 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   color: var(--text-muted);
   font-weight: 600;
 }
-/* Albumin yellow dot — small marker next to the patient name */
+/* Albumin yellow dot — larger marker next to the patient name */
 .patient-row .pr-albumin-dot {
   display: inline-block;
   margin-right: 6px;
   color: #CA8A04;
-  font-size: 13px;
+  font-size: 24px;
   line-height: 1;
   vertical-align: middle;
 }
-/* Meronem red dot — small marker next to the patient name */
+/* Meronem red dot — larger marker next to the patient name */
 .patient-row .pr-meronem-dot {
   display: inline-block;
   margin-right: 6px;
   color: #B91C1C;
-  font-size: 13px;
+  font-size: 24px;
   line-height: 1;
   vertical-align: middle;
 }
