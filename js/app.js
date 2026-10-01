@@ -114,17 +114,33 @@
     if (!Auth) return;
 
     // Login form submit
-    $("login-form").addEventListener("submit", (e) => {
+    $("login-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const username = $("login-username").value;
       const password = $("login-password").value;
-      const res = Auth.login(username, password);
-      if (res.ok) {
-        onLoginSuccess();
-      } else {
+      // Show a loading state on the submit button so the user knows
+      // the auth check is happening (especially with cloud login which
+      // can take 1-2 seconds).
+      const submitBtn = e.target.querySelector("button[type=submit]");
+      const origText = submitBtn.textContent;
+      submitBtn.textContent = "جارٍ التحقق…";
+      submitBtn.disabled = true;
+      try {
+        const res = await Auth.login(username, password);
+        if (res.ok) {
+          onLoginSuccess();
+        } else {
+          const errEl = $("login-error");
+          errEl.textContent = res.error;
+          errEl.hidden = false;
+        }
+      } catch (err) {
         const errEl = $("login-error");
-        errEl.textContent = res.error;
+        errEl.textContent = (err && err.message) ? err.message : String(err);
         errEl.hidden = false;
+      } finally {
+        submitBtn.textContent = origText;
+        submitBtn.disabled = false;
       }
     });
 
@@ -822,7 +838,15 @@
       const idx = parseInt(del.dataset.medIndex, 10);
       const p = state.patients[state.currentBed.key];
       if (!p || !Array.isArray(p.medications)) return;
+      const removedMed = p.medications[idx];
+      const removedName = removedMed && (removedMed.nameTrade || removedMed.nameAr || removedMed.id) || "(دواء)";
       p.medications.splice(idx, 1);
+      // Audit log — record the med-delete action
+      if (Auth && Auth.auditLog) {
+        const roomBed = state.currentBed.key.replace("room-", "غرفة ").replace("-bed-", " · سرير ");
+        Auth.auditLog("med_deleted",
+          `حذف دواء "${removedName}" من المريض "${p.name || "(بدون اسم)"}" في ${roomBed}`);
+      }
       // Recompute the auto-managed syringe entry: if a vial/ampule
       // was deleted, the syringe's count needs to drop; if the user
       // deleted the syringe itself, the recompute re-adds it (since
@@ -880,6 +904,12 @@
         : "هل تريد تفريغ هذا السرير؟";
       if (!confirm(msg)) return;
       const bedKey = state.currentBed.key;
+      // Audit log — record the sensitive delete action
+      if (Auth && Auth.auditLog) {
+        const roomBed = bedKey.replace("room-", "غرفة ").replace("-bed-", " · سرير ");
+        Auth.auditLog("patient_deleted",
+          `حذف المريض "${name}" من ${roomBed}`);
+      }
       Storage.deletePatient(bedKey);
       delete state.patients[bedKey];
       state.currentBed = null;
@@ -1004,6 +1034,7 @@
       if (!state.currentBed) return;
       if (state.sheet.selectedList.length === 0) return;
       const p = ensurePatient(state.currentBed.key);
+      const wasNew = !p.name || !p.name.trim();
 
       // 1) Add the user-selected meds to the patient
       state.sheet.selectedList.forEach(s => {
@@ -1018,6 +1049,14 @@
         });
       });
       const userAddedCount = state.sheet.selectedList.length;
+
+      // Audit log — record the med-add action
+      if (Auth && Auth.auditLog) {
+        const medNames = state.sheet.selectedList.map(s => s.nameTrade || s.nameAr || s.id).join("، ");
+        const roomBed = state.currentBed.key.replace("room-", "غرفة ").replace("-bed-", " · سرير ");
+        Auth.auditLog("med_added",
+          `إضافة ${userAddedCount} دواء (${medNames}) للمريض "${p.name || "(بدون اسم)"}" في ${roomBed}`);
+      }
 
       // 2) Recompute the auto-managed syringe entry. This updates
       //    (or creates, or removes) the single syringe-5cc entry so
@@ -1331,6 +1370,10 @@
     // Admin: wipe patients only (keep medications)
     $("admin-wipe").addEventListener("click", () => {
       if (!confirm("⚠ تحذير: هذا سيمسح جميع بيانات المرضى نهائيًا.\nالأدوية لن تُمسح.\nهل أنت متأكد؟")) return;
+      // Audit log — record the sensitive wipe action
+      if (Auth && Auth.auditLog) {
+        Auth.auditLog("data_wiped", "مسح جميع بيانات المرضى");
+      }
       try {
         localStorage.removeItem("pharma.patients.v1");
       } catch (e) { /* ignore */ }
@@ -1347,6 +1390,161 @@
         });
       }
     });
+
+    // ----- User Management (admin only) -----
+    // Render the users list + wire the create/refresh/delete/reset/
+    // toggle buttons.
+    function renderUsersList(users) {
+      const container = $("admin-users-list");
+      if (!container) return;
+      if (!Array.isArray(users) || users.length === 0) {
+        container.innerHTML = '<div class="admin-users-empty">لا يوجد مستخدمون بعد. أنشئ أول مستخدم بالأعلى.</div>';
+        return;
+      }
+      const currentUser = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+      container.innerHTML = "";
+      users.forEach(u => {
+        const row = document.createElement("div");
+        row.className = "admin-user-row" + (u.active === false ? " is-inactive" : "");
+        const roleLabel = u.role === "admin" ? "مسؤول" : "صيدلي";
+        const created = u.created_at
+          ? new Date(u.created_at).toLocaleString("ar", { dateStyle: "short", timeStyle: "short" })
+          : "—";
+        row.innerHTML = `
+          <div class="admin-user-info">
+            <div class="admin-user-name">${u.display_name}</div>
+            <div class="admin-user-meta">
+              <span class="admin-user-username">@${u.username}</span>
+              <span class="admin-user-role admin-user-role-${u.role}">${roleLabel}</span>
+              <span class="admin-user-state ${u.active === false ? "is-off" : "is-on"}">${u.active === false ? "معطّل" : "نشط"}</span>
+            </div>
+            <div class="admin-user-meta">أنشأه: ${u.created_by || "—"} · ${created}</div>
+          </div>
+          <div class="admin-user-actions">
+            <button class="btn-user-reset" data-uid="${u.id}" data-name="${u.display_name}" type="button">🔑 كلمة مرور</button>
+            <button class="btn-user-toggle" data-uid="${u.id}" data-active="${u.active}" type="button">${u.active === false ? "تفعيل" : "تعطيل"}</button>
+            <button class="btn-user-delete" data-uid="${u.id}" data-username="${u.username}" data-name="${u.display_name}" type="button">🗑 حذف</button>
+          </div>
+        `;
+        // Don't let admin delete or disable their own account
+        if (currentUser && currentUser.username === u.username) {
+          row.querySelectorAll(".btn-user-toggle, .btn-user-delete").forEach(b => b.remove());
+        }
+        container.appendChild(row);
+      });
+    }
+    async function refreshUsersList() {
+      if (!Auth || !Auth.listUsers) return;
+      const list = $("admin-users-list");
+      if (list) list.innerHTML = '<div class="admin-users-loading">جارٍ التحميل…</div>';
+      const res = await Auth.listUsers();
+      if (res.ok) renderUsersList(res.users);
+      else if (list) list.innerHTML = '<div class="admin-users-error">فشل تحميل المستخدمين: ' + (res.error || "") + '</div>';
+    }
+    // Create new user button
+    $("user-create-btn").addEventListener("click", async () => {
+      const displayName = $("user-display-name").value.trim();
+      const username = $("user-username").value.trim().toLowerCase();
+      const password = $("user-password").value;
+      const role = $("user-role").value;
+      if (!displayName || !username || !password) {
+        flashHint("أدخل جميع الحقول الثلاثة");
+        return;
+      }
+      if (!Auth || !Auth.createUser) { flashHint("نظام المصادقة غير مُهيّأ"); return; }
+      const creator = Auth.getCurrentUser();
+      const res = await Auth.createUser(creator ? creator.username : "admin", username, password, displayName, role);
+      if (res.ok) {
+        flashHint(`تم إنشاء المستخدم "${displayName}"`);
+        $("user-display-name").value = "";
+        $("user-username").value = "";
+        $("user-password").value = "";
+        $("user-role").value = "pharmacist";
+        refreshUsersList();
+      } else {
+        flashHint("فشل إنشاء المستخدم: " + (res.error || ""));
+      }
+    });
+    // Refresh users list button
+    $("user-refresh-btn").addEventListener("click", refreshUsersList);
+    // User row actions (event delegation)
+    $("admin-users-list").addEventListener("click", async (e) => {
+      const resetBtn = e.target.closest(".btn-user-reset");
+      const toggleBtn = e.target.closest(".btn-user-toggle");
+      const deleteBtn = e.target.closest(".btn-user-delete");
+      if (resetBtn) {
+        const uid = resetBtn.dataset.uid;
+        const name = resetBtn.dataset.name;
+        const newPass = prompt(`إعادة تعيين كلمة المرور للمستخدم "${name}"\nأدخل كلمة المرور الجديدة (4 أحرف على الأقل):`);
+        if (!newPass) return;
+        if (!Auth || !Auth.resetPassword) return;
+        const res = await Auth.resetPassword(uid, newPass);
+        if (res.ok) flashHint(`تم تغيير كلمة مرور "${name}"`);
+        else flashHint("فشل تغيير كلمة المرور: " + (res.error || ""));
+      } else if (toggleBtn) {
+        const uid = toggleBtn.dataset.uid;
+        const cur = toggleBtn.dataset.active === "true";
+        if (!confirm(cur ? "تعطيل هذا الحساب؟" : "تفعيل هذا الحساب؟")) return;
+        if (!Auth || !Auth.toggleUserActive) return;
+        const res = await Auth.toggleUserActive(uid, cur);
+        if (res.ok) { flashHint(cur ? "تم التعطيل" : "تم التفعيل"); refreshUsersList(); }
+        else flashHint("فشل: " + (res.error || ""));
+      } else if (deleteBtn) {
+        const uid = deleteBtn.dataset.uid;
+        const username = deleteBtn.dataset.username;
+        const name = deleteBtn.dataset.name;
+        if (!confirm(`⚠ حذف نهائي للمستخدم "${name}" (@${username})؟\nلا يمكن التراجع.`)) return;
+        if (!Auth || !Auth.deleteUser) return;
+        if (Auth.auditLog) Auth.auditLog("user_deleted", `حذف مستخدم "${name}" (@${username})`);
+        const res = await Auth.deleteUser(uid);
+        if (res.ok) { flashHint("تم حذف المستخدم"); refreshUsersList(); }
+        else flashHint("فشل الحذف: " + (res.error || ""));
+      }
+    });
+
+    // ----- Audit log (admin only) -----
+    function renderAuditLog(entries) {
+      const container = $("admin-audit-list");
+      if (!container) return;
+      if (!Array.isArray(entries) || entries.length === 0) {
+        container.innerHTML = '<div class="admin-audit-empty">لا يوجد نشاط مسجّل بعد.</div>';
+        return;
+      }
+      const actionLabels = {
+        patient_added: "➕ إضافة مريض",
+        patient_deleted: "❌ حذف مريض",
+        med_added: "💊 إضافة دواء",
+        med_deleted: "🗑 حذف دواء",
+        data_wiped: "⚠️ مسح بيانات",
+        user_deleted: "👤 حذف مستخدم"
+      };
+      container.innerHTML = "";
+      entries.forEach(entry => {
+        const row = document.createElement("div");
+        row.className = "audit-row";
+        const dt = entry.created_at
+          ? new Date(entry.created_at).toLocaleString("ar", { dateStyle: "short", timeStyle: "medium" })
+          : "—";
+        row.innerHTML = `
+          <div class="audit-row-meta">
+            <span class="audit-user">@${entry.username}</span>
+            <span class="audit-action">${actionLabels[entry.action] || entry.action}</span>
+            <span class="audit-time">${dt}</span>
+          </div>
+          <div class="audit-row-details">${entry.details || ""}</div>
+        `;
+        container.appendChild(row);
+      });
+    }
+    async function refreshAuditLog() {
+      if (!Auth || !Auth.getAuditLog) return;
+      const list = $("admin-audit-list");
+      if (list) list.innerHTML = '<div class="admin-audit-loading">جارٍ التحميل…</div>';
+      const res = await Auth.getAuditLog(200);
+      if (res.ok) renderAuditLog(res.entries);
+      else if (list) list.innerHTML = '<div class="admin-audit-error">فشل تحميل السجل: ' + (res.error || "") + '</div>';
+    }
+    $("audit-refresh-btn").addEventListener("click", refreshAuditLog);
 
     // ----- Supabase: test / save / clear -----
     $("sb-test").addEventListener("click", async () => {
@@ -1440,6 +1638,18 @@
       updateSupabaseStatusUI(label, "connected");
     } else {
       updateSupabaseStatusUI("غير مربوط");
+    }
+    // Show/hide the admin-only User Management + Audit Log sections
+    // based on the current user's role.
+    const isAdmin = Auth && Auth.isAdmin();
+    const usersSection = document.getElementById("admin-users-section");
+    const auditSection = document.getElementById("admin-audit-section");
+    if (usersSection) usersSection.hidden = !isAdmin;
+    if (auditSection)  auditSection.hidden  = !isAdmin;
+    if (isAdmin) {
+      // Auto-load users list + audit log on view open
+      refreshUsersList();
+      refreshAuditLog();
     }
     UI.showView("admin");
   }

@@ -103,3 +103,16 @@ VALUES
   ('meropenem',      'ميرونيم',             'ميروبينيم',             'Meropenem',                'vial',   '1 g',       '1×3', 11)
 ON CONFLICT (id) DO NOTHING;
 */
+
+-- ============================================================
+-- User Management + Audit Log
+-- ============================================================
+-- Run scripts/users-and-audit-schema.sql for the latest version
+-- of this section (it includes the default admin account seed
+-- and the LEGACY sentinel handling for the existing admin
+-- password '19559').
+--
+-- Tables:
+--   users        — pharmacist/admin accounts (PBKDF2 hashed passwords)
+--   audit_log    — sensitive action log (read by admin only)
+-- ============================================================

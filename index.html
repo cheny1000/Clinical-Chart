@@ -377,6 +377,43 @@
             مسح جميع بيانات المرضى
           </button>
         </div>
+
+        <!-- ===== User Management (admin only) ===== -->
+        <div class="admin-users-section" id="admin-users-section">
+          <h4>إدارة المستخدمين</h4>
+
+          <!-- Create new user form -->
+          <div class="admin-user-form">
+            <div class="admin-user-form-row">
+              <input type="text" id="user-display-name" placeholder="الاسم الظاهر (مثال: الصيدلي أحمد)" autocomplete="off" />
+              <input type="text" id="user-username" placeholder="اسم الدخول" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            </div>
+            <div class="admin-user-form-row">
+              <input type="password" id="user-password" placeholder="كلمة المرور" autocomplete="new-password" />
+              <select id="user-role">
+                <option value="pharmacist">صيدلي</option>
+                <option value="admin">مسؤول</option>
+              </select>
+            </div>
+            <button class="btn-create-user" id="user-create-btn" type="button">＋ إنشاء مستخدم</button>
+          </div>
+
+          <!-- Users list -->
+          <div class="admin-users-list" id="admin-users-list">
+            <!-- rendered by app.js -->
+          </div>
+          <button class="btn-refresh-users" id="user-refresh-btn" type="button">↻ تحديث القائمة</button>
+        </div>
+
+        <!-- ===== Audit log (admin only) ===== -->
+        <div class="admin-audit-section" id="admin-audit-section">
+          <h4>سجل النشاط الحساس</h4>
+          <p class="admin-audit-hint">يظهر آخر 200 نشاط من جميع الأجهزة (إضافة/حذف مريض، حذف دواء، مسح بيانات).</p>
+          <button class="btn-audit-refresh" id="audit-refresh-btn" type="button">↻ تحديث السجل</button>
+          <div class="admin-audit-list" id="admin-audit-list">
+            <!-- rendered by app.js -->
+          </div>
+        </div>
       </section>
 
     </main>
