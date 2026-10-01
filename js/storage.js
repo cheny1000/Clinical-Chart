@@ -39,7 +39,7 @@
   // since most hospital ward medications are injectables.
   // We do the same for patient.medications entries so existing
   // patient data keeps working after the upgrade.
-  const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup", "suppository", "solution", "supplies"];
+  const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup-and-oral-drop", "suppository", "solution", "supplies"];
   function migrateMed(med) {
     if (!med || typeof med !== "object") return med;
     if (!("nameTrade" in med) || !med.nameTrade) {

@@ -18,7 +18,7 @@
   //   "ampule"            → Ampule (أمبول - سائل جاهز للحقن)
   //   "prefilled-syringe" → Prefilled Syringe (سرنجة جاهزة - مثل Enoxaparin)
   //   "tablet"            → Tablet (أقراص / كبسولات)
-  //   "syrup"             → Syrup and Oral Drop (شراب فموي + نقط للفم)
+  //   "syrup-and-oral-drop" → Syrup and Oral Drop (شراب فموي + نقط للفم)
   //   "suppository"       → Suppository (تحاميل)
   //   "solution"          → Solution (محلول للاستنشاق/ال topical)
   //   "supplies"          → Supplies (مستلزمات طبية)
@@ -27,13 +27,13 @@
     ampule:            "Ampule",
     "prefilled-syringe":"Prefilled Syringe",
     tablet:            "Tablet",
-    syrup:             "Syrup and Oral Drop",
+    "syrup-and-oral-drop": "Syrup and Oral Drop",
     suppository:       "Suppository",
     solution:          "Solution",
     supplies:          "Supplies"
   };
   // Display order — determines tab order in the bottom-sheet
-  const FORM_ORDER = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup", "suppository", "solution", "supplies"];
+  const FORM_ORDER = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup-and-oral-drop", "suppository", "solution", "supplies"];
   // Icons for each form — emoji strings or special image markers
   // 'img:vial-icon.png' means render an <img> instead of emoji text
   const FORM_ICONS = {
@@ -41,7 +41,7 @@
     ampule:              "img:img/ampule-icon.png",
     "prefilled-syringe": "💉",
     tablet:              "img:img/tablet-icon.png",
-    syrup:               "img:img/syrup-icon.png",
+    "syrup-and-oral-drop":  "img:img/syrup-icon.png",
     suppository:         "img:img/suppository-icon.png",
     solution:            "img:img/solution-icon.png",
     supplies:            "img:img/supplies-icon.png"
@@ -94,7 +94,7 @@
     { id: "apixaban-5",          nameTrade: "Apixaban 5mg",         nameAr: "أبيكسابان 5 ملغ",       nameEn: "Apixaban 5mg",         form: "tablet", defaultDose: "5 mg",     defaultFrequency: "1×2" },
     { id: "calcium-carbonate-500", nameTrade: "Calcium Carbonate 500mg", nameAr: "كربونات الكالسيوم 500 ملغ", nameEn: "Calcium Carbonate 500mg", form: "tablet", defaultDose: "500 mg", defaultFrequency: "1×2" },
     // أدوية إضافية (solutions)
-    { id: "nystatin-oral",        nameTrade: "Nystatin Oral Drop",   nameAr: "نيستاتين نقط للفم",    nameEn: "Nystatin Oral Drop",   form: "solution", defaultDose: "1 مل",  defaultFrequency: "1×4" },
+    { id: "nystatin-oral",        nameTrade: "Nystatin Oral Drop",   nameAr: "نيستاتين نقط للفم",    nameEn: "Nystatin Oral Drop",   form: "syrup-and-oral-drop", defaultDose: "1 مل",  defaultFrequency: "1×4" },
     // مستلزمات طبية
     { id: "syringe-5cc",          nameTrade: "5cc Syringe",     nameAr: "سرنجة 5 سي سي", nameEn: "5cc Syringe",            form: "supplies", defaultDose: "1 سرنجة", defaultFrequency: "حسب الحاجة" },
     { id: "syringe-1cc",          nameTrade: "1cc Syringe",     nameAr: "سرنجة 1 سي سي", nameEn: "1cc Syringe",            form: "supplies", defaultDose: "1 سرنجة", defaultFrequency: "حسب الحاجة" },
