@@ -973,17 +973,32 @@
         }
 
         // 2) 100 ml NaCl — based on this patient's VIALS ONLY
-        //    (ampules don't need reconstitution)
+        //    (ampules don't need reconstitution).
+        //    EXCEPTION: Flagyl (metronidazole) vial does NOT need
+        //    NaCl — it's reconstituted with a different solution or
+        //    given differently. So if the patient has Flagyl vial,
+        //    skip adding NaCl 100ml entirely.
         let totalVials = 0;
         let hasVials = false;
+        let hasFlagylVial = false;
         row.medications.forEach(pm => {
           if (!pm) return;
           if (pm.form === "vial") {
             hasVials = true;
             totalVials += syringesForFrequency(pm.frequency);
+            // Detect Flagyl / Metronidazole vial by id or name
+            const idLower = (pm.id || "").toLowerCase();
+            const nameLower = ((pm.nameTrade || "") + " " + (pm.nameEn || "") + " " + (pm.nameAr || "")).toLowerCase();
+            if (
+              idLower.indexOf("flagyl") >= 0 || idLower.indexOf("metronid") >= 0 ||
+              nameLower.indexOf("flagyl") >= 0 || nameLower.indexOf("metronid") >= 0 ||
+              nameLower.indexOf("فلاجيل") >= 0 || nameLower.indexOf("ميترون") >= 0
+            ) {
+              hasFlagylVial = true;
+            }
           }
         });
-        if (hasVials && totalVials > 0) {
+        if (hasVials && totalVials > 0 && !hasFlagylVial) {
           row.medications.push({
             id:        nacl100Med.id,
             nameTrade: nacl100Med.nameTrade,
@@ -1079,14 +1094,22 @@
     // prescribed meds could fill the 50-column limit before reaching
     // the supplies at the end (and the user would see "NaCl 100ml"
     // and "Cannula" missing from the chart).
+    //
+    // The user asked for the supplies to appear at the END of the
+    // chart (after all regular medications), not at the beginning.
+    // So we take the first (MED_COLS - N_priority) regular meds,
+    // then append the priority supplies. This guarantees:
+    //   1. Supplies always get a column (reserved slots at the end)
+    //   2. Supplies appear after all other meds
     const PRIORITY_SUPPLY_IDS = [
       "syringe-5cc",      // auto: sum of vial+ampule freqs
-      "nacl-100ml",       // auto: sum of vial-only freqs
+      "nacl-100ml",       // auto: sum of vial-only freqs (except Flagyl vial)
       "syringe-1cc",      // random 60-80%
       "iv-set",           // everyone
       "cannula"           // random 70%
     ];
-    // Split: priority supplies first, then the rest in catalog order.
+    // Split: priority supplies (for counting), then the rest in
+    // catalog order.
     const priorityBucket = [];
     const restBucket = [];
     allPrescribedMeds.forEach(m => {
@@ -1101,8 +1124,13 @@
     priorityBucket.sort((a, b) => {
       return PRIORITY_SUPPLY_IDS.indexOf(a.id) - PRIORITY_SUPPLY_IDS.indexOf(b.id);
     });
+    // Reserve the last N slots for priority supplies, fill the rest
+    // with regular meds (up to MED_COLS - N_priority).
+    const numPriority = priorityBucket.length;
+    const maxRegular = Math.max(0, MED_COLS - numPriority);
+    const regularToFit = restBucket.slice(0, maxRegular);
+    const ordered = regularToFit.concat(priorityBucket);
     const orderedMeds = [];
-    const ordered = priorityBucket.concat(restBucket);
     for (let i = 0; i < MED_COLS; i++) {
       orderedMeds.push(ordered[i] || null);
     }
