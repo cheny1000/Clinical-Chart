@@ -167,22 +167,31 @@
       return;
     }
     updateSupabaseStatusUI("جارٍ المزامنة…", "loading");
-    // Pull catalog (medications). pullCatalog now MERGES cloud + local
-    // (preserving any local-only meds from a recent catalog-version
-    // migration). If it reports addedFromLocal > 0, we need to push
-    // the merged catalog back to the cloud so other devices also
-    // receive the new meds on their next pull.
+    // Cloud is the source of truth: pullCatalog() overwrites the
+    // local cache with the cloud version. No merge, no push-back
+    // needed — the cloud is what every device reads from.
     const res = await SBSync.pullCatalog();
     if (res.ok) {
       state.medications = Storage.loadMedications();
       UI.renderAdminMedList(state.medications, null);
       updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
-      // If the merge added local-only meds (e.g. newly-injected
-      // defaults), push the merged catalog back to the cloud.
-      if (res.addedFromLocal && res.addedFromLocal > 0) {
-        console.log("[Sync] merged " + res.addedFromLocal + " local-only meds into cloud pull — pushing back");
+      // ONE-TIME CLOUD SEED: if the cloud is empty or has fewer meds
+      // than DEFAULT_MEDICATIONS, push the local defaults up so the
+      // cloud becomes the source of truth with the full catalog.
+      // This handles the case where the user just upgraded to the
+      // "cloud-source-of-truth" model and the cloud still has the
+      // old (smaller) catalog from the previous model.
+      const def = (Meds && Meds.DEFAULT_MEDICATIONS) || [];
+      if (Array.isArray(state.medications) && def.length > 0 &&
+          state.medications.length < def.length) {
+        console.log("[Sync] cloud has " + state.medications.length + " meds, defaults have " + def.length + " — seeding cloud");
+        state.medications = def.slice();
+        Storage.saveMedications(def);
+        UI.renderAdminMedList(def, null);
+        updateSupabaseStatusUI(`مربوط · جارٍ رفع ${def.length} دواء للسحابة…`, "loading");
         SBSync.pushCatalog().then(r => {
-          if (!r.ok) console.warn("[Sync] post-merge push failed:", r.error);
+          if (r.ok) updateSupabaseStatusUI(`مربوط · ${r.count} دواء`, "connected");
+          else updateSupabaseStatusUI("فشل رفع الكتالوج: " + r.error, "error");
         });
       }
     } else if (res.skipped) {
@@ -202,24 +211,36 @@
   // If the push fails, the user is shown a clear warning so they know
   // their edits are local-only and won't appear on other devices until
   // the next successful push.
-  async function pushCatalogAfterEdit() {
-    if (!SB || !SBSync || !SB.isConfigured()) return;
-    // Fire-and-forget: the local save is already done, this just syncs
-    // to the cloud. If it fails, the user still has their local catalog.
+  async function pushCatalogAfterEdit(onRevert) {
+    if (!SB || !SBSync || !SB.isConfigured()) {
+      // Cloud not configured — nothing to sync. Skip silently (this
+      // happens before Supabase setup; the local cache is the only
+      // source then).
+      return { ok: true, syncSkipped: true };
+    }
+    // Cloud is the source of truth: push the edit, and revert the
+    // local cache if the push fails (so local reflects cloud truth).
+    // `onRevert` (optional) is called when we revert, so the caller
+    // can restore its in-memory state.medications to the pre-edit
+    // version (re-read from storage after the revert).
     const res = await SBSync.pushCatalog();
     if (res.ok) {
       updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
-    } else {
-      updateSupabaseStatusUI("خطأ في الرفع: " + res.error, "error");
-      flashHint("⚠ فشل رفع التعديل للسحابة — محفوظ محليًا فقط");
-      console.warn("[Supabase] push failed:", res.error);
-      // Retry once after a short delay (network blip recovery)
-      setTimeout(() => {
-        SBSync.pushCatalog().then(r => {
-          if (r.ok) updateSupabaseStatusUI(`مربوط · ${r.count} دواء`, "connected");
-        });
-      }, 2000);
+      return { ok: true };
     }
+    updateSupabaseStatusUI("خطأ في الرفع: " + res.error, "error");
+    flashHint("⚠ فشل رفع التعديل — تم إلغاؤه. تحقق من الشبكة وحاول مرة أخرى.");
+    console.warn("[Supabase] push failed:", res.error);
+    // Cloud is the source of truth — reload from local cache (which
+    // we need to reset to the cloud's current state). But we don't
+    // have the cloud's current state since push failed; the safest
+    // is to refresh state.medications from storage (which still
+    // holds the edited version). The caller's onRevert callback is
+    // responsible for undoing its in-memory edit.
+    if (typeof onRevert === "function") {
+      try { onRevert(); } catch (e) { /* ignore */ }
+    }
+    return { ok: false, error: res.error };
   }
 
   // Manual "push now" — used by the manual push button in advanced settings
@@ -255,14 +276,6 @@
       UI.renderAdminMedList(state.medications, null);
       updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
       flashHint(`تم سحب ${res.count} دواء من السحابة`);
-      // Same merge-then-push-back logic as pullCatalogOnBoot — if
-      // local-only meds were merged into the cloud pull, push the
-      // merged catalog back so other devices get them too.
-      if (res.addedFromLocal && res.addedFromLocal > 0) {
-        SBSync.pushCatalog().then(r => {
-          if (!r.ok) console.warn("[Sync] post-merge push failed:", r.error);
-        });
-      }
     } else {
       updateSupabaseStatusUI("فشل السحب: " + res.error, "error");
       flashHint("فشل السحب من السحابة: " + res.error);
@@ -305,21 +318,13 @@
     try {
       // 1) Pull catalog (force = true to bypass the "unsynced local
       //    edits" guard, since the user explicitly asked for a sync).
-      //    pullCatalog now merges local-only meds into the cloud pull
-      //    (so newly-injected default meds aren't wiped), and reports
-      //    `addedFromLocal` if any were merged.
+      //    Cloud is the source of truth — pullCatalog() overwrites
+      //    the local cache.
       const cres = await SBSync.pullCatalog(true);
       if (cres.ok) {
         state.medications = Storage.loadMedications();
         UI.renderAdminMedList(state.medications, null);
         okCount++;
-        // If local-only meds were merged into the pull, push the
-        // merged catalog back so other devices also get them.
-        if (cres.addedFromLocal && cres.addedFromLocal > 0) {
-          SBSync.pushCatalog().then(r => {
-            if (!r.ok) console.warn("[Sync] post-merge push failed:", r.error);
-          });
-        }
       } else if (cres.skipped) {
         // skipped is not really a failure — local catalog is fresher
         okCount++;
@@ -1119,8 +1124,16 @@
         if (!m) return;
         const label = UI.primaryName(m) || "هذا الدواء";
         if (!confirm(`حذف "${label}" من الكتالوج؟\n(لن يؤثر على العلاجات المسجلة بالفعل على المرضى)`)) return;
+        // Cloud is the source of truth: snapshot before edit, revert on push failure
+        const snapshot = state.medications.slice();
         state.medications = state.medications.filter(x => x.id !== id);
-        Storage.saveMedications(state.medications); pushCatalogAfterEdit();
+        Storage.saveMedications(state.medications);
+        pushCatalogAfterEdit(() => {
+          // Revert: restore snapshot, re-save, re-render
+          state.medications = snapshot;
+          Storage.saveMedications(snapshot);
+          UI.renderAdminMedList(snapshot, null);
+        });
         if (state.admin.editingId === id) {
           state.admin.editingId = null;
           state.admin.isNew = false;
@@ -1134,6 +1147,7 @@
         const action = moveBtn.dataset.action; // move-top | move-up | move-down | move-bottom
         const idx = state.medications.findIndex(x => x.id === id);
         if (idx < 0) return;
+        const snapshot = state.medications.slice();
         const item = state.medications[idx];
         state.medications.splice(idx, 1);
         let newIdx;
@@ -1143,7 +1157,12 @@
         else if (action === "move-bottom") newIdx = state.medications.length;
         else return;
         state.medications.splice(newIdx, 0, item);
-        Storage.saveMedications(state.medications); pushCatalogAfterEdit();
+        Storage.saveMedications(state.medications);
+        pushCatalogAfterEdit(() => {
+          state.medications = snapshot;
+          Storage.saveMedications(snapshot);
+          UI.renderAdminMedList(snapshot, id);
+        });
         UI.renderAdminMedList(state.medications, id);
         // Scroll the moved row into view if it's outside the visible area
         const rowEl = document.querySelector(`.admin-med-row[data-med-id="${id}"]`);
@@ -1190,6 +1209,7 @@
         while (state.medications.some(m => m.id === id)) {
           id = `${base}-${counter++}`;
         }
+        const snapshot = state.medications.slice();
         state.medications.push({
           id,
           nameTrade: data.nameTrade,
@@ -1199,7 +1219,13 @@
           defaultDose: data.defaultDose,
           defaultFrequency: data.defaultFrequency
         });
-        Storage.saveMedications(state.medications); pushCatalogAfterEdit();
+        Storage.saveMedications(state.medications);
+        pushCatalogAfterEdit(() => {
+          // Revert: remove the added med, re-save, re-render
+          state.medications = snapshot;
+          Storage.saveMedications(snapshot);
+          UI.renderAdminMedList(snapshot, null);
+        });
         state.admin.editingId = id;
         state.admin.isNew = false;
         state.admin.selectedId = id;
@@ -1210,13 +1236,20 @@
       } else {
         const m = state.medications.find(x => x.id === state.admin.editingId);
         if (!m) return;
+        const snapshot = state.medications.slice();
         m.nameTrade = data.nameTrade;
         m.nameAr = data.nameAr;
         m.nameEn = data.nameEn;
         m.form = data.form;
         m.defaultDose = data.defaultDose;
         m.defaultFrequency = data.defaultFrequency;
-        Storage.saveMedications(state.medications); pushCatalogAfterEdit();
+        Storage.saveMedications(state.medications);
+        pushCatalogAfterEdit(() => {
+          // Revert: restore the pre-edit snapshot
+          state.medications = snapshot;
+          Storage.saveMedications(snapshot);
+          UI.renderAdminMedList(snapshot, m.id);
+        });
         UI.renderAdminMedList(state.medications, m.id);
         flashHint("تم حفظ التعديلات");
       }
@@ -1284,14 +1317,6 @@
         UI.renderAdminMedList(state.medications, null);
         updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
         flashHint("تمت المزامنة من Supabase");
-        // If local-only meds (from a recent catalog-version migration)
-        // were merged into the pull, push the merged catalog back so
-        // other devices also get the new meds.
-        if (res.addedFromLocal && res.addedFromLocal > 0) {
-          SBSync.pushCatalog().then(r => {
-            if (!r.ok) console.warn("[Sync] post-merge push failed:", r.error);
-          });
-        }
       } else {
         // Pull failed → push the local catalog to populate the empty table
         const pushRes = await SBSync.pushCatalog();

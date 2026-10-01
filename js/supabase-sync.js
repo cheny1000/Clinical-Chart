@@ -155,27 +155,13 @@
       if (!Array.isArray(data)) return { ok: false, error: "استجابة غير متوقعة" };
 
       const meds = data.map(rowToMed);
-      // CRITICAL: Don't blindly overwrite the local catalog with the
-      // cloud version. If we just merged new DEFAULT_MEDICATIONS
-      // (via the catalog-version migration in storage.js), the local
-      // catalog has those new meds but the cloud doesn't (yet).
-      // Overwriting here would WIPE the newly-merged meds.
-      //
-      // Instead: take the cloud meds, merge in any local-only meds
-      // (matched by id, so we don't duplicate), then save. This way:
-      //   - Cloud-only meds come down (preserves other devices' edits)
-      //   - Local-only meds (the newly-merged defaults) stay
-      //   - Cloud wins for shared ids (preserves cross-device edits)
-      //
-      // After save, the caller (pullCatalogOnBoot) will push the
-      // merged catalog back to the cloud so other devices also get
-      // the new meds on their next pull.
-      const localMeds = Local.loadMedications();
-      const cloudIds = new Set(meds.map(m => m && m.id).filter(Boolean));
-      const localOnlyMeds = (Array.isArray(localMeds) ? localMeds : [])
-        .filter(m => m && m.id && !cloudIds.has(m.id));
-      const mergedMeds = meds.concat(localOnlyMeds);
-      Local.saveMedications(mergedMeds);
+      // Cloud is the source of truth: OVERWRITE local with cloud.
+      // No merge, no "local-only meds" — those would be stale or
+      // duplicate of what's already in the cloud. If the user wants
+      // new meds added, they must be added via the admin (which
+      // pushes them to the cloud); the local catalog is just a
+      // cache of what's in the cloud.
+      Local.saveMedications(meds);
       // Mark local as "synced" at this moment — both localModifiedAt
       // and localSyncedAt are now equal, so future pulls are allowed
       // until the user makes another local edit.
@@ -184,7 +170,7 @@
         localStorage.setItem("pharma.medications.modified.v1", String(nowMs));
         Local.setLocalCatalogSyncedAt(nowMs);
       } catch (e) { /* ignore */ }
-      return { ok: true, count: mergedMeds.length, addedFromLocal: localOnlyMeds.length };
+      return { ok: true, count: meds.length };
     } catch (e) {
       return { ok: false, error: (e && e.message) ? e.message : String(e) };
     }

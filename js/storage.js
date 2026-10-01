@@ -370,50 +370,21 @@
   function loadMedications() {
     const raw = localStorage.getItem(STORAGE_KEYS.MEDICATIONS);
     if (raw === null) {
-      // First run: seed defaults (already includes all required supplies
-      // and the latest default meds). Record the seed version so future
-      // opens don't re-trigger the merge.
+      // First run: seed defaults (used only as a fallback when the
+      // cloud isn't configured or reachable; once Supabase is set up,
+      // pullCatalog() overwrites this with the cloud version which is
+      // the source of truth).
       const def = (global.PharmacyMedications && global.PharmacyMedications.DEFAULT_MEDICATIONS) || [];
       safeSet(STORAGE_KEYS.MEDICATIONS, def);
-      try {
-        const v = (global.PharmacyMedications && global.PharmacyMedications.DEFAULT_MEDICATIONS_VERSION) || 0;
-        localStorage.setItem(STORAGE_KEYS.CATALOG_SEED_VERSION, String(v));
-      } catch (e) { /* ignore */ }
       return def;
     }
-    // The user has a stored catalog (even if empty) — respect it.
+    // The user has a stored catalog (it's a cache of the cloud).
+    // The cloud is the source of truth — local edits are pushed to
+    // the cloud immediately on save, and pulls overwrite local.
     const stored = safeParse(raw, []);
     if (Array.isArray(stored)) {
       // Migrate: ensure nameTrade + form are present on every catalog entry
-      let res = migrateMedsList(stored);
-      // Inject any required supplies that are missing (e.g. user's
-      // saved catalog predates the introduction of 'syringe-5cc').
-      const inj = injectRequiredSupplies(res.list);
-      if (inj.changed) {
-        res.list = inj.list;
-        res.changed = true;
-      }
-      // Merge any new default meds that are missing AND whose absence
-      // is due to the user's catalog predating a
-      // DEFAULT_MEDICATIONS_VERSION bump (not because the user
-      // deliberately deleted them — we can't tell those apart, so we
-      // use the version stamp to make this a one-time event).
-      try {
-        const curVersion = parseInt(localStorage.getItem(STORAGE_KEYS.CATALOG_SEED_VERSION) || "0", 10);
-        const defVersion = (global.PharmacyMedications && global.PharmacyMedications.DEFAULT_MEDICATIONS_VERSION) || 0;
-        if (defVersion > curVersion) {
-          const merged = mergeNewDefaultMeds(res.list);
-          if (merged.changed) {
-            res.list = merged.list;
-            res.changed = true;
-          }
-          // Always update the seed version stamp — even if the merge
-          // didn't add anything (because the user already had the
-          // new meds, perhaps from a cloud sync) — so we don't keep
-          // checking on every load.
-          localStorage.setItem(STORAGE_KEYS.CATALOG_SEED_VERSION, String(defVersion));
-        }
-      } catch (e) { /* ignore */ }
+      const res = migrateMedsList(stored);
       if (res.changed) safeSet(STORAGE_KEYS.MEDICATIONS, res.list);
       return res.list;
     }
