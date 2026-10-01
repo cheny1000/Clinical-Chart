@@ -2798,7 +2798,7 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     text-align: center;
     vertical-align: middle;
     padding: 0;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 800;
     color: #000;
     width: 18px;
@@ -2814,9 +2814,12 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     height: 18px;
   }
 
-  /* Custom freq cell (e.g. "حسب القياس") — smaller text, same plain look */
+  /* Custom freq cell (e.g. "حسب القياس", "حسب الحاجة") — slightly
+     smaller font (was 8px, now 9px after the user's "+1 degree"
+     request). Still smaller than the numeric cells so the longer
+     Arabic phrases fit. line-height kept at 1 to wrap neatly. */
   .chart-cell-custom {
-    font-size: 8px;
+    font-size: 9px;
     font-weight: 700;
     line-height: 1;
   }
