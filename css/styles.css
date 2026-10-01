@@ -684,34 +684,26 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 .bed-btn.state-meds .bed-state::before { content: "بعلاج"; }
 
 /* Special med combos (override the green 'state-meds' background
-   with a split gradient per the user's clinical rule):
-   - state-meronem           : half red + half green (horizontal split)
-   - state-albumin           : half yellow + half green
-   - state-albumin-meronem   : thirds yellow + red + green
-   The 'state-meds' base class still controls the border/text color,
-   the modifier classes only override the background. */
+   with a solid color or split per the user's clinical rule):
+   - state-meronem           : solid red (Meronem only)
+   - state-albumin           : solid yellow (Albumin only)
+   - state-albumin-meronem   : half yellow + half red
+   The 'state-meds' base class still controls the border/text color
+   and label ('بعلاج'); the modifier classes only override the
+   background. */
 .bed-btn.state-meronem {
-  background: linear-gradient(
-    to right,
-    #FCA5A5 0%, #FCA5A5 50%,
-    #BBF7D0 50%, #BBF7D0 100%
-  );
+  background: #FCA5A5;
   border-color: #B91C1C;
 }
 .bed-btn.state-albumin {
-  background: linear-gradient(
-    to right,
-    #FDE68A 0%, #FDE68A 50%,
-    #BBF7D0 50%, #BBF7D0 100%
-  );
+  background: #FDE68A;
   border-color: #B45309;
 }
 .bed-btn.state-albumin-meronem {
   background: linear-gradient(
     to right,
-    #FDE68A 0%,    #FDE68A 33.33%,
-    #FCA5A5 33.33%, #FCA5A5 66.66%,
-    #BBF7D0 66.66%, #BBF7D0 100%
+    #FDE68A 0%, #FDE68A 50%,
+    #FCA5A5 50%, #FCA5A5 100%
   );
   border-color: #7C2D12;
 }
