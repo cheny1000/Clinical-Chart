@@ -854,7 +854,14 @@
             // the random-supply injection below doesn't mutate the
             // actual stored data. The chart only sees a temporary
             // snapshot; localStorage and state.patients stay clean.
+            //
+            // ALSO: filter out any legacy 'syringe-5cc' entries that
+            // might still be on the patient from before this update
+            // (when 5cc was auto-managed + stored on the patient).
+            // They're now injected at print-time only, so we drop the
+            // stale stored copies here to avoid duplicates.
             const medsCopy = (Array.isArray(p.medications) ? p.medications : [])
+              .filter(pm => pm && pm.id !== "syringe-5cc") // drop legacy 5cc
               .map(pm => pm && typeof pm === "object" ? Object.assign({}, pm) : pm);
             occupiedRows.push({
               name: p.name.trim(),
@@ -865,79 +872,167 @@
       });
     }
 
-    // -------- Random supplies injection (chart-only, not persisted) --------
-    // The chart shows two auto-randomized supplies per print:
-    //   1. 1cc Syringe: given to 60-80% of patients (random ratio
-    //      chosen per print), each receiving freq 1×3 or 1×4 (50/50).
-    //   2. I.V. Set: given to ALL patients (100%, no exception),
-    //      each receiving freq 1×1 or 1×2 with a 2:1 ratio (≈67%
-    //      get 1, ≈33% get 2).
+    // -------- Auto + random supplies injection (chart-only) --------
+    // Supplies injected at print-time ONLY. Not persisted to patient
+    // data. Every print gets a fresh distribution.
     //
-    // The injection only happens here, on the deep-copy above. The
-    // user's stored patient data (state.patients, localStorage) is
-    // NOT modified. Every print gets a fresh random distribution.
+    //   1. 5cc Syringe: PER PATIENT, freq = sum of frequencies of all
+    //      vials + ampules on the patient (each administration needs
+    //      a fresh syringe). Only added if the patient has at least
+    //      one vial or ampule.
+    //   2. 100 ml NaCl (مغذي مالح): PER PATIENT, freq = sum of
+    //      frequencies of all VIALS ONLY (vials need reconstitution,
+    //      ampules don't). Only added if the patient has at least
+    //      one vial.
+    //   3. 1cc Syringe: RANDOM 60-80% of patients, each gets freq
+    //      1×3 or 1×4 (50/50).
+    //   4. I.V. Set: ALL patients (100%), each gets freq 1×1 or
+    //      1×2 with a 2:1 ratio (≈67% get 1, ≈33% get 2).
+    //   5. Cannula: RANDOM 70% of patients, each gets freq 1×1.
     //
-    // If the supplies aren't in the catalog (user deleted them),
-    // we still inject them with hardcoded defaults — the chart is
-    // a printed artifact and doesn't need the catalog to render.
-    let stats = { syringe1ccCount: 0, ivSetCount: 0 };
+    // If a supply isn't in the catalog (user deleted it), we still
+    // inject it with hardcoded defaults — the chart is a printed
+    // artifact and doesn't need the catalog to render.
+    //
+    // No flashHint is shown (user requested no message).
     if (occupiedRows.length > 0) {
-      // Look up the catalog entries for syringe-1cc and iv-set (if
-      // they exist). We use their metadata when available; otherwise
-      // we fall back to hardcoded values that match the catalog.
-      const syringe1ccMed = meds.find(m => m && m.id === "syringe-1cc");
-      const ivSetMed      = meds.find(m => m && m.id === "iv-set");
-      const syringe1ccDefaults = syringe1ccMed || {
+      // Look up catalog entries (fall back to hardcoded defaults)
+      const findOrDefaults = (id, fallback) => {
+        const m = meds.find(x => x && x.id === id);
+        return m || fallback;
+      };
+      const syringe5ccMed = findOrDefaults("syringe-5cc", {
+        id: "syringe-5cc", nameTrade: "5cc Syringe",
+        nameAr: "سرنجة 5 سي سي", nameEn: "5cc Syringe", form: "supplies",
+        defaultDose: "1 سرنجة"
+      });
+      const nacl100Med = findOrDefaults("nacl-100ml", {
+        id: "nacl-100ml", nameTrade: "NaCl 0.9% 100 ml",
+        nameAr: "مغذي ملح 100 مل", nameEn: "Sodium Chloride 0.9% 100 ml", form: "supplies",
+        defaultDose: "100 ml"
+      });
+      const syringe1ccMed = findOrDefaults("syringe-1cc", {
         id: "syringe-1cc", nameTrade: "1cc Syringe",
-        nameAr: "سرنجة 1 سي سي", nameEn: "1cc Syringe", form: "supplies"
-      };
-      const ivSetDefaults = ivSetMed || {
+        nameAr: "سرنجة 1 سي سي", nameEn: "1cc Syringe", form: "supplies",
+        defaultDose: "1 سرنجة"
+      });
+      const ivSetMed = findOrDefaults("iv-set", {
         id: "iv-set", nameTrade: "I.V. Set",
-        nameAr: "خط وريدي", nameEn: "I.V. Set", form: "supplies"
-      };
+        nameAr: "خط وريدي", nameEn: "I.V. Set", form: "supplies",
+        defaultDose: "1 خط"
+      });
+      const cannulaMed = findOrDefaults("cannula", {
+        id: "cannula", nameTrade: "Cannula",
+        nameAr: "كانيولا", nameEn: "Cannula", form: "supplies",
+        defaultDose: "1 قطعة"
+      });
 
-      // Pick a random ratio between 60% and 80% for syringe-1cc
-      const ratio = 0.60 + Math.random() * 0.20; // 0.60 .. 0.80
-      const targetSyringeCount = Math.round(occupiedRows.length * ratio);
+      // Pick random subsets for syringe-1cc (60-80%) and cannula (70%)
+      const ratio1cc = 0.60 + Math.random() * 0.20;       // 0.60 .. 0.80
+      const target1ccCount = Math.round(occupiedRows.length * ratio1cc);
+      const targetCannulaCount = Math.round(occupiedRows.length * 0.70);
 
-      // Choose which `targetSyringeCount` patients get the syringe.
-      // We shuffle the indices and take the first N.
-      const indices = occupiedRows.map((_, i) => i);
-      for (let i = indices.length - 1; i > 0; i--) {
+      // Fisher-Yates shuffle to pick random patients
+      const shuffled = occupiedRows.map((_, i) => i);
+      for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [indices[i], indices[j]] = [indices[j], indices[i]];
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
-      const syringeRecipients = new Set(indices.slice(0, targetSyringeCount));
+      const recipients1cc    = new Set(shuffled.slice(0, target1ccCount));
+      const recipientsCannula = new Set(shuffled.slice(0, targetCannulaCount));
+
+      // Helper to parse "1×N" → N (with default 1 for non-numeric freqs)
+      const syringesForFrequency = (freq) => {
+        if (!freq || typeof freq !== "string") return 1;
+        const m = freq.match(/[×x]\s*(\d+)/);
+        return m ? parseInt(m[1], 10) : 1;
+      };
 
       // Inject per-patient
       occupiedRows.forEach((row, i) => {
-        // 1cc Syringe (only the chosen subset)
-        if (syringeRecipients.has(i)) {
+        // 1) 5cc Syringe — based on this patient's vials + ampules
+        let totalSyringes = 0;
+        let hasInjections = false;
+        row.medications.forEach(pm => {
+          if (!pm) return;
+          if (pm.form === "vial" || pm.form === "ampule") {
+            hasInjections = true;
+            totalSyringes += syringesForFrequency(pm.frequency);
+          }
+        });
+        if (hasInjections && totalSyringes > 0) {
+          row.medications.push({
+            id:        syringe5ccMed.id,
+            nameTrade: syringe5ccMed.nameTrade,
+            nameAr:    syringe5ccMed.nameAr || "",
+            nameEn:    syringe5ccMed.nameEn || "",
+            form:      "supplies",
+            dose:      syringe5ccMed.defaultDose || "1 سرنجة",
+            frequency: "1×" + totalSyringes
+          });
+        }
+
+        // 2) 100 ml NaCl — based on this patient's VIALS ONLY
+        //    (ampules don't need reconstitution)
+        let totalVials = 0;
+        let hasVials = false;
+        row.medications.forEach(pm => {
+          if (!pm) return;
+          if (pm.form === "vial") {
+            hasVials = true;
+            totalVials += syringesForFrequency(pm.frequency);
+          }
+        });
+        if (hasVials && totalVials > 0) {
+          row.medications.push({
+            id:        nacl100Med.id,
+            nameTrade: nacl100Med.nameTrade,
+            nameAr:    nacl100Med.nameAr || "",
+            nameEn:    nacl100Med.nameEn || "",
+            form:      "supplies",
+            dose:      nacl100Med.defaultDose || "100 ml",
+            frequency: "1×" + totalVials
+          });
+        }
+
+        // 3) 1cc Syringe — random subset
+        if (recipients1cc.has(i)) {
           const freqNum = Math.random() < 0.5 ? 3 : 4;
           row.medications.push({
-            id:        syringe1ccDefaults.id,
-            nameTrade: syringe1ccDefaults.nameTrade,
-            nameAr:    syringe1ccDefaults.nameAr || "",
-            nameEn:    syringe1ccDefaults.nameEn || "",
+            id:        syringe1ccMed.id,
+            nameTrade: syringe1ccMed.nameTrade,
+            nameAr:    syringe1ccMed.nameAr || "",
+            nameEn:    syringe1ccMed.nameEn || "",
             form:      "supplies",
-            dose:      syringe1ccMed && syringe1ccMed.defaultDose ? syringe1ccMed.defaultDose : "1 سرنجة",
+            dose:      syringe1ccMed.defaultDose || "1 سرنجة",
             frequency: "1×" + freqNum
           });
-          stats.syringe1ccCount++;
         }
-        // I.V. Set (everyone, no exception)
-        // 2:1 ratio → P(1) = 2/3 ≈ 67%, P(2) = 1/3 ≈ 33%
+
+        // 4) I.V. Set — everyone, 2:1 ratio (P(1)=2/3, P(2)=1/3)
         const ivFreqNum = Math.random() < (2/3) ? 1 : 2;
         row.medications.push({
-          id:        ivSetDefaults.id,
-          nameTrade: ivSetDefaults.nameTrade,
-          nameAr:    ivSetDefaults.nameAr || "",
-          nameEn:    ivSetDefaults.nameEn || "",
+          id:        ivSetMed.id,
+          nameTrade: ivSetMed.nameTrade,
+          nameAr:    ivSetMed.nameAr || "",
+          nameEn:    ivSetMed.nameEn || "",
           form:      "supplies",
-          dose:      ivSetMed && ivSetMed.defaultDose ? ivSetMed.defaultDose : "1 خط",
+          dose:      ivSetMed.defaultDose || "1 خط",
           frequency: "1×" + ivFreqNum
         });
-        stats.ivSetCount++;
+
+        // 5) Cannula — random 70%, freq always 1×1
+        if (recipientsCannula.has(i)) {
+          row.medications.push({
+            id:        cannulaMed.id,
+            nameTrade: cannulaMed.nameTrade,
+            nameAr:    cannulaMed.nameAr || "",
+            nameEn:    cannulaMed.nameEn || "",
+            form:      "supplies",
+            dose:      cannulaMed.defaultDose || "1 قطعة",
+            frequency: "1×1"
+          });
+        }
       });
     }
 
@@ -1065,10 +1160,9 @@
       pageDiv.appendChild(table);
       root.appendChild(pageDiv);
     }
-    // Return the random-injection stats so the caller (app.js) can
-    // show a summary message like "تم توزيع 14 سرنجة 1cc + 20 خط
-    // وريدي على 20 مريض". The stats object is fresh on every call.
-    return stats;
+    // No return value — the user requested no flashHint message after
+    // the random distribution, so we don't need to surface stats to
+    // the caller.
   }
 
   global.PharmacyUI = {

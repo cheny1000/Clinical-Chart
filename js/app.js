@@ -551,98 +551,6 @@
     }
   }
 
-  // -------- Auto-managed syringe entry (one per patient) --------
-  // The '5cc Syringe' supply (id: syringe-5cc) is auto-managed for
-  // each patient. There is at most ONE syringe entry per patient,
-  // and its frequency reflects the TOTAL number of syringes needed
-  // across all the patient's vials and ampules.
-  //
-  // COUNTING RULE (the user's clinical rule):
-  //   - For each vial/ampule on the patient, parse its frequency
-  //     (e.g. '1×2' → 2). The number after '×' is how many times
-  //     per day the medication is administered, and each administration
-  //     needs a fresh syringe.
-  //   - Sum those numbers across all vials + ampules → total syringe
-  //     count for the day.
-  //   - For non-numeric frequencies ('حسب القياس', 'حسب البروتوكول',
-  //     'حسب الحاجة', etc.) → count as 1 syringe (assumption: the
-  //     medication IS administered at least once, just not on a
-  //     fixed schedule).
-  //
-  // Example:
-  //   Ceftriaxone (vial, 1×2) + Vancomycin (vial, 1×2) → 2 + 2 = 4
-  //   → syringe entry has frequency '1×4' → chart shows '4'
-  //
-  // The rest of the rule (one entry per patient, auto-add/remove,
-  // recompute on every change) stays the same as before.
-  function _syringesForFrequency(freq) {
-    if (!freq || typeof freq !== "string") return 1; // treat missing as 1
-    // Look for the pattern `×N` or `xN` (any multiplication mark)
-    // followed by a number.
-    const m = freq.match(/[×x]\s*(\d+)/);
-    if (m) return parseInt(m[1], 10);
-    // Non-numeric frequency (e.g. 'حسب القياس') → assume 1
-    return 1;
-  }
-
-  function recomputeSyringeForPatient(patient, catalog) {
-    if (!patient || !Array.isArray(patient.medications)) return;
-    if (!Array.isArray(catalog)) return;
-
-    const syringeMed = catalog.find(m => m && m.id === "syringe-5cc");
-    if (!syringeMed) return; // user deleted syringe from catalog
-
-    // Sum the per-dose counts across all vials + ampules on the
-    // patient. Each vial/ampule's frequency tells us how many
-    // times/day it's administered, and each administration needs a
-    // fresh syringe.
-    let totalSyringes = 0;
-    let hasInjections = false;
-    patient.medications.forEach(pm => {
-      if (!pm) return;
-      if (pm.form === "vial" || pm.form === "ampule") {
-        hasInjections = true;
-        totalSyringes += _syringesForFrequency(pm.frequency);
-      }
-    });
-
-    // Find all syringe entries (there could be 0, 1, or more if the
-    // user manually added one). We consolidate to at most one.
-    const syringeIndices = [];
-    patient.medications.forEach((pm, i) => {
-      if (pm && pm.id === "syringe-5cc") syringeIndices.push(i);
-    });
-
-    if (!hasInjections || totalSyringes === 0) {
-      // No injections → remove all syringe entries (no syringe needed)
-      for (let i = syringeIndices.length - 1; i >= 0; i--) {
-        patient.medications.splice(syringeIndices[i], 1);
-      }
-    } else {
-      // Has injections → ensure exactly one syringe entry with
-      // frequency = `1×N` where N = totalSyringes
-      const newFreq = "1×" + totalSyringes;
-      if (syringeIndices.length === 0) {
-        // Add a new syringe entry
-        patient.medications.push({
-          id:        "syringe-5cc",
-          nameTrade: syringeMed.nameTrade,
-          nameAr:    syringeMed.nameAr    || "",
-          nameEn:    syringeMed.nameEn    || "",
-          form:      "supplies",
-          dose:      syringeMed.defaultDose      || "1 سرنجة",
-          frequency: newFreq
-        });
-      } else {
-        // Update the first syringe entry, remove any duplicates
-        patient.medications[syringeIndices[0]].frequency = newFreq;
-        for (let i = syringeIndices.length - 1; i >= 1; i--) {
-          patient.medications.splice(syringeIndices[i], 1);
-        }
-      }
-    }
-  }
-
   // -------- PWA install button (Android Chrome / Edge / etc.) --------
   // The browser fires `beforeinstallprompt` when it considers the
   // site installable (manifest + SW + served over HTTPS). We capture
@@ -847,11 +755,9 @@
         Auth.auditLog("med_deleted",
           `حذف دواء "${removedName}" من المريض "${p.name || "(بدون اسم)"}" في ${roomBed}`);
       }
-      // Recompute the auto-managed syringe entry: if a vial/ampule
-      // was deleted, the syringe's count needs to drop; if the user
-      // deleted the syringe itself, the recompute re-adds it (since
-      // the rule says: syringe exists iff there are vials/ampules).
-      recomputeSyringeForPatient(p, state.medications);
+      // Note: the 5cc Syringe is now injected at print-time only
+      // (in ui.js buildChartReport), not stored on the patient. So
+      // we don't need to recompute anything when a med is deleted.
       persistPatient(state.currentBed.key);
       refreshPatientViewOnly();
     });
@@ -869,12 +775,8 @@
       }
       clearTimeout(p._saveTimer);
       p._saveTimer = setTimeout(() => {
-        // Recompute the syringe in case the user edited it manually
-        // (the syringe's frequency is system-managed and should
-        // always reflect the vial + ampule count, not the user's
-        // manual edit). If they edited a non-syringe med, the
-        // recompute is a no-op.
-        recomputeSyringeForPatient(p, state.medications);
+        // Note: the 5cc Syringe is now print-time only, so we don't
+        // recompute anything when the user edits a med.
         persistPatient(state.currentBed.key);
         refreshPatientViewOnly();
       }, 400);
@@ -887,9 +789,6 @@
       if (!p || !Array.isArray(p.medications)) return;
       const idx = parseInt(t.dataset.medIndex, 10);
       p.medications[idx].frequency = t.value;
-      // Same recompute as the input handler — covers the case where
-      // the user picks a frequency from a dropdown on the syringe row.
-      recomputeSyringeForPatient(p, state.medications);
       persistPatient(state.currentBed.key);
       refreshPatientViewOnly();
     });
@@ -1058,12 +957,9 @@
           `إضافة ${userAddedCount} دواء (${medNames}) للمريض "${p.name || "(بدون اسم)"}" في ${roomBed}`);
       }
 
-      // 2) Recompute the auto-managed syringe entry. This updates
-      //    (or creates, or removes) the single syringe-5cc entry so
-      //    its frequency = total vial + ampule count on the patient.
-      //    The user said NOT to show a message about the syringe —
-      //    the syringe is silently maintained in the background.
-      recomputeSyringeForPatient(p, state.medications);
+      // 2) Note: the 5cc Syringe is now injected at print-time only
+      //    (in ui.js buildChartReport), not stored on the patient.
+      //    No recompute needed here.
 
       persistPatient(state.currentBed.key);
       closeSheet();
@@ -1087,24 +983,11 @@
         flashHint("لا توجد أدوية في الكتالوج");
         return;
       }
-      // buildChartReport now returns stats about the random supply
-      // injection (how many 1cc syringes and I.V. sets were added).
-      // We surface them in a brief message so the pharmacist knows
-      // why some supplies appear in the chart even though they
-      // weren't explicitly prescribed to those patients.
-      const chartStats = UI.buildChartReport(state.patients, state.medications);
-      if (chartStats && (chartStats.syringe1ccCount > 0 || chartStats.ivSetCount > 0)) {
-        const totalPatients = Object.values(state.patients || {})
-          .filter(p => p && p.name && p.name.trim()).length;
-        const parts = [];
-        if (chartStats.syringe1ccCount > 0) {
-          parts.push(chartStats.syringe1ccCount + " سرنجة 1cc");
-        }
-        if (chartStats.ivSetCount > 0) {
-          parts.push(chartStats.ivSetCount + " خط وريدي");
-        }
-        flashHint("تم توزيع " + parts.join(" + ") + " عشوائيًا على " + totalPatients + " مريض");
-      }
+      // buildChartReport injects the auto + random supplies
+      // (5cc, NaCl 100ml, 1cc, I.V. Set, Cannula) at print-time only.
+      // No flashHint is shown after the call (user requested no
+      // message about the random distribution).
+      UI.buildChartReport(state.patients, state.medications);
 
       // Detect installed PWA on iOS. window.print() is not reliably
       // supported in iOS Safari's standalone mode (when the app is
