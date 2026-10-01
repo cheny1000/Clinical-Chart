@@ -1392,55 +1392,10 @@
     });
 
     // ----- User Management (admin only) -----
-    // Render the users list + wire the create/refresh/delete/reset/
-    // toggle buttons.
-    function renderUsersList(users) {
-      const container = $("admin-users-list");
-      if (!container) return;
-      if (!Array.isArray(users) || users.length === 0) {
-        container.innerHTML = '<div class="admin-users-empty">لا يوجد مستخدمون بعد. أنشئ أول مستخدم بالأعلى.</div>';
-        return;
-      }
-      const currentUser = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
-      container.innerHTML = "";
-      users.forEach(u => {
-        const row = document.createElement("div");
-        row.className = "admin-user-row" + (u.active === false ? " is-inactive" : "");
-        const roleLabel = u.role === "admin" ? "مسؤول" : "صيدلي";
-        const created = u.created_at
-          ? new Date(u.created_at).toLocaleString("ar", { dateStyle: "short", timeStyle: "short" })
-          : "—";
-        row.innerHTML = `
-          <div class="admin-user-info">
-            <div class="admin-user-name">${u.display_name}</div>
-            <div class="admin-user-meta">
-              <span class="admin-user-username">@${u.username}</span>
-              <span class="admin-user-role admin-user-role-${u.role}">${roleLabel}</span>
-              <span class="admin-user-state ${u.active === false ? "is-off" : "is-on"}">${u.active === false ? "معطّل" : "نشط"}</span>
-            </div>
-            <div class="admin-user-meta">أنشأه: ${u.created_by || "—"} · ${created}</div>
-          </div>
-          <div class="admin-user-actions">
-            <button class="btn-user-reset" data-uid="${u.id}" data-name="${u.display_name}" type="button">🔑 كلمة مرور</button>
-            <button class="btn-user-toggle" data-uid="${u.id}" data-active="${u.active}" type="button">${u.active === false ? "تفعيل" : "تعطيل"}</button>
-            <button class="btn-user-delete" data-uid="${u.id}" data-username="${u.username}" data-name="${u.display_name}" type="button">🗑 حذف</button>
-          </div>
-        `;
-        // Don't let admin delete or disable their own account
-        if (currentUser && currentUser.username === u.username) {
-          row.querySelectorAll(".btn-user-toggle, .btn-user-delete").forEach(b => b.remove());
-        }
-        container.appendChild(row);
-      });
-    }
-    async function refreshUsersList() {
-      if (!Auth || !Auth.listUsers) return;
-      const list = $("admin-users-list");
-      if (list) list.innerHTML = '<div class="admin-users-loading">جارٍ التحميل…</div>';
-      const res = await Auth.listUsers();
-      if (res.ok) renderUsersList(res.users);
-      else if (list) list.innerHTML = '<div class="admin-users-error">فشل تحميل المستخدمين: ' + (res.error || "") + '</div>';
-    }
+    // NOTE: the renderUsersList() and refreshUsersList() functions
+    // are defined at the module top-level (outside bindEvents) so
+    // that openAdminView() can call them. The event listeners below
+    // reference the same top-level functions via closure.
     // Create new user button
     $("user-create-btn").addEventListener("click", async () => {
       const displayName = $("user-display-name").value.trim();
@@ -1503,47 +1458,8 @@
     });
 
     // ----- Audit log (admin only) -----
-    function renderAuditLog(entries) {
-      const container = $("admin-audit-list");
-      if (!container) return;
-      if (!Array.isArray(entries) || entries.length === 0) {
-        container.innerHTML = '<div class="admin-audit-empty">لا يوجد نشاط مسجّل بعد.</div>';
-        return;
-      }
-      const actionLabels = {
-        patient_added: "➕ إضافة مريض",
-        patient_deleted: "❌ حذف مريض",
-        med_added: "💊 إضافة دواء",
-        med_deleted: "🗑 حذف دواء",
-        data_wiped: "⚠️ مسح بيانات",
-        user_deleted: "👤 حذف مستخدم"
-      };
-      container.innerHTML = "";
-      entries.forEach(entry => {
-        const row = document.createElement("div");
-        row.className = "audit-row";
-        const dt = entry.created_at
-          ? new Date(entry.created_at).toLocaleString("ar", { dateStyle: "short", timeStyle: "medium" })
-          : "—";
-        row.innerHTML = `
-          <div class="audit-row-meta">
-            <span class="audit-user">@${entry.username}</span>
-            <span class="audit-action">${actionLabels[entry.action] || entry.action}</span>
-            <span class="audit-time">${dt}</span>
-          </div>
-          <div class="audit-row-details">${entry.details || ""}</div>
-        `;
-        container.appendChild(row);
-      });
-    }
-    async function refreshAuditLog() {
-      if (!Auth || !Auth.getAuditLog) return;
-      const list = $("admin-audit-list");
-      if (list) list.innerHTML = '<div class="admin-audit-loading">جارٍ التحميل…</div>';
-      const res = await Auth.getAuditLog(200);
-      if (res.ok) renderAuditLog(res.entries);
-      else if (list) list.innerHTML = '<div class="admin-audit-error">فشل تحميل السجل: ' + (res.error || "") + '</div>';
-    }
+    // NOTE: renderAuditLog() and refreshAuditLog() are defined at
+    // module top-level so openAdminView() can call them.
     $("audit-refresh-btn").addEventListener("click", refreshAuditLog);
 
     // ----- Supabase: test / save / clear -----
@@ -1620,6 +1536,99 @@
     // Manual push/pull buttons (advanced)
     $("sb-push-now").addEventListener("click", pushCatalogManual);
     $("sb-pull-now").addEventListener("click", pullCatalogManual);
+  }
+
+  // -------- Admin: User Management + Audit Log helpers --------
+  // These are top-level (not inside bindEvents) so openAdminView()
+  // can call them. bindEvents() wires the event listeners that
+  // reference the same functions via closure.
+  function renderUsersList(users) {
+    const container = $("admin-users-list");
+    if (!container) return;
+    if (!Array.isArray(users) || users.length === 0) {
+      container.innerHTML = '<div class="admin-users-empty">لا يوجد مستخدمون بعد. أنشئ أول مستخدم بالأعلى.</div>';
+      return;
+    }
+    const currentUser = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+    container.innerHTML = "";
+    users.forEach(u => {
+      const row = document.createElement("div");
+      row.className = "admin-user-row" + (u.active === false ? " is-inactive" : "");
+      const roleLabel = u.role === "admin" ? "مسؤول" : "صيدلي";
+      const created = u.created_at
+        ? new Date(u.created_at).toLocaleString("ar", { dateStyle: "short", timeStyle: "short" })
+        : "—";
+      row.innerHTML = `
+        <div class="admin-user-info">
+          <div class="admin-user-name">${u.display_name}</div>
+          <div class="admin-user-meta">
+            <span class="admin-user-username">@${u.username}</span>
+            <span class="admin-user-role admin-user-role-${u.role}">${roleLabel}</span>
+            <span class="admin-user-state ${u.active === false ? "is-off" : "is-on"}">${u.active === false ? "معطّل" : "نشط"}</span>
+          </div>
+          <div class="admin-user-meta">أنشأه: ${u.created_by || "—"} · ${created}</div>
+        </div>
+        <div class="admin-user-actions">
+          <button class="btn-user-reset" data-uid="${u.id}" data-name="${u.display_name}" type="button">🔑 كلمة مرور</button>
+          <button class="btn-user-toggle" data-uid="${u.id}" data-active="${u.active}" type="button">${u.active === false ? "تفعيل" : "تعطيل"}</button>
+          <button class="btn-user-delete" data-uid="${u.id}" data-username="${u.username}" data-name="${u.display_name}" type="button">🗑 حذف</button>
+        </div>
+      `;
+      // Don't let admin delete or disable their own account
+      if (currentUser && currentUser.username === u.username) {
+        row.querySelectorAll(".btn-user-toggle, .btn-user-delete").forEach(b => b.remove());
+      }
+      container.appendChild(row);
+    });
+  }
+  async function refreshUsersList() {
+    if (!Auth || !Auth.listUsers) return;
+    const list = $("admin-users-list");
+    if (list) list.innerHTML = '<div class="admin-users-loading">جارٍ التحميل…</div>';
+    const res = await Auth.listUsers();
+    if (res.ok) renderUsersList(res.users);
+    else if (list) list.innerHTML = '<div class="admin-users-error">فشل تحميل المستخدمين: ' + (res.error || "") + '</div>';
+  }
+  function renderAuditLog(entries) {
+    const container = $("admin-audit-list");
+    if (!container) return;
+    if (!Array.isArray(entries) || entries.length === 0) {
+      container.innerHTML = '<div class="admin-audit-empty">لا يوجد نشاط مسجّل بعد.</div>';
+      return;
+    }
+    const actionLabels = {
+      patient_added: "➕ إضافة مريض",
+      patient_deleted: "❌ حذف مريض",
+      med_added: "💊 إضافة دواء",
+      med_deleted: "🗑 حذف دواء",
+      data_wiped: "⚠️ مسح بيانات",
+      user_deleted: "👤 حذف مستخدم"
+    };
+    container.innerHTML = "";
+    entries.forEach(entry => {
+      const row = document.createElement("div");
+      row.className = "audit-row";
+      const dt = entry.created_at
+        ? new Date(entry.created_at).toLocaleString("ar", { dateStyle: "short", timeStyle: "medium" })
+        : "—";
+      row.innerHTML = `
+        <div class="audit-row-meta">
+          <span class="audit-user">@${entry.username}</span>
+          <span class="audit-action">${actionLabels[entry.action] || entry.action}</span>
+          <span class="audit-time">${dt}</span>
+        </div>
+        <div class="audit-row-details">${entry.details || ""}</div>
+      `;
+      container.appendChild(row);
+    });
+  }
+  async function refreshAuditLog() {
+    if (!Auth || !Auth.getAuditLog) return;
+    const list = $("admin-audit-list");
+    if (list) list.innerHTML = '<div class="admin-audit-loading">جارٍ التحميل…</div>';
+    const res = await Auth.getAuditLog(200);
+    if (res.ok) renderAuditLog(res.entries);
+    else if (list) list.innerHTML = '<div class="admin-audit-error">فشل تحميل السجل: ' + (res.error || "") + '</div>';
   }
 
   // -------- Admin view --------
