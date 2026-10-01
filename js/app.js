@@ -167,12 +167,24 @@
       return;
     }
     updateSupabaseStatusUI("جارٍ المزامنة…", "loading");
-    // Pull catalog (medications)
+    // Pull catalog (medications). pullCatalog now MERGES cloud + local
+    // (preserving any local-only meds from a recent catalog-version
+    // migration). If it reports addedFromLocal > 0, we need to push
+    // the merged catalog back to the cloud so other devices also
+    // receive the new meds on their next pull.
     const res = await SBSync.pullCatalog();
     if (res.ok) {
       state.medications = Storage.loadMedications();
       UI.renderAdminMedList(state.medications, null);
       updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
+      // If the merge added local-only meds (e.g. newly-injected
+      // defaults), push the merged catalog back to the cloud.
+      if (res.addedFromLocal && res.addedFromLocal > 0) {
+        console.log("[Sync] merged " + res.addedFromLocal + " local-only meds into cloud pull — pushing back");
+        SBSync.pushCatalog().then(r => {
+          if (!r.ok) console.warn("[Sync] post-merge push failed:", r.error);
+        });
+      }
     } else if (res.skipped) {
       updateSupabaseStatusUI("يعمل محليًا · السحب متأخر", "error");
     } else {
@@ -243,6 +255,14 @@
       UI.renderAdminMedList(state.medications, null);
       updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
       flashHint(`تم سحب ${res.count} دواء من السحابة`);
+      // Same merge-then-push-back logic as pullCatalogOnBoot — if
+      // local-only meds were merged into the cloud pull, push the
+      // merged catalog back so other devices get them too.
+      if (res.addedFromLocal && res.addedFromLocal > 0) {
+        SBSync.pushCatalog().then(r => {
+          if (!r.ok) console.warn("[Sync] post-merge push failed:", r.error);
+        });
+      }
     } else {
       updateSupabaseStatusUI("فشل السحب: " + res.error, "error");
       flashHint("فشل السحب من السحابة: " + res.error);
@@ -284,12 +304,22 @@
 
     try {
       // 1) Pull catalog (force = true to bypass the "unsynced local
-      //    edits" guard, since the user explicitly asked for a sync)
+      //    edits" guard, since the user explicitly asked for a sync).
+      //    pullCatalog now merges local-only meds into the cloud pull
+      //    (so newly-injected default meds aren't wiped), and reports
+      //    `addedFromLocal` if any were merged.
       const cres = await SBSync.pullCatalog(true);
       if (cres.ok) {
         state.medications = Storage.loadMedications();
         UI.renderAdminMedList(state.medications, null);
         okCount++;
+        // If local-only meds were merged into the pull, push the
+        // merged catalog back so other devices also get them.
+        if (cres.addedFromLocal && cres.addedFromLocal > 0) {
+          SBSync.pushCatalog().then(r => {
+            if (!r.ok) console.warn("[Sync] post-merge push failed:", r.error);
+          });
+        }
       } else if (cres.skipped) {
         // skipped is not really a failure — local catalog is fresher
         okCount++;
@@ -1254,6 +1284,14 @@
         UI.renderAdminMedList(state.medications, null);
         updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
         flashHint("تمت المزامنة من Supabase");
+        // If local-only meds (from a recent catalog-version migration)
+        // were merged into the pull, push the merged catalog back so
+        // other devices also get the new meds.
+        if (res.addedFromLocal && res.addedFromLocal > 0) {
+          SBSync.pushCatalog().then(r => {
+            if (!r.ok) console.warn("[Sync] post-merge push failed:", r.error);
+          });
+        }
       } else {
         // Pull failed → push the local catalog to populate the empty table
         const pushRes = await SBSync.pushCatalog();
