@@ -1297,34 +1297,26 @@
       persistPatient(state.currentBed.key);
       closeSheet();
       flashHint("تمت إضافة " + userAddedCount + " علاج");
-      // Check for drug interactions after adding the new meds
       const alerts = checkDrugInteractions(p.medications);
       if (alerts.length > 0) showInteractionAlerts(alerts);
-      // Return to rooms grid, but scroll to the same room the patient
-      // was in (so the pharmacist doesn't land back at room 1).
       const roomIdForScroll = String(state.currentBed.roomId);
       state.currentBed = null;
       UI.showView("home");
       refreshStatsAndRooms();
-
-      // Try to scroll to the room card. We retry multiple times
-      // because the DOM rebuild (innerHTML='') inside renderRooms
-      // can take varying time depending on the number of patients,
-      // browser rendering speed, and whether the interaction alert
-      // dialog (if shown) is still blocking the main thread.
-      function scrollToRoom(attempt) {
-        if (attempt > 5) return; // give up after 5 attempts
-        const roomEl = document.querySelector(`.room-card[data-room-id="${roomIdForScroll}"]`);
-        if (roomEl) {
-          roomEl.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+      // Retry scroll — give Realtime time to settle too
+      let _scrollTries = 0;
+      function tryScroll() {
+        _scrollTries++;
+        if (_scrollTries > 10) return;
+        const el = document.querySelector(`.room-card[data-room-id="${roomIdForScroll}"]`);
+        if (el) {
+          const y = el.offsetTop - 80;
+          window.scrollTo({ top: y, behavior: "smooth" });
         } else {
-          // Room card not found yet — retry after a short delay
-          setTimeout(() => scrollToRoom(attempt + 1), 100);
+          setTimeout(tryScroll, 200);
         }
       }
-      // Start trying after a small initial delay (ensures innerHTML
-      // rebuild has completed)
-      setTimeout(() => scrollToRoom(0), 50);
+      setTimeout(tryScroll, 300);
     });
 
     // ----- Admin: open via header gear -----
