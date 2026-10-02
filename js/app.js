@@ -1312,7 +1312,15 @@
       //    (in ui.js buildChartReport), not stored on the patient.
       //    No recompute needed here.
 
-      persistPatient(state.currentBed.key);
+      // Don't call persistPatient here — it calls refreshStatsAndRooms
+      // which rebuilds DOM and cancels our scroll. We do the save
+      // manually without the refresh.
+      Storage.upsertPatient(state.currentBed.key, state.patients[state.currentBed.key]);
+      if (SBSync && SBSync.pushPatients) {
+        SBSync.pushPatients().then(r => {
+          if (!r.ok) console.warn("[Supabase] push failed:", r.error);
+        });
+      }
       closeSheet();
       flashHint("تمت إضافة " + userAddedCount + " علاج");
       const alerts = checkDrugInteractions(p.medications);
@@ -1328,25 +1336,19 @@
         n.classList.toggle("active", n.dataset.nav === "home");
       });
 
-      // Render rooms directly
+      // Render rooms + scroll + set preserve flag for Realtime
       UI.renderRooms(state.patients);
+      UI.renderStats(state.patients);
+      UI.renderPatientsList(state.patients);
 
-      // Scroll immediately — DOM is built, element exists now
       const el = document.querySelector(`.room-card[data-room-id="${roomIdForScroll}"]`);
       if (el) {
         const y = el.offsetTop - 60;
         window.scrollTo({ top: y, behavior: "auto" });
       }
 
-      // Set a flag that tells handlePatientRealtimeChange to
-      // PRESERVE the scroll position instead of calling
-      // refreshStatsAndRooms which rebuilds the DOM and resets scroll.
       UI._preserveScroll = true;
       _preserveScrollRoomId = roomIdForScroll;
-
-      // Also update stats + patients list
-      UI.renderStats(state.patients);
-      UI.renderPatientsList(state.patients);
     });
 
     // ----- Admin: open via header gear -----
