@@ -1316,7 +1316,7 @@
         if (attempt > 5) return; // give up after 5 attempts
         const roomEl = document.querySelector(`.room-card[data-room-id="${roomIdForScroll}"]`);
         if (roomEl) {
-          roomEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          roomEl.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
         } else {
           // Room card not found yet — retry after a short delay
           setTimeout(() => scrollToRoom(attempt + 1), 100);
