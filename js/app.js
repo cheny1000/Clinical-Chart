@@ -126,11 +126,9 @@
     const isAdmin = Auth.isAdmin();
     const adminBtn = $("open-admin");
     if (adminBtn) adminBtn.hidden = !isAdmin;
-    // chart button + sync button + logout button are always visible (both roles)
+    // chart button + PDF button + logout button are always visible (both roles)
     const chartBtn = $("print-chart-btn");
     if (chartBtn) chartBtn.hidden = false;
-    const syncBtn = $("sync-now-btn");
-    if (syncBtn) syncBtn.hidden = false;
     const logoutBtn = $("logout-btn");
     if (logoutBtn) logoutBtn.hidden = false;
   }
@@ -1422,12 +1420,8 @@
       }
     });
 
-    // ----- Sync now (manual) -----
-    // Pulls the catalog + patients from Supabase (non-destructive merge
-    // for patients). Visible to both admin and pharmacist. Disables
-    // itself and spins the icon while the sync is running to prevent
-    // double-clicks.
-    $("sync-now-btn").addEventListener("click", syncNow);
+    // (Sync button removed — Realtime handles live updates, and
+    // pullCatalogOnBoot handles initial sync on app open.)
 
     // Admin back button
     $("admin-back-btn").addEventListener("click", () => {
