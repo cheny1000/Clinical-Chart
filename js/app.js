@@ -1301,9 +1301,10 @@
       if (alerts.length > 0) showInteractionAlerts(alerts);
       const roomIdForScroll = String(state.currentBed.roomId);
       state.currentBed = null;
+      // Set flag to prevent showView from scrolling to top
+      UI._suppressScroll = true;
       UI.showView("home");
       refreshStatsAndRooms();
-      // Retry scroll — give Realtime time to settle too
       let _scrollTries = 0;
       function tryScroll() {
         _scrollTries++;
@@ -1312,6 +1313,7 @@
         if (el) {
           const y = el.offsetTop - 80;
           window.scrollTo({ top: y, behavior: "smooth" });
+          UI._suppressScroll = false;
         } else {
           setTimeout(tryScroll, 200);
         }
