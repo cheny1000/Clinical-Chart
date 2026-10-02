@@ -2985,9 +2985,13 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   }
 
   /* Each page is just a block; the table inside it sizes itself
-     to the page width via width: 100% (set on .chart-matrix below). */
+     to the page width via width: 100% (set on .chart-matrix below).
+     We add equal top + bottom padding so the vertical whitespace
+     above and below the chart table is the same. */
   .chart-page {
     display: block;
+    padding-top: 2mm;
+    padding-bottom: 2mm;
   }
 
   /* Page setup: A4 Landscape with minimal margins.
