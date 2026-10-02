@@ -173,7 +173,10 @@
     // depending on the user's gender (stored in the session).
     if (user) {
       const title = user.gender === "female" ? "دكتورة" : "دكتور";
-      flashHint(`أهلاً ${title} ${user.displayName}`);
+      // Use only the first name (first word) for a warmer greeting
+      // e.g. "عبدالله رائد" → "عبدالله", "زينب جمال" → "زينب"
+      const firstName = (user.displayName || "").split(" ")[0] || user.displayName;
+      flashHint(`أهلاً ${title} ${firstName}`);
     }
   }
 
