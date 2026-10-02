@@ -1302,38 +1302,21 @@
       const roomIdForScroll = String(state.currentBed.roomId);
       state.currentBed = null;
 
-      // Manually switch views WITHOUT calling showView (to avoid
-      // its built-in window.scrollTo(0,0) which cancels our scroll).
+      // Switch to home view + rebuild rooms
       document.querySelectorAll(".view").forEach(v => {
         v.hidden = v.dataset.view !== "home";
       });
       document.querySelectorAll(".nav-item").forEach(n => {
         n.classList.toggle("active", n.dataset.nav === "home");
       });
-
-      // Rebuild the rooms grid
       refreshStatsAndRooms();
 
-      // Now scroll to the room. We use a longer delay (500ms) and
-      // more retries to ensure the DOM is fully built AND any
-      // Realtime-triggered re-renders have settled.
-      let _tries = 0;
-      function tryScroll() {
-        _tries++;
-        if (_tries > 15) return;
-        const el = document.querySelector(`.room-card[data-room-id="${roomIdForScroll}"]`);
-        if (el) {
-          // Use scrollIntoView directly on the element — this is
-          // the most reliable method on mobile browsers.
-          el.scrollIntoView({ behavior: "smooth", block: "start" });
-          // Also set window scroll as backup
-          const y = el.getBoundingClientRect().top + window.scrollY - 60;
-          window.scrollTo({ top: y, behavior: "smooth" });
-        } else {
-          setTimeout(tryScroll, 200);
-        }
+      // Scroll immediately — no delay, no retry
+      const el = document.querySelector(`.room-card[data-room-id="${roomIdForScroll}"]`);
+      if (el) {
+        const y = el.getBoundingClientRect().top + window.scrollY - 60;
+        window.scrollTo({ top: y, behavior: "auto" });
       }
-      setTimeout(tryScroll, 500);
     });
 
     // ----- Admin: open via header gear -----
