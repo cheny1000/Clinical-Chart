@@ -97,7 +97,6 @@
   // a full-screen display mode showing the ward map for monitoring.
   let _displayModeActive = false;
   let _displayClockTimer = null;
-  let _preserveScrollRoomId = null;
 
   function initDisplayMode() {
     const btn = $("display-mode-exit");
@@ -475,29 +474,7 @@
         Storage.upsertPatient(bedKey, state.patients[bedKey]);
       }
     }
-    // If preserveScroll is active, DON'T rebuild the rooms at all.
-    // Just update the one bed that changed. This preserves the
-    // scroll position completely.
-    if (UI._preserveScroll && _preserveScrollRoomId) {
-      // Update just the one bed button
-      const bedBtn = document.querySelector(`.bed-btn[data-key="${bedKey}"]`);
-      if (bedBtn) {
-        const patient = state.patients[bedKey];
-        const hasMeds = patient && Array.isArray(patient.medications) && patient.medications.length > 0;
-        const hasName = patient && patient.name && patient.name.trim();
-        let state_cls = "state-empty";
-        if (hasName) state_cls = hasMeds ? "state-meds" : "state-occupied";
-        bedBtn.className = "bed-btn " + state_cls;
-      }
-      UI.renderStats(state.patients);
-      // Clear the flag after 3 seconds
-      setTimeout(() => {
-        UI._preserveScroll = false;
-        _preserveScrollRoomId = null;
-      }, 3000);
-    } else {
-      refreshStatsAndRooms();
-    }
+    refreshStatsAndRooms();
     // If display mode is active, refresh it too
     if (_displayModeActive) renderDisplayMode();
     // If the patient view is open, refresh it
@@ -810,18 +787,9 @@
   }
 
   function refreshStatsAndRooms() {
-    // Save scroll position before re-rendering rooms (renderRooms
-    // clears innerHTML which resets scroll to top).
-    const scrollY = window.scrollY;
     UI.renderStats(state.patients);
     UI.renderRooms(state.patients);
     UI.renderPatientsList(state.patients);
-    // Restore scroll position if we were on the home view
-    // (so the user doesn't lose their place in the rooms grid).
-    const homeView = document.getElementById("view-home");
-    if (homeView && !homeView.hidden && scrollY > 0) {
-      window.scrollTo(0, scrollY);
-    }
   }
 
   // -------- Patient helpers --------
@@ -1317,58 +1285,16 @@
       //    (in ui.js buildChartReport), not stored on the patient.
       //    No recompute needed here.
 
-      // Save: don't rebuild rooms. They're already in DOM from before.
-      // Just switch view + restore scroll + update the one bed color.
-      const bedKeyForUpdate = state.currentBed.key;
-      const roomIdForScroll = String(state.currentBed.roomId);
-      const scrollYBefore = document.getElementById("view-patient") 
-        ? 0 : 0; // patient view doesn't scroll the window
-
-      // Save the bed's key before clearing
-      Storage.upsertPatient(state.currentBed.key, state.patients[state.currentBed.key]);
-      if (SBSync && SBSync.pushPatients) {
-        SBSync.pushPatients().then(r => {
-          if (!r.ok) console.warn("[Supabase] push failed:", r.error);
-        });
-      }
+      persistPatient(state.currentBed.key);
       closeSheet();
       flashHint("تمت إضافة " + userAddedCount + " علاج");
+      // Check for drug interactions after adding the new meds
       const alerts = checkDrugInteractions(p.medications);
       if (alerts.length > 0) showInteractionAlerts(alerts);
+      // Return to rooms view immediately so the pharmacist can move to
+      // the next patient without an extra tap on the back button.
       state.currentBed = null;
-
-      // Switch to home — rooms are already rendered, just show them
-      document.querySelectorAll(".view").forEach(v => {
-        v.hidden = v.dataset.view !== "home";
-      });
-      document.querySelectorAll(".nav-item").forEach(n => {
-        n.classList.toggle("active", n.dataset.nav === "home");
-      });
-
-      // Update just the one bed button that changed (no full rebuild)
-      const bedBtn = document.querySelector(`.bed-btn[data-key="${bedKeyForUpdate}"]`);
-      if (bedBtn) {
-        const patient = state.patients[bedKeyForUpdate];
-        const hasMeds = patient && Array.isArray(patient.medications) && patient.medications.length > 0;
-        const hasName = patient && patient.name && patient.name.trim();
-        let state_cls = "state-empty";
-        if (hasName) state_cls = hasMeds ? "state-meds" : "state-occupied";
-        bedBtn.className = "bed-btn " + state_cls;
-      }
-
-      // Update stats (just numbers, doesn't rebuild rooms)
-      UI.renderStats(state.patients);
-
-      // Find the room card and scroll to it
-      const el = document.querySelector(`.room-card[data-room-id="${roomIdForScroll}"]`);
-      if (el) {
-        const y = el.offsetTop - 60;
-        window.scrollTo({ top: y, behavior: "auto" });
-      }
-
-      // Protect against Realtime re-render for 3 seconds
-      UI._preserveScroll = true;
-      _preserveScrollRoomId = roomIdForScroll;
+      UI.showView("home");
     });
 
     // ----- Admin: open via header gear -----
