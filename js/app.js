@@ -169,7 +169,12 @@
     UI.showView("home");
     pullCatalogOnBoot();
     const user = Auth.getCurrentUser();
-    flashHint(`مرحبًا ${user ? user.displayName : ""}`);
+    // Personalized welcome: "أهلاً دكتور [name]" or "أهلاً دكتورة [name]"
+    // depending on the user's gender (stored in the session).
+    if (user) {
+      const title = user.gender === "female" ? "دكتورة" : "دكتور";
+      flashHint(`أهلاً ${title} ${user.displayName}`);
+    }
   }
 
   // -------- Supabase: pull catalog on boot --------
@@ -1285,19 +1290,21 @@
       const username = $("user-username").value.trim().toLowerCase();
       const password = $("user-password").value;
       const role = $("user-role").value;
+      const gender = $("user-gender").value;
       if (!displayName || !username || !password) {
         flashHint("أدخل جميع الحقول الثلاثة");
         return;
       }
       if (!Auth || !Auth.createUser) { flashHint("نظام المصادقة غير مُهيّأ"); return; }
       const creator = Auth.getCurrentUser();
-      const res = await Auth.createUser(creator ? creator.username : "admin", username, password, displayName, role);
+      const res = await Auth.createUser(creator ? creator.username : "admin", username, password, displayName, role, gender);
       if (res.ok) {
         flashHint(`تم إنشاء المستخدم "${displayName}"`);
         $("user-display-name").value = "";
         $("user-username").value = "";
         $("user-password").value = "";
         $("user-role").value = "pharmacist";
+        $("user-gender").value = "male";
         refreshUsersList();
       } else {
         flashHint("فشل إنشاء المستخدم: " + (res.error || ""));
@@ -1441,20 +1448,26 @@
       const created = u.created_at
         ? new Date(u.created_at).toLocaleString("ar", { dateStyle: "short", timeStyle: "short" })
         : "—";
+      // Strip the |male or |female suffix from display_name for UI
+      const cleanName = (u.display_name || "").split("|")[0] || u.username;
+      // Extract gender for a small badge
+      const genderSuffix = (u.display_name || "").split("|")[1];
+      const genderLabel = genderSuffix === "female" ? "أنثى" : "ذكر";
       row.innerHTML = `
         <div class="admin-user-info">
-          <div class="admin-user-name">${u.display_name}</div>
+          <div class="admin-user-name">${cleanName}</div>
           <div class="admin-user-meta">
             <span class="admin-user-username">@${u.username}</span>
             <span class="admin-user-role admin-user-role-${u.role}">${roleLabel}</span>
+            <span class="admin-user-gender">${genderLabel}</span>
             <span class="admin-user-state ${u.active === false ? "is-off" : "is-on"}">${u.active === false ? "معطّل" : "نشط"}</span>
           </div>
           <div class="admin-user-meta">أنشأه: ${u.created_by || "—"} · ${created}</div>
         </div>
         <div class="admin-user-actions">
-          <button class="btn-user-reset" data-uid="${u.id}" data-name="${u.display_name}" type="button">🔑 كلمة مرور</button>
+          <button class="btn-user-reset" data-uid="${u.id}" data-name="${cleanName}" type="button">🔑 كلمة مرور</button>
           <button class="btn-user-toggle" data-uid="${u.id}" data-active="${u.active}" type="button">${u.active === false ? "تفعيل" : "تعطيل"}</button>
-          <button class="btn-user-delete" data-uid="${u.id}" data-username="${u.username}" data-name="${u.display_name}" type="button">🗑 حذف</button>
+          <button class="btn-user-delete" data-uid="${u.id}" data-username="${u.username}" data-name="${cleanName}" type="button">🗑 حذف</button>
         </div>
       `;
       // Don't let admin delete or disable their own account

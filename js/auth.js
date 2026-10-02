@@ -141,7 +141,8 @@
       localStorage.setItem(SESSION_KEY, JSON.stringify({
         username:    account.username,
         role:        account.role,
-        displayName: account.displayName
+        displayName: account.displayName,
+        gender:      account.gender || "male"
       }));
       return true;
     } catch (e) { return false; }
@@ -203,11 +204,19 @@
       if (!valid) {
         return { ok: false, error: "كلمة المرور غير صحيحة" };
       }
-      // Save the session (without password_hash)
+      // Save the session (without password_hash).
+      // display_name may contain a '|male' or '|female' suffix (used
+      // for the welcome message). We split it into a clean displayName
+      // and a gender field so the caller doesn't need to parse it.
+      const rawName = row.display_name || row.username;
+      const parts = rawName.split("|");
+      const cleanName = (parts[0] || "").trim() || row.username;
+      const gender = parts[1] === "female" ? "female" : "male";
       const account = {
         username:    row.username,
         role:        row.role || "pharmacist",
-        displayName: row.display_name || row.username
+        displayName: cleanName,
+        gender:      gender
       };
       saveSession(account);
 
@@ -294,12 +303,17 @@
 
   // Create a new user. `creatorUsername` is the admin who's creating
   // the account (for the `created_by` field).
-  async function createUser(creatorUsername, username, password, displayName, role) {
+  // `gender` is 'male' or 'female' — appended to display_name as
+  // '|male' or '|female' for the welcome message feature.
+  async function createUser(creatorUsername, username, password, displayName, role, gender) {
     if (!username || !password || !displayName) {
       return { ok: false, error: "أدخل جميع الحقول" };
     }
     if (role !== "admin" && role !== "pharmacist") {
       role = "pharmacist";
+    }
+    if (gender !== "male" && gender !== "female") {
+      gender = "male";
     }
     if (password.length < 4) {
       return { ok: false, error: "كلمة المرور يجب أن تكون 4 أحرف على الأقل" };
@@ -310,12 +324,14 @@
     if (!client) return { ok: false, error: "تعذّر إنشاء عميل Supabase" };
     try {
       const passwordHash = await hashNewPassword(password);
+      // Append gender suffix to display_name: "عبدالله رائد|male"
+      const fullDisplayName = displayName.trim() + "|" + gender;
       const { data, error } = await client
         .from("users")
         .insert([{
           username: username.trim().toLowerCase(),
           password_hash: passwordHash,
-          display_name: displayName.trim(),
+          display_name: fullDisplayName,
           role: role,
           active: true,
           created_by: creatorUsername || "admin"
