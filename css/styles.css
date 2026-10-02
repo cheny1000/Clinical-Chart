@@ -441,6 +441,24 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   display: block;
 }
 .brand-darkmode[hidden] { display: none !important; }
+.brand-pdf {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: #ECFDF5;
+  border: 1px solid #059669;
+  color: #047857;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: background 160ms ease, color 160ms ease, transform 120ms ease;
+}
+.brand-pdf:active {
+  transform: scale(0.94);
+  background: #D1FAE5;
+}
+.brand-pdf svg { display: block; }
+.brand-pdf[hidden] { display: none !important; }
 
 /* ---------- Stats bar (in header) ---------- */
 .stats-bar {

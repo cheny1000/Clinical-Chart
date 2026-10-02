@@ -1237,6 +1237,10 @@
       // Build the chart with the supply distribution
       UI.buildChartReport(state.patients, state.medications, supplyDistribution);
 
+      // Show the PDF export button now that the chart is built
+      const pdfBtn = $("export-pdf-btn");
+      if (pdfBtn) pdfBtn.hidden = false;
+
       // Print (same iOS / Android logic as before)
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
       const isStandalone =
@@ -1256,80 +1260,16 @@
       }
     });
 
-    // PDF export button: same distribution logic as submit, but
-    // instead of printing, generates a PDF file using html2pdf.js
-    $("supply-order-pdf").addEventListener("click", () => {
-      // Collect the quantities (same as submit handler)
-      const quantities = {};
-      document.querySelectorAll("#supply-order-list input[data-supply-id]").forEach(inp => {
-        const id = inp.dataset.supplyId;
-        const val = parseInt(inp.value, 10);
-        quantities[id] = (isNaN(val) || val < 0) ? 0 : val;
-      });
-      const occupiedKeys = [];
-      const Ward = global.PharmacyWard;
-      Ward.ROOMS.forEach(room => {
-        room.beds.forEach(bed => {
-          const key = Ward.bedKey(room.id, bed.number);
-          const p = state.patients[key];
-          if (p && p.name && p.name.trim()) occupiedKeys.push(key);
-        });
-      });
-      const patientCount = occupiedKeys.length;
-      if (patientCount === 0) {
-        flashHint("لا يوجد مرضى مشغولون");
+    // ----- PDF export (from header, after chart is built) -----
+    // The PDF button is hidden by default and only shown after the
+    // chart has been built (via the supply-order-submit handler).
+    // It exports the currently-built chart as a PDF.
+    $("export-pdf-btn").addEventListener("click", () => {
+      const chartRoot = document.getElementById("chart-print-root");
+      if (!chartRoot || !chartRoot.innerHTML.trim()) {
+        flashHint("لم يتم بناء التشارت بعد — اضغط زر الطباعة أولاً");
         return;
       }
-      // Build supply distribution (same algorithm as submit)
-      const supplyDistribution = {};
-      SUPPLY_RULES.forEach(rule => {
-        const totalQty = quantities[rule.id] || 0;
-        if (totalQty === 0) return;
-        const shuffled = occupiedKeys.slice();
-        for (let i = shuffled.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-        }
-        const dist = {};
-        const minTotal = patientCount * rule.minFreq;
-        let perPatient;
-        if (totalQty >= minTotal) {
-          perPatient = new Array(patientCount).fill(rule.minFreq);
-          let remainder = totalQty - minTotal;
-          let idx = 0;
-          while (remainder > 0) {
-            if (perPatient[idx] < rule.maxFreq) {
-              perPatient[idx]++;
-              remainder--;
-            }
-            idx = (idx + 1) % patientCount;
-            if (idx === 0 && remainder > 0) {
-              let canDist = false;
-              for (let k = 0; k < patientCount; k++) {
-                if (perPatient[k] < rule.maxFreq) { canDist = true; break; }
-              }
-              if (!canDist) break;
-            }
-          }
-        } else {
-          const numFull = Math.floor(totalQty / rule.minFreq);
-          const leftover = totalQty - (numFull * rule.minFreq);
-          perPatient = new Array(patientCount).fill(0);
-          for (let i = 0; i < numFull; i++) perPatient[i] = rule.minFreq;
-          if (leftover > 0 && numFull < patientCount) perPatient[numFull] = leftover;
-        }
-        for (let i = 0; i < patientCount; i++) {
-          if (perPatient[i] > 0) dist[shuffled[i]] = perPatient[i];
-        }
-        supplyDistribution[rule.id] = dist;
-      });
-
-      closeSupplyOrderModal();
-      // Build the chart
-      UI.buildChartReport(state.patients, state.medications, supplyDistribution);
-      // Generate PDF from the chart-print-root element
-      const chartRoot = document.getElementById("chart-print-root");
-      if (!chartRoot) { flashHint("تعذّر توليد PDF"); return; }
       flashHint("جارٍ توليد PDF…");
       const filename = "chart-" + new Date().toISOString().slice(0,10) + "-" + Date.now() + ".pdf";
       const opt = {
@@ -1341,6 +1281,8 @@
         pagebreak: { mode: ["css", "legacy"] }
       };
       // Temporarily show the chart for html2pdf to capture it
+      const origDisplay = chartRoot.style.display;
+      const origPosition = chartRoot.style.position;
       chartRoot.style.display = "block";
       chartRoot.style.position = "fixed";
       chartRoot.style.left = "0";
@@ -1350,8 +1292,8 @@
       chartRoot.style.background = "#fff";
       try {
         html2pdf().set(opt).from(chartRoot).save().then(() => {
-          chartRoot.style.display = "";
-          chartRoot.style.position = "";
+          chartRoot.style.display = origDisplay;
+          chartRoot.style.position = origPosition;
           chartRoot.style.left = "";
           chartRoot.style.top = "";
           chartRoot.style.width = "";
@@ -1359,8 +1301,8 @@
           chartRoot.style.background = "";
           flashHint("تم توليد PDF بنجاح");
         }).catch(err => {
-          chartRoot.style.display = "";
-          chartRoot.style.position = "";
+          chartRoot.style.display = origDisplay;
+          chartRoot.style.position = origPosition;
           chartRoot.style.left = "";
           chartRoot.style.top = "";
           chartRoot.style.width = "";
@@ -1369,8 +1311,8 @@
           flashHint("فشل توليد PDF: " + (err.message || String(err)));
         });
       } catch (e) {
-        chartRoot.style.display = "";
-        chartRoot.style.position = "";
+        chartRoot.style.display = origDisplay;
+        chartRoot.style.position = origPosition;
         chartRoot.style.left = "";
         chartRoot.style.top = "";
         chartRoot.style.width = "";
