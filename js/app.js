@@ -1335,10 +1335,6 @@
       // Build the chart with the supply distribution
       UI.buildChartReport(state.patients, state.medications, supplyDistribution);
 
-      // Show the PDF export button now that the chart is built
-      const pdfBtn = $("export-pdf-btn");
-      if (pdfBtn) pdfBtn.hidden = false;
-
       // Print (same iOS / Android logic as before)
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
       const isStandalone =
@@ -1355,68 +1351,6 @@
             window.print();
           });
         });
-      }
-    });
-
-    // ----- PDF export (from header, after chart is built) -----
-    // The PDF button is hidden by default and only shown after the
-    // chart has been built (via the supply-order-submit handler).
-    // It exports the currently-built chart as a PDF.
-    $("export-pdf-btn").addEventListener("click", () => {
-      const chartRoot = document.getElementById("chart-print-root");
-      if (!chartRoot || !chartRoot.innerHTML.trim()) {
-        flashHint("لم يتم بناء التشارت بعد — اضغط زر الطباعة أولاً");
-        return;
-      }
-      flashHint("جارٍ توليد PDF…");
-      const filename = "chart-" + new Date().toISOString().slice(0,10) + "-" + Date.now() + ".pdf";
-      const opt = {
-        margin: 0,
-        filename: filename,
-        image: { type: "jpeg", quality: 0.95 },
-        html2canvas: { scale: 2, backgroundColor: "#ffffff" },
-        jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
-        pagebreak: { mode: ["css", "legacy"] }
-      };
-      // Temporarily show the chart for html2pdf to capture it
-      const origDisplay = chartRoot.style.display;
-      const origPosition = chartRoot.style.position;
-      chartRoot.style.display = "block";
-      chartRoot.style.position = "fixed";
-      chartRoot.style.left = "0";
-      chartRoot.style.top = "0";
-      chartRoot.style.width = "100%";
-      chartRoot.style.zIndex = "9999";
-      chartRoot.style.background = "#fff";
-      try {
-        html2pdf().set(opt).from(chartRoot).save().then(() => {
-          chartRoot.style.display = origDisplay;
-          chartRoot.style.position = origPosition;
-          chartRoot.style.left = "";
-          chartRoot.style.top = "";
-          chartRoot.style.width = "";
-          chartRoot.style.zIndex = "";
-          chartRoot.style.background = "";
-          flashHint("تم توليد PDF بنجاح");
-        }).catch(err => {
-          chartRoot.style.display = origDisplay;
-          chartRoot.style.position = origPosition;
-          chartRoot.style.left = "";
-          chartRoot.style.top = "";
-          chartRoot.style.width = "";
-          chartRoot.style.zIndex = "";
-          chartRoot.style.background = "";
-          flashHint("فشل توليد PDF: " + (err.message || String(err)));
-        });
-      } catch (e) {
-        chartRoot.style.display = origDisplay;
-        chartRoot.style.position = origPosition;
-        chartRoot.style.left = "";
-        chartRoot.style.top = "";
-        chartRoot.style.width = "";
-        chartRoot.style.zIndex = "";
-        chartRoot.style.background = "";
-        flashHint("فشل توليد PDF: " + (e.message || String(e)));
       }
     });
 
