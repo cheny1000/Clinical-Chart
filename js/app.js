@@ -166,6 +166,21 @@
     container.innerHTML = "";
     const Ward = global.PharmacyWard;
     if (!Ward || !Ward.ROOMS) return;
+
+    // Local copy of bedSpecialFlags to avoid dependency on UI export
+    const dmBedFlags = (patient) => {
+      const flags = { hasAlbumin: false, hasMeronem: false };
+      if (!patient || !Array.isArray(patient.medications)) return flags;
+      for (const pm of patient.medications) {
+        if (!pm) continue;
+        const id = (pm.id || "").toLowerCase();
+        const name = ((pm.nameTrade || "") + " " + (pm.nameEn || "") + " " + (pm.nameAr || "")).toLowerCase();
+        if (id.indexOf("albumin") >= 0 || name.indexOf("albumin") >= 0 || name.indexOf("ألبومين") >= 0) flags.hasAlbumin = true;
+        if (id.indexOf("meronem") >= 0 || id.indexOf("meropenem") >= 0 || name.indexOf("meronem") >= 0 || name.indexOf("meropenem") >= 0 || name.indexOf("ميرونيم") >= 0 || name.indexOf("ميروبينيم") >= 0) flags.hasMeronem = true;
+      }
+      return flags;
+    };
+
     Ward.ROOMS.forEach(room => {
       const occupied = room.beds.filter(b => {
         const key = Ward.bedKey(room.id, b.number);
@@ -187,7 +202,7 @@
         const p = state.patients[key] || null;
         const hasName = p && p.name && p.name.trim();
         const hasMeds = hasName && Array.isArray(p.medications) && p.medications.length > 0;
-        const flags = hasName ? UI.bedSpecialFlags(p) : { hasAlbumin: false, hasMeronem: false };
+        const flags = hasName ? dmBedFlags(p) : { hasAlbumin: false, hasMeronem: false };
         let cls = "dm-bed-empty";
         let nameText = "فارغ";
         let flagHtml = "";

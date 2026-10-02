@@ -1169,6 +1169,7 @@
     closeSheet,
     showView,
     bedStatus,
+    bedSpecialFlags,
     // admin
     renderAdminMedList,
     showAdminForm,
