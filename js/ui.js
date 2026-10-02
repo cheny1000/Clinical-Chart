@@ -633,10 +633,11 @@
     document.querySelectorAll(".nav-item").forEach(n => {
       n.classList.toggle("active", n.dataset.nav === name);
     });
-    // Don't scroll to top if the caller set _suppressScroll (e.g.
-    // when returning to 'home' after adding meds — we want to
-    // scroll to the specific room, not to the top).
-    if (showView._lastView !== name && !global.PharmacyUI._suppressScroll) {
+    // Only scroll to top when switching to a DIFFERENT view.
+    // If we're already on this view (e.g. returning to 'home' after
+    // adding meds), don't scroll — preserve the user's scroll
+    // position so they don't lose their place in the rooms grid.
+    if (showView._lastView !== name) {
       window.scrollTo({ top: 0, behavior: "instant" });
     }
     showView._lastView = name;
