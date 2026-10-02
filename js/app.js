@@ -1306,27 +1306,25 @@
       state.currentBed = null;
       UI.showView("home");
       refreshStatsAndRooms();
-      // Scroll the room card into view (after DOM is rebuilt)
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const roomEl = document.querySelector(`.room-card[data-room-id="${roomIdForScroll}"]`);
-          if (roomEl) {
-            roomEl.scrollIntoView({ behavior: "smooth", block: "center" });
-          } else {
-            // Fallback: try scrolling the rooms-grid to the room
-            const grid = document.getElementById("rooms-grid");
-            if (grid) {
-              const cards = grid.querySelectorAll(".room-card");
-              for (const card of cards) {
-                if (card.dataset.roomId === roomIdForScroll) {
-                  card.scrollIntoView({ behavior: "smooth", block: "center" });
-                  break;
-                }
-              }
-            }
-          }
-        });
-      });
+
+      // Try to scroll to the room card. We retry multiple times
+      // because the DOM rebuild (innerHTML='') inside renderRooms
+      // can take varying time depending on the number of patients,
+      // browser rendering speed, and whether the interaction alert
+      // dialog (if shown) is still blocking the main thread.
+      function scrollToRoom(attempt) {
+        if (attempt > 5) return; // give up after 5 attempts
+        const roomEl = document.querySelector(`.room-card[data-room-id="${roomIdForScroll}"]`);
+        if (roomEl) {
+          roomEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else {
+          // Room card not found yet — retry after a short delay
+          setTimeout(() => scrollToRoom(attempt + 1), 100);
+        }
+      }
+      // Start trying after a small initial delay (ensures innerHTML
+      // rebuild has completed)
+      setTimeout(() => scrollToRoom(0), 50);
     });
 
     // ----- Admin: open via header gear -----
