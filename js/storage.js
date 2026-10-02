@@ -192,13 +192,32 @@
       const lp = local[k];
       const rp = remote[k];
 
-      // 1) If this bed was deleted on THIS device, respect it.
-      //    Don't re-introduce from cloud or local.
+      // 1) If this bed was deleted on THIS device, respect the local
+      //    deletion UNLESS the cloud has a newer version (another
+      //    device re-added the patient after our deletion). In that
+      //    case, the cloud version should win — the patient is alive
+      //    on another device.
       if (localDeletions[k]) {
-        // Clear the tombstone once the cloud no longer has it
-        // (deletion has fully propagated).
-        if (!rp) clearLocalDeletion(k);
-        continue;
+        if (rp) {
+          // Cloud still has this patient. Check if the cloud version
+          // is newer than our deletion time. If so, someone re-added
+          // it after we deleted it → respect the cloud version
+          // (clear the tombstone and keep the cloud patient).
+          const delTime = localDeletions[k] || 0;
+          const cloudTime = _toMs(rp.updatedAt);
+          if (cloudTime > delTime) {
+            // Cloud version is newer than our deletion → re-introduce
+            clearLocalDeletion(k);
+            out[k] = rp;
+            continue;
+          }
+          // Cloud version is same or older → keep our deletion
+          continue;
+        } else {
+          // Cloud no longer has it → deletion fully propagated
+          clearLocalDeletion(k);
+          continue;
+        }
       }
 
       // 2) If the bed_key was in the last-seen cloud set but is now
