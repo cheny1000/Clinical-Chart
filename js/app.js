@@ -97,6 +97,7 @@
   // a full-screen display mode showing the ward map for monitoring.
   let _displayModeActive = false;
   let _displayClockTimer = null;
+  let _preserveScrollRoomId = null;
 
   function initDisplayMode() {
     const btn = $("display-mode-exit");
@@ -474,7 +475,24 @@
         Storage.upsertPatient(bedKey, state.patients[bedKey]);
       }
     }
-    refreshStatsAndRooms();
+    // If preserveScroll is active, re-render rooms but then
+    // scroll back to the saved room position. This prevents the
+    // Realtime event from resetting the scroll to top.
+    if (UI._preserveScroll && _preserveScrollRoomId) {
+      UI.renderRooms(state.patients);
+      const el = document.querySelector(`.room-card[data-room-id="${_preserveScrollRoomId}"]`);
+      if (el) {
+        const y = el.offsetTop - 60;
+        window.scrollTo({ top: y, behavior: "auto" });
+      }
+      // Clear the flag after 2 seconds (Realtime events should be done by then)
+      setTimeout(() => {
+        UI._preserveScroll = false;
+        _preserveScrollRoomId = null;
+      }, 2000);
+    } else {
+      refreshStatsAndRooms();
+    }
     // If display mode is active, refresh it too
     if (_displayModeActive) renderDisplayMode();
     // If the patient view is open, refresh it
@@ -1310,18 +1328,23 @@
         n.classList.toggle("active", n.dataset.nav === "home");
       });
 
-      // Render rooms directly (not via refreshStatsAndRooms which
-      // also calls renderStats + renderPatientsList — we only need
-      // the rooms grid for the scroll to work).
+      // Render rooms directly
       UI.renderRooms(state.patients);
 
-      // Now the DOM is built. Scroll immediately.
+      // Scroll immediately — DOM is built, element exists now
       const el = document.querySelector(`.room-card[data-room-id="${roomIdForScroll}"]`);
       if (el) {
         const y = el.offsetTop - 60;
         window.scrollTo({ top: y, behavior: "auto" });
       }
-      // Also update stats + patients list (after scroll, non-blocking)
+
+      // Set a flag that tells handlePatientRealtimeChange to
+      // PRESERVE the scroll position instead of calling
+      // refreshStatsAndRooms which rebuilds the DOM and resets scroll.
+      UI._preserveScroll = true;
+      _preserveScrollRoomId = roomIdForScroll;
+
+      // Also update stats + patients list
       UI.renderStats(state.patients);
       UI.renderPatientsList(state.patients);
     });
