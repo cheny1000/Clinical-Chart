@@ -721,6 +721,7 @@
       if (p && (!p.name || !p.name.trim()) && (!p.medications || p.medications.length === 0)) {
         const bedKey = state.currentBed.key;
         Storage.deletePatient(bedKey);
+        Storage.saveLocalDeletion(bedKey);
         delete state.patients[bedKey];
         // Propagate the collapse to the cloud so it doesn't come back
         // on the next pull (which would otherwise merge it back in).
@@ -815,6 +816,7 @@
           `حذف المريض "${name}" من ${roomBed}`);
       }
       Storage.deletePatient(bedKey);
+      Storage.saveLocalDeletion(bedKey);
       delete state.patients[bedKey];
       state.currentBed = null;
       refreshStatsAndRooms();
