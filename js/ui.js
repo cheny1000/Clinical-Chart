@@ -864,7 +864,7 @@
       return;
     }
 
-    const PATIENTS_PER_PAGE = 35;
+    const PATIENTS_PER_PAGE = 50;
     const MED_COLS = 50;
 
     const Ward = global.PharmacyWard;
