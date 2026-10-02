@@ -248,11 +248,11 @@
   const LEGACY_ACCOUNTS = {
     admin: {
       username: "Admin", password: "19559",
-      role: "admin", displayName: "المسؤول"
+      role: "admin", displayName: "المسؤول", gender: "male"
     },
     pharmacist: {
       username: "pharmacist", password: "pharm123",
-      role: "pharmacist", displayName: "الصيدلي السريري"
+      role: "pharmacist", displayName: "الصيدلي السريري", gender: "male"
     }
   };
   function legacyLogin(username, password) {
