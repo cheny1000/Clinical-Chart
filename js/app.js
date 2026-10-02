@@ -47,6 +47,7 @@
     bindPwaInstall();
     applyRoleVisibility();
     initDarkMode();
+    initDisplayMode();
     // Show login overlay if not logged in, otherwise show the app
     if (Auth && Auth.isLoggedIn()) {
       showApp();
@@ -91,7 +92,134 @@
     });
   }
 
-  // -------- Auth: show / hide login screen --------
+  // -------- Display Mode (TV / large screen, view-only) --------
+  // Detects large screens (>= 1280px) or TV user agents, and offers
+  // a full-screen display mode showing the ward map for monitoring.
+  let _displayModeActive = false;
+  let _displayClockTimer = null;
+
+  function initDisplayMode() {
+    const btn = $("display-mode-exit");
+    if (btn) {
+      btn.addEventListener("click", exitDisplayMode);
+    }
+    // Check if we should auto-enter display mode
+    // (after login, not on first load — user might want normal mode)
+    // We add a button in the header for manual toggle, and auto-enter
+    // only if the screen is very large AND user agent suggests a TV.
+  }
+
+  function shouldOfferDisplayMode() {
+    const isLargeScreen = window.innerWidth >= 1280;
+    const ua = (navigator.userAgent || "").toLowerCase();
+    const isTV = ua.indexOf("tv") >= 0 || ua.indexOf("smarttv") >= 0 ||
+                 ua.indexOf("webos") >= 0 || ua.indexOf("tizen") >= 0;
+    return isLargeScreen || isTV;
+  }
+
+  function enterDisplayMode() {
+    const dm = $("display-mode");
+    if (!dm) return;
+    _displayModeActive = true;
+    dm.hidden = false;
+    // Try to enter browser fullscreen
+    try {
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen();
+      }
+    } catch (e) { /* may fail if not user-initiated */ }
+    renderDisplayMode();
+    // Start clock
+    updateDisplayClock();
+    _displayClockTimer = setInterval(updateDisplayClock, 1000);
+  }
+
+  function exitDisplayMode() {
+    const dm = $("display-mode");
+    if (!dm) return;
+    _displayModeActive = false;
+    dm.hidden = true;
+    if (_displayClockTimer) {
+      clearInterval(_displayClockTimer);
+      _displayClockTimer = null;
+    }
+    // Exit fullscreen if active
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function updateDisplayClock() {
+    const el = $("display-mode-time");
+    if (!el) return;
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("ar", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    const timeStr = now.toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    el.textContent = dateStr + " · " + timeStr;
+  }
+
+  function renderDisplayMode() {
+    const container = $("display-mode-rooms");
+    if (!container) return;
+    container.innerHTML = "";
+    const Ward = global.PharmacyWard;
+    if (!Ward || !Ward.ROOMS) return;
+    Ward.ROOMS.forEach(room => {
+      const occupied = room.beds.filter(b => {
+        const key = Ward.bedKey(room.id, b.number);
+        const p = state.patients[key];
+        return p && p.name && p.name.trim();
+      }).length;
+      const roomCard = document.createElement("div");
+      roomCard.className = "dm-room";
+      roomCard.innerHTML = `
+        <div class="dm-room-head">
+          <div class="dm-room-num">غرفة ${room.id}</div>
+          <div class="dm-room-occ">${occupied} / ${room.bedCount} مشغول</div>
+        </div>
+        <div class="dm-beds"></div>
+      `;
+      const bedsGrid = roomCard.querySelector(".dm-beds");
+      room.beds.forEach(bed => {
+        const key = Ward.bedKey(room.id, bed.number);
+        const p = state.patients[key] || null;
+        const hasName = p && p.name && p.name.trim();
+        const hasMeds = hasName && Array.isArray(p.medications) && p.medications.length > 0;
+        const flags = hasName ? UI.bedSpecialFlags(p) : { hasAlbumin: false, hasMeronem: false };
+        let cls = "dm-bed-empty";
+        let nameText = "فارغ";
+        let flagHtml = "";
+        if (hasName) {
+          if (flags.hasAlbumin && flags.hasMeronem) {
+            cls = "dm-bed-albumin-meronem";
+            flagHtml = '<span class="dm-bed-flag">🟡🔴</span>';
+          } else if (flags.hasAlbumin) {
+            cls = "dm-bed-albumin";
+            flagHtml = '<span class="dm-bed-flag">🟡</span>';
+          } else if (flags.hasMeronem) {
+            cls = "dm-bed-meronem";
+            flagHtml = '<span class="dm-bed-flag">🔴</span>';
+          } else if (hasMeds) {
+            cls = "dm-bed-meds";
+          } else {
+            cls = "dm-bed-occupied";
+          }
+          nameText = p.name.trim();
+        }
+        const bedEl = document.createElement("div");
+        bedEl.className = "dm-bed " + cls;
+        bedEl.innerHTML = `
+          <div class="dm-bed-num">سرير ${bed.number}</div>
+          <div class="dm-bed-name">${nameText}</div>
+          ${flagHtml}
+        `;
+        bedsGrid.appendChild(bedEl);
+      });
+      container.appendChild(roomCard);
+    });
+  }
   // We toggle the `is-authed` / `is-unauthed` class on <html> so the
   // pre-paint CSS gate (in <head>) stays in sync with runtime auth
   // state. The HTML default has `#app` visible and `#login-screen`
@@ -332,6 +460,8 @@
       }
     }
     refreshStatsAndRooms();
+    // If display mode is active, refresh it too
+    if (_displayModeActive) renderDisplayMode();
     // If the patient view is open, refresh it
     if (state.currentBed) {
       const p = state.patients[state.currentBed.key] || null;
@@ -1174,6 +1304,9 @@
       }
       openSupplyOrderModal(occCount);
     });
+
+    // ----- Display Mode (TV / large screen) -----
+    $("display-mode-btn").addEventListener("click", enterDisplayMode);
 
     // ----- Supply Order Modal -----
     // SUPPLY_RULES: one entry per supply that can be distributed.
