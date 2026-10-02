@@ -1302,21 +1302,28 @@
       const roomIdForScroll = String(state.currentBed.roomId);
       state.currentBed = null;
 
-      // Switch to home view + rebuild rooms
+      // Switch to home view manually (no showView → no scrollTo(0))
       document.querySelectorAll(".view").forEach(v => {
         v.hidden = v.dataset.view !== "home";
       });
       document.querySelectorAll(".nav-item").forEach(n => {
         n.classList.toggle("active", n.dataset.nav === "home");
       });
-      refreshStatsAndRooms();
 
-      // Scroll immediately — no delay, no retry
+      // Render rooms directly (not via refreshStatsAndRooms which
+      // also calls renderStats + renderPatientsList — we only need
+      // the rooms grid for the scroll to work).
+      UI.renderRooms(state.patients);
+
+      // Now the DOM is built. Scroll immediately.
       const el = document.querySelector(`.room-card[data-room-id="${roomIdForScroll}"]`);
       if (el) {
-        const y = el.getBoundingClientRect().top + window.scrollY - 60;
+        const y = el.offsetTop - 60;
         window.scrollTo({ top: y, behavior: "auto" });
       }
+      // Also update stats + patients list (after scroll, non-blocking)
+      UI.renderStats(state.patients);
+      UI.renderPatientsList(state.patients);
     });
 
     // ----- Admin: open via header gear -----
