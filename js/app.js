@@ -1300,10 +1300,9 @@
       // Check for drug interactions after adding the new meds
       const alerts = checkDrugInteractions(p.medications);
       if (alerts.length > 0) showInteractionAlerts(alerts);
-      // Return to rooms view immediately so the pharmacist can move to
-      // the next patient without an extra tap on the back button.
-      state.currentBed = null;
-      UI.showView("home");
+      // Stay on the patient's bed (don't go back to rooms grid)
+      // so the pharmacist can see the updated med list immediately.
+      refreshPatientViewOnly();
     });
 
     // ----- Admin: open via header gear -----
