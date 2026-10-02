@@ -1126,9 +1126,18 @@
         if (p && Array.isArray(p.medications) && p.medications.length > 0) {
           myMedCounts = {};
           p.medications.forEach(pm => {
-            const match = (pm.frequency || "").match(/×\s*(\d+)/);
-            const n = match ? parseInt(match[1], 10) : 0;
-            myMedCounts[pm.id] = { count: n, freq: pm.frequency || "" };
+            const freq = pm.frequency || "";
+            const match = freq.match(/×\s*(\d+)/);
+            let n;
+            if (match) {
+              n = parseInt(match[1], 10);
+            } else {
+              // No '×' found — try parsing as a plain number
+              // (e.g. "1" or "2" without the "1×" prefix)
+              const plainNum = parseInt(freq, 10);
+              n = isNaN(plainNum) ? 0 : plainNum;
+            }
+            myMedCounts[pm.id] = { count: n, freq: freq };
           });
         }
 
