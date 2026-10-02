@@ -1302,17 +1302,31 @@
       if (alerts.length > 0) showInteractionAlerts(alerts);
       // Return to rooms grid, but scroll to the same room the patient
       // was in (so the pharmacist doesn't land back at room 1).
-      const roomIdForScroll = state.currentBed.roomId;
+      const roomIdForScroll = String(state.currentBed.roomId);
       state.currentBed = null;
       UI.showView("home");
       refreshStatsAndRooms();
-      // Scroll the room card into view
-      setTimeout(() => {
-        const roomEl = document.querySelector(`.room-card[data-room-id="${roomIdForScroll}"]`);
-        if (roomEl) {
-          roomEl.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 100);
+      // Scroll the room card into view (after DOM is rebuilt)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const roomEl = document.querySelector(`.room-card[data-room-id="${roomIdForScroll}"]`);
+          if (roomEl) {
+            roomEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          } else {
+            // Fallback: try scrolling the rooms-grid to the room
+            const grid = document.getElementById("rooms-grid");
+            if (grid) {
+              const cards = grid.querySelectorAll(".room-card");
+              for (const card of cards) {
+                if (card.dataset.roomId === roomIdForScroll) {
+                  card.scrollIntoView({ behavior: "smooth", block: "center" });
+                  break;
+                }
+              }
+            }
+          }
+        });
+      });
     });
 
     // ----- Admin: open via header gear -----
