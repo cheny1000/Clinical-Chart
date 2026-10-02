@@ -1300,9 +1300,19 @@
       // Check for drug interactions after adding the new meds
       const alerts = checkDrugInteractions(p.medications);
       if (alerts.length > 0) showInteractionAlerts(alerts);
-      // Stay on the patient's bed (don't go back to rooms grid)
-      // so the pharmacist can see the updated med list immediately.
-      refreshPatientViewOnly();
+      // Return to rooms grid, but scroll to the same room the patient
+      // was in (so the pharmacist doesn't land back at room 1).
+      const roomIdForScroll = state.currentBed.roomId;
+      state.currentBed = null;
+      UI.showView("home");
+      refreshStatsAndRooms();
+      // Scroll the room card into view
+      setTimeout(() => {
+        const roomEl = document.querySelector(`.room-card[data-room-id="${roomIdForScroll}"]`);
+        if (roomEl) {
+          roomEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 100);
     });
 
     // ----- Admin: open via header gear -----
