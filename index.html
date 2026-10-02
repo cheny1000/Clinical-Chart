@@ -477,6 +477,20 @@
   <!-- ===== Print-only chart (hidden on screen, visible when printing) ===== -->
   <div id="chart-print-root" class="chart-print-root" aria-hidden="true"></div>
 
+  <!-- ===== Supply Order Modal (shown before printing the chart) ===== -->
+  <div class="supply-order-overlay" id="supply-order-overlay" hidden></div>
+  <div class="supply-order-modal" id="supply-order-modal" hidden role="dialog" aria-label="قائمة طلب المستلزمات">
+    <div class="supply-order-card">
+      <div class="supply-order-head">
+        <h3>قائمة طلب المستلزمات</h3>
+        <button type="button" class="supply-order-close" id="supply-order-close">✕</button>
+      </div>
+      <p class="supply-order-hint">أدخل الكمية الإجمالية المطلوبة لكل مستلزم. سيتم توزيعها عشوائيًا على المرضى في التشارت.</p>
+      <div class="supply-order-list" id="supply-order-list"></div>
+      <button type="button" class="supply-order-submit" id="supply-order-submit">توزيع واطبع التشارت</button>
+    </div>
+  </div>
+
   <!-- ===== Scripts (modular) ===== -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
   <!-- Cache-busting: add ?v=timestamp to force browser to reload JS on each visit -->

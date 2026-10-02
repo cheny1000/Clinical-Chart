@@ -981,43 +981,196 @@
     $("open-admin").addEventListener("click", openAdminView);
 
     // ----- Print Chart (التشارت) -----
-    // Builds a patient × medication matrix and opens the print dialog.
-    // Visible to both admin and pharmacist — it's the final product.
+    // Instead of printing directly, we first open the Supply Order
+    // modal where the user enters the total quantity for each supply.
+    // On "submit", the supplies are distributed across patients and
+    // the chart is built + printed.
     $("print-chart-btn").addEventListener("click", () => {
       if (!state.medications || state.medications.length === 0) {
         flashHint("لا توجد أدوية في الكتالوج");
         return;
       }
-      // buildChartReport injects the auto + random supplies
-      // (5cc, NaCl 100ml, 1cc, I.V. Set, Cannula) at print-time only.
-      // No flashHint is shown after the call (user requested no
-      // message about the random distribution).
-      UI.buildChartReport(state.patients, state.medications);
+      // Count occupied patients
+      const occCount = Object.values(state.patients || {})
+        .filter(p => p && p.name && p.name.trim()).length;
+      if (occCount === 0) {
+        flashHint("لا يوجد مرضى مشغولون لطباعة التشارت");
+        return;
+      }
+      openSupplyOrderModal(occCount);
+    });
 
-      // Detect installed PWA on iOS. window.print() is not reliably
-      // supported in iOS Safari's standalone mode (when the app is
-      // added to the home screen). The workaround: open the chart in
-      // a new Safari tab, which has full print support, and auto-
-      // trigger print from there.
+    // ----- Supply Order Modal -----
+    // SUPPLY_RULES: one entry per supply that can be distributed.
+    // Each has: id (catalog id), label (display), short (abbrev),
+    // minFreq, maxFreq (the frequency range per patient).
+    const SUPPLY_RULES = [
+      { id: "dextrose-saline",  label: "G/S — Glucose Saline (ديكستروز سالين)", short: "G/S", minFreq: 2, maxFreq: 5 },
+      { id: "ringers-lactate",   label: "R/L — Ringer Lactate (رينجر لاكتات)", short: "R/L", minFreq: 2, maxFreq: 5 },
+      { id: "glucose-5",         label: "G/W — Glucose 5% (مغذي سكري 5%)", short: "G/W", minFreq: 2, maxFreq: 5 },
+      { id: "sodium-chloride-09", label: "N/S — Normal Saline 500ml (مغذي ملح 500مل)", short: "N/S", minFreq: 2, maxFreq: 5 },
+      { id: "nacl-100ml",         label: "N/S 100ml — مغذي ملح 100مل", short: "N/S 100", minFreq: 3, maxFreq: 7 },
+      { id: "iv-set",             label: "I.V. Set — خط الإعطاء", short: "IV Set", minFreq: 1, maxFreq: 2 },
+      { id: "blood-iv-set",       label: "Blood I.V. Set — خط إعطاء دم", short: "Blood IV", minFreq: 1, maxFreq: 2 },
+      { id: "cannula",            label: "Cannula — كانيولا", short: "Cannula", minFreq: 1, maxFreq: 2 },
+      { id: "syringe-5cc",        label: "5cc Syringe — سرنجة 5 سي سي", short: "5cc", minFreq: 3, maxFreq: 8 },
+      { id: "syringe-1cc",        label: "1cc Syringe — سرنجة 1 سي سي", short: "1cc", minFreq: 3, maxFreq: 8 },
+      { id: "syringe-10cc",       label: "10cc Syringe — سرنجة 10 سي سي", short: "10cc", minFreq: 1, maxFreq: 3 },
+      { id: "syringe-20cc",       label: "20cc Syringe — سرنجة 20 سي سي", short: "20cc", minFreq: 1, maxFreq: 3 },
+      { id: "syringe-50cc",       label: "50cc Syringe — سرنجة 50 سي سي", short: "50cc", minFreq: 1, maxFreq: 3 },
+      { id: "urine-bag",          label: "Urine Bag — كيس إدرار", short: "Urine", minFreq: 1, maxFreq: 2 },
+      { id: "ng-tube-14",         label: "NG Tube 14 — أنبوب تغذية 14", short: "NG14", minFreq: 1, maxFreq: 1 },
+      { id: "floy-14",            label: "Foley 14 — قسطرة فولي 14", short: "Foley14", minFreq: 1, maxFreq: 1 }
+    ];
+
+    function openSupplyOrderModal(patientCount) {
+      const overlay = $("supply-order-overlay");
+      const modal = $("supply-order-modal");
+      const list = $("supply-order-list");
+      if (!overlay || !modal || !list) return;
+
+      // Build the supply rows
+      list.innerHTML = "";
+      SUPPLY_RULES.forEach(rule => {
+        const row = document.createElement("div");
+        row.className = "supply-order-row";
+        row.innerHTML = `
+          <div class="supply-order-row-label">
+            <div class="supply-order-row-name">${rule.label}</div>
+            <div class="supply-order-row-range">تكرار ${rule.minFreq}–${rule.maxFreq} لكل مريض</div>
+          </div>
+          <input type="number" min="0" inputmode="numeric" placeholder="0" data-supply-id="${rule.id}" />
+        `;
+        list.appendChild(row);
+      });
+
+      overlay.hidden = false;
+      modal.hidden = false;
+    }
+
+    function closeSupplyOrderModal() {
+      $("supply-order-overlay").hidden = true;
+      $("supply-order-modal").hidden = true;
+    }
+
+    $("supply-order-close").addEventListener("click", closeSupplyOrderModal);
+    $("supply-order-overlay").addEventListener("click", closeSupplyOrderModal);
+
+    // Submit: read quantities, distribute across patients, build chart, print
+    $("supply-order-submit").addEventListener("click", () => {
+      // Collect the quantities from the modal inputs
+      const quantities = {};
+      document.querySelectorAll("#supply-order-list input[data-supply-id]").forEach(inp => {
+        const id = inp.dataset.supplyId;
+        const val = parseInt(inp.value, 10);
+        quantities[id] = (isNaN(val) || val < 0) ? 0 : val;
+      });
+
+      // Count occupied patients
+      const occupiedKeys = [];
+      const Ward = global.PharmacyWard;
+      Ward.ROOMS.forEach(room => {
+        room.beds.forEach(bed => {
+          const key = Ward.bedKey(room.id, bed.number);
+          const p = state.patients[key];
+          if (p && p.name && p.name.trim()) occupiedKeys.push(key);
+        });
+      });
+      const patientCount = occupiedKeys.length;
+      if (patientCount === 0) {
+        flashHint("لا يوجد مرضى مشغولون");
+        return;
+      }
+
+      // Build the supply distribution map: supplyId → { bedKey: freq }
+      // This will be passed to buildChartReport.
+      const supplyDistribution = {};
+      SUPPLY_RULES.forEach(rule => {
+        const totalQty = quantities[rule.id] || 0;
+        if (totalQty === 0) return; // skip this supply
+
+        // Distribute `totalQty` across `patientCount` patients,
+        // each getting a frequency between rule.minFreq and rule.maxFreq.
+        // Algorithm:
+        //   1. Each patient gets at least minFreq. If totalQty <
+        //      patientCount × minFreq, some patients get 0 (randomly
+        //      chosen). If totalQty >= patientCount × minFreq, all
+        //      get at least minFreq and the remainder is distributed
+        //      randomly (each patient gets up to maxFreq).
+        //   2. The remainder is distributed so the sum = totalQty
+        //      exactly. We give +1 to random patients (up to maxFreq)
+        //      until the remainder is exhausted.
+        const shuffled = occupiedKeys.slice();
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+
+        const dist = {};
+        // Phase 1: decide how many patients get at least minFreq
+        const minTotal = patientCount * rule.minFreq;
+        let perPatient; // array of freqs, aligned with shuffled[]
+        if (totalQty >= minTotal) {
+          // All patients get minFreq, remainder distributed
+          perPatient = new Array(patientCount).fill(rule.minFreq);
+          let remainder = totalQty - minTotal;
+          // Distribute remainder: go through patients in random order,
+          // give +1 each until remainder is 0 or everyone is at maxFreq
+          let idx = 0;
+          while (remainder > 0) {
+            if (perPatient[idx] < rule.maxFreq) {
+              perPatient[idx]++;
+              remainder--;
+            }
+            idx = (idx + 1) % patientCount;
+            // Safety: if we've gone around without distributing
+            // anything (all at maxFreq), break.
+            if (idx === 0 && remainder > 0) {
+              let canDistribute = false;
+              for (let k = 0; k < patientCount; k++) {
+                if (perPatient[k] < rule.maxFreq) { canDistribute = true; break; }
+              }
+              if (!canDistribute) break;
+            }
+          }
+        } else {
+          // totalQty < minTotal: some patients get minFreq, rest get 0
+          // How many patients can get minFreq?
+          const numFull = Math.floor(totalQty / rule.minFreq);
+          const leftover = totalQty - (numFull * rule.minFreq);
+          perPatient = new Array(patientCount).fill(0);
+          for (let i = 0; i < numFull; i++) perPatient[i] = rule.minFreq;
+          // Distribute leftover (less than minFreq) to one more patient
+          if (leftover > 0 && numFull < patientCount) {
+            perPatient[numFull] = leftover;
+          }
+        }
+
+        // Assign to bedKeys
+        for (let i = 0; i < patientCount; i++) {
+          if (perPatient[i] > 0) {
+            dist[shuffled[i]] = perPatient[i];
+          }
+        }
+        supplyDistribution[rule.id] = dist;
+      });
+
+      closeSupplyOrderModal();
+
+      // Build the chart with the supply distribution
+      UI.buildChartReport(state.patients, state.medications, supplyDistribution);
+
+      // Print (same iOS / Android logic as before)
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
       const isStandalone =
         window.matchMedia("(display-mode: standalone)").matches ||
         navigator.standalone === true;
-
       if (isIOS && isStandalone) {
-        // Use the new-window workaround for iOS PWA
         if (!printChartInNewWindow()) {
-          // window.open() was blocked → fall back to direct print
-          // (which usually doesn't work in iOS PWA, but it's our only
-          // option if pop-ups are blocked). Show a hint so the user
-          // knows why their browser tab didn't open.
           flashHint("تعذّر فتح نافذة الطباعة — جرّب في متصفح Safari مباشرة");
           requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
         }
       } else {
-        // Browser (any platform) or Android PWA: window.print() works.
-        // Defer by two animation frames so iOS Safari has time to lay
-        // out the chart DOM before the print dialog opens.
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             window.print();
