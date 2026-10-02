@@ -787,9 +787,18 @@
   }
 
   function refreshStatsAndRooms() {
+    // Save scroll position before re-rendering rooms (renderRooms
+    // clears innerHTML which resets scroll to top).
+    const scrollY = window.scrollY;
     UI.renderStats(state.patients);
     UI.renderRooms(state.patients);
     UI.renderPatientsList(state.patients);
+    // Restore scroll position if we were on the home view
+    // (so the user doesn't lose their place in the rooms grid).
+    const homeView = document.getElementById("view-home");
+    if (homeView && !homeView.hidden && scrollY > 0) {
+      window.scrollTo(0, scrollY);
+    }
   }
 
   // -------- Patient helpers --------
