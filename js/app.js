@@ -144,12 +144,9 @@
       }
     });
 
-    // Quick login button for pharmacist only (admin must use the form
-    // with username + password for security).
-    $("quick-pharmacist").addEventListener("click", () => {
-      const res = Auth.loginAs("pharmacist");
-      if (res.ok) onLoginSuccess();
-    });
+    // (Quick pharmacist login button was removed from the login
+    // screen — all users must use the login form with username +
+    // password now.)
 
     // Logout button in header
     $("logout-btn").addEventListener("click", () => {
