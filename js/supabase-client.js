@@ -65,6 +65,12 @@
 
   // Build the Supabase client from the global `supabase` UMD object
   // (loaded from the CDN in index.html).
+  // We cache the client (singleton) so that Realtime subscriptions
+  // and REST queries use the SAME client instance. Without this,
+  // each getClient() call creates a new client, and the Realtime
+  // channel on one client won't receive events from operations
+  // done on another client.
+  let _cachedClient = null;
   function getClient() {
     const cfg = loadConfig();
     if (!cfg) return null;
@@ -72,9 +78,17 @@
       console.warn("[Supabase] supabase-js not loaded (check CDN)");
       return null;
     }
-    return global.supabase.createClient(cfg.url, cfg.anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false }
+    // Return the cached client if the config hasn't changed
+    if (_cachedClient) return _cachedClient;
+    _cachedClient = global.supabase.createClient(cfg.url, cfg.anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      realtime: { params: { eventsPerSecond: 10 } }
     });
+    return _cachedClient;
+  }
+  // Force-create a new client (used when the config changes via admin panel)
+  function resetClient() {
+    _cachedClient = null;
   }
 
   // Test connection by selecting one row from the medications table.
@@ -105,6 +119,7 @@
     isConfigured,
     isUsingEmbedded,
     getClient,
+    resetClient,
     testConnection
   };
 })(window);
