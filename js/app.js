@@ -53,6 +53,7 @@
       refreshAll();
       UI.showView("home");
       pullCatalogOnBoot();
+      initRealtime();
     } else {
       showLogin();
     }
@@ -176,6 +177,11 @@
     // Logout button in header
     $("logout-btn").addEventListener("click", () => {
       if (!confirm("هل تريد تسجيل الخروج؟")) return;
+      // Unsubscribe from Realtime before logging out
+      if (realtimeChannel) {
+        try { realtimeChannel.unsubscribe(); } catch (e) { /* ignore */ }
+        realtimeChannel = null;
+      }
       Auth.logout();
       applyRoleVisibility();
       showLogin();
@@ -190,6 +196,7 @@
     refreshAll();
     UI.showView("home");
     pullCatalogOnBoot();
+    initRealtime();
     const user = Auth.getCurrentUser();
     // Personalized welcome: "أهلاً دكتور [name]" or "أهلاً دكتورة [name]"
     // depending on the user's gender (stored in the session).
@@ -253,6 +260,99 @@
     }
   }
 
+  // -------- Supabase Realtime --------
+  // Subscribes to changes on the `patients` and `medications` tables.
+  // When another device inserts/updates/deletes a patient or med,
+  // the local state is updated in real-time without needing to press
+  // the sync button.
+  let realtimeChannel = null;
+  function initRealtime() {
+    if (!SB || !SB.isConfigured()) return;
+    const client = SB.getClient();
+    if (!client) return;
+    // Don't subscribe twice
+    if (realtimeChannel) {
+      try { realtimeChannel.unsubscribe(); } catch (e) { /* ignore */ }
+      realtimeChannel = null;
+    }
+    try {
+      realtimeChannel = client
+        .channel("pharma-realtime")
+        .on("postgres_changes",
+          { event: "*", schema: "public", table: "patients" },
+          (payload) => {
+            handlePatientRealtimeChange(payload);
+          }
+        )
+        .on("postgres_changes",
+          { event: "*", schema: "public", table: "medications" },
+          (payload) => {
+            handleMedicationRealtimeChange(payload);
+          }
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            console.log("[Realtime] connected");
+          } else if (status === "CHANNEL_ERROR") {
+            console.warn("[Realtime] channel error");
+          } else if (status === "TIMED_OUT") {
+            console.warn("[Realtime] timed out, will retry");
+          }
+        });
+    } catch (e) {
+      console.warn("[Realtime] init failed:", e);
+    }
+  }
+
+  function handlePatientRealtimeChange(payload) {
+    // payload: { eventType: 'INSERT'|'UPDATE'|'DELETE', old: {...}, new: {...} }
+    const bedKey = payload.new?.bed_key || payload.old?.bed_key;
+    if (!bedKey) return;
+    if (payload.eventType === "DELETE") {
+      // Another device deleted this patient
+      delete state.patients[bedKey];
+      Storage.deletePatient(bedKey);
+      Storage.saveLocalDeletion(bedKey);
+    } else {
+      // INSERT or UPDATE — sync this patient from the cloud
+      // We do a lightweight local update rather than a full pull
+      const row = payload.new;
+      if (row) {
+        let meds = [];
+        try {
+          meds = typeof row.medications === "string"
+            ? JSON.parse(row.medications)
+            : (row.medications || []);
+        } catch (e) { meds = []; }
+        state.patients[bedKey] = {
+          name:        row.name || "",
+          plateNumber: row.plate_number || "",
+          medications: Array.isArray(meds) ? meds : [],
+          updatedAt:   Date.parse(row.updated_at) || Date.now()
+        };
+        Storage.upsertPatient(bedKey, state.patients[bedKey]);
+      }
+    }
+    refreshStatsAndRooms();
+    // If the patient view is open, refresh it
+    if (state.currentBed) {
+      const p = state.patients[state.currentBed.key] || null;
+      UI.renderPatientView(p, state.currentBed.roomId, state.currentBed.bed);
+    }
+  }
+
+  function handleMedicationRealtimeChange(payload) {
+    // For medications, the simplest reliable approach is to do a
+    // quick re-pull of the catalog. The catalog is small (80 meds)
+    // so this is fast.
+    if (!SBSync || !SBSync.pullCatalog) return;
+    SBSync.pullCatalog().then(res => {
+      if (res.ok) {
+        state.medications = Storage.loadMedications();
+        UI.renderAdminMedList(state.medications, null);
+      }
+    });
+  }
   // Push the local catalog to Supabase (called after every admin save).
   // If the push fails, the user is shown a clear warning so they know
   // their edits are local-only and won't appear on other devices until
