@@ -323,14 +323,10 @@
         class: rowCls,
         dataset: { roomId: roomId, bed: bedNum, key: p.key }
       }, [
-        h("div", { class: "pr-avatar" }, initial),
         h("div", { class: "pr-info" }, [
           h("div", { class: "pr-name" }, nameChildren),
           h("div", { class: "pr-loc" }, locChildren)
-        ]),
-        hasMeds
-          ? h("div", { class: "pr-meds" }, p.medications.length + " علاج")
-          : h("div", { class: "pr-meds", style: "background:var(--warning-soft);color:var(--warning);" }, "بدون علاج")
+        ])
       ]);
       container.appendChild(row);
     });
