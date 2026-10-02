@@ -60,6 +60,103 @@ html, body { margin: 0; padding: 0; }
   --safe-right:  env(safe-area-inset-right, 0px);
 }
 
+/* ---------- Dark mode ---------- */
+html[data-theme="dark"] {
+  --bg:            #0F172A;
+  --surface:       #1E293B;
+  --primary:       #38BDF8;
+  --primary-dark:  #0EA5E9;
+  --primary-soft:  #0C2540;
+  --success:       #34D399;
+  --success-soft:  #064E3B;
+  --warning:       #FBBF24;
+  --warning-soft:  #422006;
+  --empty:         #475569;
+  --empty-soft:    #1E293B;
+  --danger:        #F87171;
+  --danger-soft:   #450A0A;
+
+  --text:          #F1F5F9;
+  --text-muted:    #94A3B8;
+  --text-faint:    #64748B;
+  --border:        #334155;
+  --border-strong: #475569;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 -8px 28px rgba(0, 0, 0, 0.6);
+}
+html[data-theme="dark"] .app-header {
+  background: linear-gradient(180deg, #1E293B 0%, #0F172A 100%);
+}
+html[data-theme="dark"] .login-screen {
+  background: linear-gradient(180deg, #1E293B 0%, #0F172A 100%);
+}
+html[data-theme="dark"] .login-card {
+  background: #1E293B;
+  color: #F1F5F9;
+}
+html[data-theme="dark"] .login-name-input,
+html[data-theme="dark"] .patient-name-input,
+html[data-theme="dark"] .patient-plate-input,
+html[data-theme="dark"] .supply-order-row input,
+html[data-theme="dark"] .admin-user-form-row input,
+html[data-theme="dark"] .admin-user-form-row select {
+  background: #0F172A;
+  color: #F1F5F9;
+  border-color: #334155;
+}
+html[data-theme="dark"] .brand-darkmode {
+  color: #FBBF24;
+}
+html[data-theme="dark"] .stat-chip {
+  background: #1E293B;
+}
+html[data-theme="dark"] .room-card {
+  background: #1E293B;
+}
+html[data-theme="dark"] .bed-btn {
+  background: #0F172A;
+}
+html[data-theme="dark"] .bed-btn.state-empty {
+  background: #1E293B;
+  border-color: #334155;
+}
+html[data-theme="dark"] .med-sheet {
+  background: #1E293B;
+}
+html[data-theme="dark"] .sheet-tab {
+  background: #0F172A;
+  color: #94A3B8;
+}
+html[data-theme="dark"] .med-option {
+  background: #0F172A;
+}
+html[data-theme="dark"] .med-option .med-name {
+  color: #F1F5F9;
+}
+html[data-theme="dark"] .patient-row {
+  background: #1E293B;
+}
+html[data-theme="dark"] .admin-users-section,
+html[data-theme="dark"] .admin-audit-section,
+html[data-theme="dark"] .admin-user-form,
+html[data-theme="dark"] .admin-user-row,
+html[data-theme="dark"] .admin-med-row {
+  background: #1E293B;
+}
+html[data-theme="dark"] .supply-order-card {
+  background: #1E293B;
+}
+html[data-theme="dark"] .supply-order-row {
+  background: #0F172A;
+}
+html[data-theme="dark"] .supply-order-hint {
+  background: #0F172A;
+  color: #94A3B8;
+}
+
 /* ---------- Base ---------- */
 html, body {
   height: 100%;
@@ -323,6 +420,53 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+}
+.brand-darkmode {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: #475569;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: background 160ms ease, color 160ms ease, transform 120ms ease;
+}
+.brand-darkmode:active {
+  transform: scale(0.94);
+  background: #E2E8F0;
+}
+.brand-darkmode svg {
+  display: block;
+}
+.brand-darkmode[hidden] { display: none !important; }
+
+/* ---------- Stats bar (in header) ---------- */
+.stats-bar {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 10px;
+  flex-wrap: wrap;
+}
+.stat-chip {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: var(--r-full);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.stat-chip-num {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--primary);
+}
+.stat-chip-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 .brand-logout {
   width: 40px;
@@ -2365,6 +2509,18 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 }
 .supply-order-submit:active { transform: scale(0.98); }
 .supply-order-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+.supply-order-pdf {
+  padding: 12px;
+  background: #fff;
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 120ms ease;
+}
+.supply-order-pdf:active { transform: scale(0.98); }
 
 /* ---------- User Management + Audit Log (admin only) ---------- */
 .admin-users-section,

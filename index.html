@@ -121,7 +121,16 @@
           <button class="brand-logout" id="logout-btn" type="button" aria-label="تسجيل الخروج" title="تسجيل الخروج">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           </button>
+          <button class="brand-darkmode" id="darkmode-toggle" type="button" aria-label="الوضع الليلي" title="الوضع الليلي">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </button>
         </div>
+      </div>
+      <div class="stats-bar" id="stats-bar">
+        <div class="stat-chip"><span class="stat-chip-num" id="stat-patients">0</span><span class="stat-chip-label">مريض</span></div>
+        <div class="stat-chip"><span class="stat-chip-num" id="stat-beds-total">0</span><span class="stat-chip-label">سرير</span></div>
+        <div class="stat-chip"><span class="stat-chip-num" id="stat-albumin">0</span><span class="stat-chip-label">ألبومين</span></div>
+        <div class="stat-chip"><span class="stat-chip-num" id="stat-meronem">0</span><span class="stat-chip-label">ميرونيم</span></div>
       </div>
     </header>
 
@@ -488,11 +497,13 @@
       <p class="supply-order-hint">أدخل الكمية الإجمالية المطلوبة لكل مستلزم. سيتم توزيعها عشوائيًا على المرضى في التشارت.</p>
       <div class="supply-order-list" id="supply-order-list"></div>
       <button type="button" class="supply-order-submit" id="supply-order-submit">توزيع واطبع التشارت</button>
+      <button type="button" class="supply-order-pdf" id="supply-order-pdf">📄 تصدير PDF</button>
     </div>
   </div>
 
   <!-- ===== Scripts (modular) ===== -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
   <!-- Cache-busting: add ?v=timestamp to force browser to reload JS on each visit -->
   <script>document.write('<script src="js/medications.js?v=' + Date.now() + '"><\/script>');</script>
   <script>document.write('<script src="js/ward.js?v=' + Date.now() + '"><\/script>');</script>

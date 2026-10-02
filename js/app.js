@@ -46,6 +46,7 @@
     bindEvents();
     bindPwaInstall();
     applyRoleVisibility();
+    initDarkMode();
     // Show login overlay if not logged in, otherwise show the app
     if (Auth && Auth.isLoggedIn()) {
       showApp();
@@ -63,6 +64,30 @@
     state.medications = data.medications && data.medications.length
       ? data.medications
       : Meds.DEFAULT_MEDICATIONS.slice();
+  }
+
+  // -------- Dark mode --------
+  function initDarkMode() {
+    // Restore saved preference
+    try {
+      const saved = localStorage.getItem("pharma.darkmode");
+      if (saved === "true") {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    } catch (e) { /* ignore */ }
+    const btn = $("darkmode-toggle");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      const html = document.documentElement;
+      const isDark = html.getAttribute("data-theme") === "dark";
+      if (isDark) {
+        html.removeAttribute("data-theme");
+        try { localStorage.setItem("pharma.darkmode", "false"); } catch (e) {}
+      } else {
+        html.setAttribute("data-theme", "dark");
+        try { localStorage.setItem("pharma.darkmode", "true"); } catch (e) {}
+      }
+    });
   }
 
   // -------- Auth: show / hide login screen --------
@@ -556,6 +581,55 @@
     }
   }
 
+  // -------- Drug interaction alerts --------
+  const DRUG_INTERACTIONS = [
+    { matchA: ["ciprofloxacin", "cipro", "سيبروف"], matchB: ["vancomycin", "فانكو"], severity: "warning", msg: "Ciprofloxacin + Vancomycin: زيادة خطر اعتلال الكلى" },
+    { matchA: ["furosemide", "lasix", "فيورو"], matchB: ["vancomycin", "فانكو"], severity: "danger", msg: "Furosemide + Vancomycin: خطر سمية كلوية" },
+    { matchA: ["furosemide", "lasix", "فيورو"], matchB: ["amikacin", "أميكاسين"], severity: "danger", msg: "Furosemide + Amikacin: خطر سمية سمعية وكلوية" },
+    { matchA: ["enoxaparin", "clexane", "إينوك"], matchB: ["heparin", "هيبا"], severity: "warning", msg: "Enoxaparin + Heparin: مضادات تخثر متعددة — خطر نزيف" },
+    { matchA: ["enoxaparin", "clexane", "إينوك"], matchB: ["warfarin", "وارفارين"], severity: "danger", msg: "Enoxaparin + Warfarin: خطر نزيف شديد" },
+    { matchA: ["aspirin", "أسبرين"], matchB: ["enoxaparin", "clexane", "إينوك"], severity: "warning", msg: "Aspirin + Enoxaparin: خطر نزيف" },
+    { matchA: ["metronidazole", "flagyl", "فلاجيل"], matchB: ["alcohol", "كحول"], severity: "danger", msg: "Metronidazole + Alcohol: تفاعل ديسولفيرام (غثيان شديد)" },
+    { matchA: ["ondansetron", "zofran", "أوندان"], matchB: ["metoclopramide", "primperan", "ميتوكلو"], severity: "warning", msg: "Ondansetron + Metoclopramide: زيادة خطر إطالة QT" },
+    { matchA: ["amlodipine", "أملودي"], matchB: ["simvastatin", "سيمفا"], severity: "warning", msg: "Amlodipine + Simvastatin: زيادة خطر ألم عضلي" },
+    { matchA: ["ciprofloxacin", "cipro", "سيبروف"], matchB: ["theophylline", "ثيوفل"], severity: "warning", msg: "Ciprofloxacin + Theophylline: زيادة مستوى Theophylline" },
+  ];
+
+  function checkDrugInteractions(medications) {
+    if (!Array.isArray(medications) || medications.length < 2) return [];
+    const alerts = [];
+    const seenPairs = new Set();
+    DRUG_INTERACTIONS.forEach(interaction => {
+      const matchAFound = medications.some(pm => {
+        const id = (pm.id || "").toLowerCase();
+        const name = ((pm.nameTrade || "") + " " + (pm.nameEn || "") + " " + (pm.nameAr || "")).toLowerCase();
+        return interaction.matchA.some(kw => id.indexOf(kw) >= 0 || name.indexOf(kw) >= 0);
+      });
+      const matchBFound = medications.some(pm => {
+        const id = (pm.id || "").toLowerCase();
+        const name = ((pm.nameTrade || "") + " " + (pm.nameEn || "") + " " + (pm.nameAr || "")).toLowerCase();
+        return interaction.matchB.some(kw => id.indexOf(kw) >= 0 || name.indexOf(kw) >= 0);
+      });
+      if (matchAFound && matchBFound) {
+        const key = interaction.matchA.join(",") + "|" + interaction.matchB.join(",");
+        if (!seenPairs.has(key)) {
+          seenPairs.add(key);
+          alerts.push(interaction);
+        }
+      }
+    });
+    return alerts;
+  }
+
+  function showInteractionAlerts(alerts) {
+    if (alerts.length === 0) return;
+    const messages = alerts.map(a => {
+      const icon = a.severity === "danger" ? "🔴" : "🟡";
+      return icon + " " + a.msg;
+    }).join("\n");
+    alert("⚠ تنبيه تفاعل الأدوية:\n\n" + messages);
+  }
+
   // -------- PWA install button (Android Chrome / Edge / etc.) --------
   // The browser fires `beforeinstallprompt` when it considers the
   // site installable (manifest + SW + served over HTTPS). We capture
@@ -970,9 +1044,10 @@
 
       persistPatient(state.currentBed.key);
       closeSheet();
-      // No mention of the auto-managed syringe — just the meds the
-      // user explicitly added.
       flashHint("تمت إضافة " + userAddedCount + " علاج");
+      // Check for drug interactions after adding the new meds
+      const alerts = checkDrugInteractions(p.medications);
+      if (alerts.length > 0) showInteractionAlerts(alerts);
       // Return to rooms view immediately so the pharmacist can move to
       // the next patient without an extra tap on the back button.
       state.currentBed = null;
@@ -1178,6 +1253,130 @@
             window.print();
           });
         });
+      }
+    });
+
+    // PDF export button: same distribution logic as submit, but
+    // instead of printing, generates a PDF file using html2pdf.js
+    $("supply-order-pdf").addEventListener("click", () => {
+      // Collect the quantities (same as submit handler)
+      const quantities = {};
+      document.querySelectorAll("#supply-order-list input[data-supply-id]").forEach(inp => {
+        const id = inp.dataset.supplyId;
+        const val = parseInt(inp.value, 10);
+        quantities[id] = (isNaN(val) || val < 0) ? 0 : val;
+      });
+      const occupiedKeys = [];
+      const Ward = global.PharmacyWard;
+      Ward.ROOMS.forEach(room => {
+        room.beds.forEach(bed => {
+          const key = Ward.bedKey(room.id, bed.number);
+          const p = state.patients[key];
+          if (p && p.name && p.name.trim()) occupiedKeys.push(key);
+        });
+      });
+      const patientCount = occupiedKeys.length;
+      if (patientCount === 0) {
+        flashHint("لا يوجد مرضى مشغولون");
+        return;
+      }
+      // Build supply distribution (same algorithm as submit)
+      const supplyDistribution = {};
+      SUPPLY_RULES.forEach(rule => {
+        const totalQty = quantities[rule.id] || 0;
+        if (totalQty === 0) return;
+        const shuffled = occupiedKeys.slice();
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        const dist = {};
+        const minTotal = patientCount * rule.minFreq;
+        let perPatient;
+        if (totalQty >= minTotal) {
+          perPatient = new Array(patientCount).fill(rule.minFreq);
+          let remainder = totalQty - minTotal;
+          let idx = 0;
+          while (remainder > 0) {
+            if (perPatient[idx] < rule.maxFreq) {
+              perPatient[idx]++;
+              remainder--;
+            }
+            idx = (idx + 1) % patientCount;
+            if (idx === 0 && remainder > 0) {
+              let canDist = false;
+              for (let k = 0; k < patientCount; k++) {
+                if (perPatient[k] < rule.maxFreq) { canDist = true; break; }
+              }
+              if (!canDist) break;
+            }
+          }
+        } else {
+          const numFull = Math.floor(totalQty / rule.minFreq);
+          const leftover = totalQty - (numFull * rule.minFreq);
+          perPatient = new Array(patientCount).fill(0);
+          for (let i = 0; i < numFull; i++) perPatient[i] = rule.minFreq;
+          if (leftover > 0 && numFull < patientCount) perPatient[numFull] = leftover;
+        }
+        for (let i = 0; i < patientCount; i++) {
+          if (perPatient[i] > 0) dist[shuffled[i]] = perPatient[i];
+        }
+        supplyDistribution[rule.id] = dist;
+      });
+
+      closeSupplyOrderModal();
+      // Build the chart
+      UI.buildChartReport(state.patients, state.medications, supplyDistribution);
+      // Generate PDF from the chart-print-root element
+      const chartRoot = document.getElementById("chart-print-root");
+      if (!chartRoot) { flashHint("تعذّر توليد PDF"); return; }
+      flashHint("جارٍ توليد PDF…");
+      const filename = "chart-" + new Date().toISOString().slice(0,10) + "-" + Date.now() + ".pdf";
+      const opt = {
+        margin: 0,
+        filename: filename,
+        image: { type: "jpeg", quality: 0.95 },
+        html2canvas: { scale: 2, backgroundColor: "#ffffff" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+        pagebreak: { mode: ["css", "legacy"] }
+      };
+      // Temporarily show the chart for html2pdf to capture it
+      chartRoot.style.display = "block";
+      chartRoot.style.position = "fixed";
+      chartRoot.style.left = "0";
+      chartRoot.style.top = "0";
+      chartRoot.style.width = "100%";
+      chartRoot.style.zIndex = "9999";
+      chartRoot.style.background = "#fff";
+      try {
+        html2pdf().set(opt).from(chartRoot).save().then(() => {
+          chartRoot.style.display = "";
+          chartRoot.style.position = "";
+          chartRoot.style.left = "";
+          chartRoot.style.top = "";
+          chartRoot.style.width = "";
+          chartRoot.style.zIndex = "";
+          chartRoot.style.background = "";
+          flashHint("تم توليد PDF بنجاح");
+        }).catch(err => {
+          chartRoot.style.display = "";
+          chartRoot.style.position = "";
+          chartRoot.style.left = "";
+          chartRoot.style.top = "";
+          chartRoot.style.width = "";
+          chartRoot.style.zIndex = "";
+          chartRoot.style.background = "";
+          flashHint("فشل توليد PDF: " + (err.message || String(err)));
+        });
+      } catch (e) {
+        chartRoot.style.display = "";
+        chartRoot.style.position = "";
+        chartRoot.style.left = "";
+        chartRoot.style.top = "";
+        chartRoot.style.width = "";
+        chartRoot.style.zIndex = "";
+        chartRoot.style.background = "";
+        flashHint("فشل توليد PDF: " + (e.message || String(e)));
       }
     });
 

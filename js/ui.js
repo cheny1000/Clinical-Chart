@@ -63,12 +63,34 @@
   // ---------- Dashboard stats ----------
   function renderStats(patientsMap) {
     let patientCount = 0;
+    let albuminCount = 0;
+    let meronemCount = 0;
     for (const p of Object.values(patientsMap)) {
-      if (p && p.name && p.name.trim()) patientCount++;
+      if (p && p.name && p.name.trim()) {
+        patientCount++;
+        const flags = bedSpecialFlags(p);
+        if (flags.hasAlbumin) albuminCount++;
+        if (flags.hasMeronem) meronemCount++;
+      }
     }
     // Update patients-count in the patients view (if visible)
     const pcEl = document.getElementById("patients-count");
     if (pcEl) pcEl.textContent = patientCount;
+    // Update the stats bar in the header
+    const sPatients = document.getElementById("stat-patients");
+    const sBeds     = document.getElementById("stat-beds-total");
+    const sAlbumin  = document.getElementById("stat-albumin");
+    const sMeronem  = document.getElementById("stat-meronem");
+    if (sPatients) sPatients.textContent = patientCount;
+    // Count total beds from the Ward layout
+    const Ward = global.PharmacyWard;
+    let totalBeds = 0;
+    if (Ward && Ward.ROOMS) {
+      Ward.ROOMS.forEach(r => { totalBeds += (r.bedCount || r.beds.length); });
+    }
+    if (sBeds) sBeds.textContent = totalBeds;
+    if (sAlbumin) sAlbumin.textContent = albuminCount;
+    if (sMeronem) sMeronem.textContent = meronemCount;
   }
 
   // ---------- Bed status helper ----------
