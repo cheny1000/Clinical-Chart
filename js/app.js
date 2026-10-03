@@ -1497,31 +1497,29 @@
 
       closeSupplyOrderModal();
 
-      // Build the chart with the supply distribution (HTML chart path)
-      UI.buildChartReport(state.patients, state.medications, supplyDistribution);
-
-      // Detect iOS and add class for CSS overrides (smaller cells)
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-      if (isIOS) {
-        document.documentElement.classList.add("is-ios");
-      }
-
-      // Print (same iOS / Android logic as before)
-      const isStandalone =
-        window.matchMedia("(display-mode: standalone)").matches ||
-        navigator.standalone === true;
-      if (isIOS && isStandalone) {
-        if (!printChartInNewWindow()) {
-          flashHint("تعذّر فتح نافذة الطباعة — جرّب في متصفح Safari مباشرة");
-          requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+      // ---- Generate chart as a downloadable image overlay on the
+      //      reference chart template (img/chart-reference.png).
+      //      This replaces the HTML chart path completely — no print
+      //      dialog, no headers/footers, no A4 sizing. The output is
+      //      a PNG (one per page, max 35 patients per page) the user
+      //      can save, share, or print from any app.
+      flashHint("يتم توليد صورة الجارت... انتظر قليلاً");
+      const wrapState = {
+        patients: state.patients,
+        meds: state.medications,
+        supplyDistribution: supplyDistribution
+      };
+      setTimeout(async () => {
+        try {
+          const pages = await global.PharmacyChartImage.generateChartImage(wrapState);
+          if (pages && pages.length > 0) {
+            flashHint(`تم توليد ${pages.length} صفحة جارت — تحقق من التنزيلات`);
+          }
+        } catch (err) {
+          console.error("[chart-image] error:", err);
+          flashHint("تعذّر توليد صورة الجارت: " + (err.message || err));
         }
-      } else {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            window.print();
-          });
-        });
-      }
+      }, 50);
     });
 
     // (Sync button removed — Realtime handles live updates, and
