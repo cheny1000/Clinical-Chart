@@ -269,8 +269,8 @@
     const isAdmin = Auth.isAdmin();
     const adminBtn = $("open-admin");
     if (adminBtn) adminBtn.hidden = !isAdmin;
-    // chart button + PDF button + logout button are always visible (both roles)
-    const chartBtn = $("print-chart-btn");
+    // chart button + logout button are always visible (both roles)
+    const chartBtn = $("print-chart-image-btn");
     if (chartBtn) chartBtn.hidden = false;
     const logoutBtn = $("logout-btn");
     if (logoutBtn) logoutBtn.hidden = false;
@@ -661,99 +661,15 @@
     }
   }
 
-  // -------- iOS PWA print workaround --------
-  // window.print() doesn't work in iOS Safari's standalone mode
-  // (when the app is added to the home screen). The workaround: open
-  // a NEW Safari tab containing only the chart + the print CSS, then
-  // call window.print() inside that new tab. Safari proper has full
-  // AirPrint support, so the print dialog opens normally.
-  //
-  // Returns true if the new window was opened successfully, false
-  // otherwise (popup blocked, no permission, etc.).
+  // -------- iOS PWA print workaround (deprecated) --------
+  // Old HTML-chart print workaround: opened a new Safari tab to
+  // call window.print() because iOS PWA standalone mode blocks
+  // printing. The HTML chart has been removed in favor of the
+  // image-based overlay (chart-image.js), which downloads a PNG
+  // the user can print from any app. This function is kept as a
+  // no-op stub for backward compatibility.
   function printChartInNewWindow() {
-    const chartRoot = document.getElementById("chart-print-root");
-    if (!chartRoot) return false;
-
-    // Get the chart HTML (already built by UI.buildChartReport)
-    const chartHTML = chartRoot.innerHTML;
-
-    // Open a new tab. _blank + no features so iOS Safari opens a
-    // full Safari tab (not a PWA child window).
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return false; // popup blocked
-
-    // Self-contained HTML doc with:
-    // - Google Fonts (Tajawal, Cairo) for proper Arabic rendering
-    // - The chart print CSS (extracted from styles.css, no @media
-    //   print wrapper needed since the whole document is the print
-    //   content)
-    // - The chart HTML
-    // - An inline script that triggers print() after the fonts
-    //   have had a chance to load, then closes the tab.
-    const doc = printWindow.document;
-    doc.open();
-    doc.write([
-      '<!DOCTYPE html>',
-      '<html lang="ar" dir="rtl">',
-      '<head>',
-      '<meta charset="UTF-8">',
-      '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
-      '<title>طباعة التشارت</title>',
-      '<link rel="preconnect" href="https://fonts.googleapis.com">',
-      '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
-      '<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">',
-      '<style>',
-      '@page { size: A4 landscape; margin: 3mm; }',
-      'body { background: #fff; margin: 0; padding: 0; color: #000; font-family: "Tajawal", "Cairo", "Arial", sans-serif; }',
-      '.chart-print-root { display: table; width: 100%; height: 100%; }',
-      '.chart-page { display: table-cell; vertical-align: middle; }',
-      '.chart-matrix { width: calc(100% - 8px); margin: 4px; border-collapse: collapse; font-size: 7px; table-layout: fixed; border: 2px solid #000; box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #000; }',
-      '.chart-patient-col-header { background: #fff; color: #000; font-weight: 800; padding: 1px 2px; border: 1.5px solid #000; text-align: center; font-size: 9px; width: 60px; min-width: 60px; vertical-align: middle; line-height: 1.3; }',
-      '.chart-med-col-header { background: #fff; color: #000; border: 1.5px solid #000; padding: 1px 0; text-align: center; vertical-align: middle; height: 70px; width: 16px; min-width: 16px; }',
-      '.chart-med-label { writing-mode: vertical-rl; text-orientation: mixed; font-size: 10px; font-weight: 700; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-height: 65px; margin: auto 0; display: block; }',
-      '.chart-patient-cell { background: #fff; font-weight: 700; padding: 0 3px; border: 1.5px solid #000; text-align: center; vertical-align: middle; width: 60px; min-width: 60px; height: 16px; font-size: 8px; color: #000; line-height: 16px; }',
-      '.chart-cell { border: 1.5px solid #000; text-align: center !important; vertical-align: middle; padding: 0; font-size: 11px; font-weight: 800; color: #000; width: 16px; min-width: 16px; height: 16px; line-height: 16px; background: #fff; box-sizing: border-box; display: table-cell; }',
-      '.chart-matrix tr { height: 16px; }',
-      '.chart-cell-custom { font-size: 11px; font-weight: 700; line-height: 1; }',
-      '.chart-page-break { page-break-before: always; }',
-      '.chart-matrix th, .chart-matrix td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-      '/* iOS smaller cells */',
-      'html.is-ios .chart-cell { height: 14px; line-height: 14px; font-size: 10px; }',
-      'html.is-ios .chart-patient-cell { height: 14px; line-height: 14px; font-size: 7px; }',
-      'html.is-ios .chart-matrix tr { height: 14px; }',
-      'html.is-ios .chart-cell-custom { font-size: 10px; }',
-      'html.is-ios .chart-med-col-header { height: 60px; }',
-      'html.is-ios .chart-med-label { max-height: 55px; }',
-      '</style>',
-      '<script>document.documentElement.className += " is-ios";</script>',
-      '</head>',
-      '<body>',
-      '<div class="chart-print-root">',
-      chartHTML,
-      '</div>',
-      '<script>',
-      // Wait for fonts to load before printing. We try a few
-      // strategies: (1) wait for window.load (fonts cached), then
-      // (2) wait a short delay to ensure layout has settled.
-      'window.addEventListener("load", function() {',
-      // 800ms gives the fonts time to load even on slow networks.
-      // The chart is already rendered visually; print is just
-      // snapshotting what's on screen.
-      '  setTimeout(function() {',
-      '    try { window.print(); } catch (e) {}',
-      // Try to close the tab after printing. iOS Safari may block
-      // window.close() for tabs the user opened (vs. those opened
-      // by script), but since we opened this via window.open(), it
-      // should be closeable. Wrap in try/catch in case it isn't.
-      '    setTimeout(function() { try { window.close(); } catch (e) {} }, 1000);',
-      '  }, 800);',
-      '});',
-      '<\/script>',
-      '</body>',
-      '</html>'
-    ].join('\n'));
-    doc.close();
-    return true;
+    return false;
   }
 
   // Update the small status badge in the Supabase settings panel.
@@ -1317,32 +1233,15 @@
     // ----- Admin: open via header gear -----
     $("open-admin").addEventListener("click", openAdminView);
 
-    // ----- Print Chart (التشارت) -----
-    // Instead of printing directly, we first open the Supply Order
-    // modal where the user enters the total quantity for each supply.
-    // On "submit", the supplies are distributed across patients and
-    // the chart is built + printed.
-    $("print-chart-btn").addEventListener("click", () => {
-      if (!state.medications || state.medications.length === 0) {
-        flashHint("لا توجد أدوية في الكتالوج");
-        return;
-      }
-      // Count occupied patients
-      const occCount = Object.values(state.patients || {})
-        .filter(p => p && p.name && p.name.trim()).length;
-      if (occCount === 0) {
-        flashHint("لا يوجد مرضى مشغولون لطباعة التشارت");
-        return;
-      }
-      state._printMode = "html";
-      openSupplyOrderModal(occCount);
-    });
-
-    // ----- Print Chart (Image-based overlay on the scanned template) -----
-    // Same flow as the HTML chart (opens supply modal first), but the
-    // final output is a PNG/PDF generated by overlaying data on the
-    // uploaded chart template image (img/chart-template.jpg).
+    // ----- Print Chart (Image overlay on scanned template) -----
+    // The chart is now generated as a PNG/PDF overlay on the user's
+    // scanned "warqat gart" template image (img/chart-template.jpg).
     // Output size = chart template natural size (NOT A4).
+    //
+    // The flow opens the Supply Order modal first so the user can
+    // enter the total quantity for each supply. On submit, the
+    // supplies are distributed across patients and the chart image
+    // is generated + auto-downloaded.
     $("print-chart-image-btn").addEventListener("click", () => {
       if (!state.medications || state.medications.length === 0) {
         flashHint("لا توجد أدوية في الكتالوج");
@@ -1354,7 +1253,6 @@
         flashHint("لا يوجد مرضى مشغولون لطباعة التشارت");
         return;
       }
-      state._printMode = "image";
       openSupplyOrderModal(occCount);
     });
 
@@ -1518,56 +1416,25 @@
 
       closeSupplyOrderModal();
 
-      // ---- Route to image-based or HTML-based chart ----
-      if (state._printMode === "image") {
-        // Generate PNG/PDF overlay on the scanned chart template
-        // (img/chart-template.jpg). Output natural image size, NOT A4.
-        delete state._printMode;
-        flashHint("يتم توليد صورة الجارت... انتظر قليلاً");
-        const wrapState = {
-          patients: state.patients,
-          meds: state.medications,
-          supplyDistribution: supplyDistribution
-        };
-        // Defer to next tick so the flashHint renders
-        setTimeout(async () => {
-          try {
-            await global.PharmacyChartImage.printChartImage(wrapState);
-            flashHint("تم توليد صورة الجارت — تحقق من التنزيلات");
-          } catch (err) {
-            console.error("[chart-image] error:", err);
-            flashHint("تعذّر توليد صورة الجارت: " + (err.message || err));
-          }
-        }, 50);
-        return;
-      }
-      delete state._printMode;
-
-      // Build the chart with the supply distribution (HTML chart path)
-      UI.buildChartReport(state.patients, state.medications, supplyDistribution);
-
-      // Detect iOS and add class for CSS overrides (smaller cells)
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-      if (isIOS) {
-        document.documentElement.classList.add("is-ios");
-      }
-
-      // Print (same iOS / Android logic as before)
-      const isStandalone =
-        window.matchMedia("(display-mode: standalone)").matches ||
-        navigator.standalone === true;
-      if (isIOS && isStandalone) {
-        if (!printChartInNewWindow()) {
-          flashHint("تعذّر فتح نافذة الطباعة — جرّب في متصفح Safari مباشرة");
-          requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+      // ---- Generate PNG/PDF overlay on the scanned chart template ----
+      // Output = chart template natural image size (NOT A4 — the
+      // user confirmed the real paper is custom size).
+      flashHint("يتم توليد صورة الجارت... انتظر قليلاً");
+      const wrapState = {
+        patients: state.patients,
+        meds: state.medications,
+        supplyDistribution: supplyDistribution
+      };
+      // Defer to next tick so the flashHint renders
+      setTimeout(async () => {
+        try {
+          await global.PharmacyChartImage.printChartImage(wrapState);
+          flashHint("تم توليد صورة الجارت — تحقق من التنزيلات");
+        } catch (err) {
+          console.error("[chart-image] error:", err);
+          flashHint("تعذّر توليد صورة الجارت: " + (err.message || err));
         }
-      } else {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            window.print();
-          });
-        });
-      }
+      }, 50);
     });
 
     // (Sync button removed — Realtime handles live updates, and
