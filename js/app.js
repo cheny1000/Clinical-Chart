@@ -1590,19 +1590,46 @@
         if (idx < 0) return;
         const snapshot = state.medications.slice();
         const item = state.medications[idx];
-        // IMPORTANT: capture the ORIGINAL array length and index BEFORE
-        // splicing. After splice(idx, 1), the array length shrinks by 1,
-        // so using state.medications.length as the upper bound for the
-        // new index would compute against the WRONG length and could
-        // produce an off-by-one result (especially for move-down of
-        // items near the end of the list).
         const origLen = state.medications.length;
+
+        // For move-top / move-bottom: the admin med list is displayed
+        // GROUPED BY FORM (Vials, Ampules, Tablets, …). The user
+        // expects move-top to put the med at the top of ITS FORM GROUP,
+        // not at the top of the whole flat catalog. Compute the form
+        // group's index range BEFORE splicing (the item must still be
+        // in state.medications for the form lookup to succeed).
+        const Meds = global.PharmacyMedications || {};
+        const FORM_ORDER = Meds.FORM_ORDER || ["vial", "ampule", "prefilled-syringe", "tablet", "syrup-and-oral-drop", "suppository", "solution", "supplies"];
+        const formKey = (item.form && FORM_ORDER.indexOf(item.form) !== -1)
+          ? item.form
+          : "vial";
+        let groupFirstIdx = -1, groupLastIdx = -1;
+        for (let i = 0; i < state.medications.length; i++) {
+          const m = state.medications[i];
+          const k = (m.form && FORM_ORDER.indexOf(m.form) !== -1) ? m.form : "vial";
+          if (k === formKey) {
+            if (groupFirstIdx === -1) groupFirstIdx = i;
+            groupLastIdx = i;
+          }
+        }
+
         state.medications.splice(idx, 1);
         let newIdx;
-        if (action === "move-top")         newIdx = 0;
+        if (action === "move-top") {
+          // Top of the med's own form group
+          newIdx = groupFirstIdx >= 0 ? groupFirstIdx : 0;
+        }
         else if (action === "move-up")      newIdx = Math.max(0, idx - 1);
         else if (action === "move-down")   newIdx = Math.min(origLen - 1, idx + 1);
-        else if (action === "move-bottom") newIdx = origLen - 1;
+        else if (action === "move-bottom") {
+          // Bottom of the med's own form group.
+          // After splice, the array shrinks by 1, so if our item was
+          // BELOW the original groupLastIdx, the index is already
+          // correct. If it was AT groupLastIdx, the new lastIdx in the
+          // shrunken array is groupLastIdx - 1, so we want groupLastIdx
+          // (which equals the new arr length — splice appends at end).
+          newIdx = groupLastIdx >= 0 ? groupLastIdx : origLen - 1;
+        }
         else return;
         state.medications.splice(newIdx, 0, item);
         Storage.saveMedications(state.medications);
