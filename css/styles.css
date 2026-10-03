@@ -2132,6 +2132,11 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   color: var(--text-muted);
   font-size: 16px;
   line-height: 1;
+  /* NO transition on hover — the admin list re-renders on every click,
+     which would reset :hover state and cause a visible flicker as the
+     transition re-animates from the default colors. Apply hover colors
+     instantly instead. */
+  transition: none;
 }
 .admin-ico-btn.move.top    { color: #1b443f; }
 .admin-ico-btn.move.up     { color: #1b443f; }
