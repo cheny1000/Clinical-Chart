@@ -225,25 +225,26 @@
       ctx.textBaseline = "middle";
       ctx.textAlign = "center";
 
-      // ---- Build med id → col index map (col 0 = leftmost med col) ----
-      // Note: patient name col is rightmost (V_LINES[50..51]), med cols
-      // are V_LINES[0..49] = first 50 vertical line bands.
-      // Since the HTML document is RTL, "col 0" visually is the
-      // rightmost med col — but we want the med order to read left→right
-      // for the user. So we map orderedMeds[0] = leftmost visible col.
+      // ---- Build med id → col index map ----
+      // Med col 0 (orderedMeds[0]) is placed at the RIGHTMOST med
+      // column (next to patient name col), reading right-to-left
+      // (Arabic reading order). visualCol = NUM_COLS - 1 - colIdx.
+      // So orderedMeds[0] → visualCol 49 (rightmost, V_LINES[49..50])
+      //    orderedMeds[1] → visualCol 48 (V_LINES[48..49])
+      //    orderedMeds[49] → visualCol 0 (leftmost, V_LINES[0..1])
       const medCol = {};
       orderedMeds.forEach((m, i) => {
         if (m && m.id) medCol[m.id] = i;
       });
 
       // ---- Draw medication names in the header row (vertical text) ----
-      // For each med in orderedMeds, draw its name vertically in the
-      // corresponding med column header. orderedMeds[0] goes in the
-      // leftmost column (V_LINES[0..1]), orderedMeds[1] in V_LINES[1..2], etc.
+      // Med names start from the RIGHT (near patient col) and go LEFT.
       orderedMeds.forEach((m, colIdx) => {
         if (!m) return;
         const label = m.nameTrade || m.nameAr || m.nameEn || m.id;
-        drawVerticalText(ctx, label, colIdx);
+        // Flip to visual column: col 0 → rightmost (NUM_COLS-1)
+        const visualCol = G.NUM_COLS - 1 - colIdx;
+        drawVerticalText(ctx, label, visualCol);
       });
 
       // ---- Draw patient names + frequency cells ----
@@ -257,14 +258,19 @@
         // Patient name in the rightmost column (patient name col)
         // Patient col spans V_LINES[50] → V_LINES[51]
         const cellCx = (G.V_LINES[50] + G.V_LINES[51]) / 2;
-        const cellTop = rowIdx === 0 ? G.HEADER_BOTTOM : G.H_LINES[rowIdx];
-        const cellBottom = G.H_LINES[rowIdx + 1];
-        const cellCy = (cellTop + cellBottom) / 2;
+        // Row Y calculation: row i (0-indexed) spans H_LINES[i+1] → H_LINES[i+2]
+        // (H_LINES[0]=header top, H_LINES[1]=header bottom=row 0 top,
+        //  H_LINES[2]=row 0 bottom=row 1 top, ...)
+        const rowTop = G.H_LINES[rowIdx + 1];
+        const rowBot = G.H_LINES[rowIdx + 2];
+        const cellCy = (rowTop + rowBot) / 2;
 
         ctx.font = nameFont;
-        ctx.direction = "rtl";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
+        // Note: do NOT set ctx.direction = "rtl" — modern browsers
+        // shape Arabic correctly without it, and setting it can
+        // cause alignment quirks in some browsers.
         ctx.fillText(name, cellCx, cellCy);
 
         // Frequency cells in med columns
@@ -295,18 +301,10 @@
           if (entry.count > 0) cellText = String(entry.count);
           else cellText = entry.freq || "؟";
 
-          const cx = (G.V_LINES[colIdx] + G.V_LINES[colIdx + 1]) / 2;
-          // row i spans H_LINES[i] → H_LINES[i+1] (when rowIdx ≥ 0)
-          // but row 0 spans HEADER_BOTTOM (H_LINES[1]) → H_LINES[2]
-          // so we use: cellTop = rowIdx === 0 ? HEADER_BOTTOM : H_LINES[rowIdx]
-          //           cellBottom = H_LINES[rowIdx + 1]
-          // Wait, that's wrong. Let me re-think.
-          // H_LINES[0] = header top
-          // H_LINES[1] = header bottom = top of patient row 0
-          // H_LINES[2] = bottom of patient row 0 = top of row 1
-          // So row i spans H_LINES[i+1] → H_LINES[i+2]
-          // Header spans H_LINES[0] → H_LINES[1]
-          // Patient row i (0-indexed) spans H_LINES[i+1] → H_LINES[i+2]
+          // Flip to visual column: col 0 → rightmost (NUM_COLS-1)
+          const visualCol = G.NUM_COLS - 1 - colIdx;
+          const cx = (G.V_LINES[visualCol] + G.V_LINES[visualCol + 1]) / 2;
+          // Row Y: row i (0-indexed) spans H_LINES[i+1] → H_LINES[i+2]
           const rowTop = G.H_LINES[rowIdx + 1];
           const rowBot = G.H_LINES[rowIdx + 2];
           const cy = (rowTop + rowBot) / 2;
