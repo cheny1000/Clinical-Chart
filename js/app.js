@@ -1537,17 +1537,9 @@
 
       // For pre-printed mode: inject a custom @page rule that
       // overrides the regular A4-landscape @page. The custom rule
-      // sets the page size to 297×200mm LANDSCAPE and zero margins.
-      // Zero margins prevent the browser from reserving space for
-      // its default print header/footer (URL, date, page number)
-      // which would otherwise appear at the top and bottom of the
-      // pre-printed paper.
-      //
-      // NOTE: The user should ALSO uncheck "Headers and footers" in
-      // their browser's print dialog (Chrome: More settings > uncheck
-      // "Headers and footers"; Safari: uncheck "Print headers and
-      // footers"). Zero @page margin suppresses them in most browsers
-      // but the setting is the guaranteed way.
+      // sets the page size to 297×200mm LANDSCAPE (paper rotated 90°
+      // clockwise) and adjusts margins to position the rotated text
+      // on top of the pre-printed grid.
       let preprintedStyle = null;
       if (printMode === "preprinted") {
         preprintedStyle = document.createElement("style");
@@ -1556,17 +1548,11 @@
           @media print {
             @page {
               size: 297mm 200mm;
-              margin: 0;
+              margin: 13mm 12mm 12mm 12mm;
             }
           }
         `;
         document.head.appendChild(preprintedStyle);
-
-        // Show a one-time hint reminding the user to disable the
-        // browser's print headers/footers in the print dialog.
-        setTimeout(() => {
-          flashHint("في نافذة الطباعة: عطّل \"Headers and footers\" لإخفاء الوقت والرابط ورقم الصفحة");
-        }, 100);
       }
 
       // Print (same iOS / Android logic as before)

@@ -3157,12 +3157,6 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     padding-bottom: 0;
   }
 
-  /* Hide browser default print headers/footers (URL, date, page count).
-     Most browsers don't expose CSS to control these — they're set in
-     the print dialog (Margins > None > uncheck Headers and footers).
-     But we also strip margins via @page so no white space is reserved
-     for them anyway, which suppresses their display in most browsers. */
-
   /* Page setup: A4 Landscape.
      White space (margin) around the chart outer border:
        - Top (north):    2mm
@@ -3407,23 +3401,11 @@ html, body { overflow-x: hidden; max-width: 100vw; }
        Patient names appear on the RIGHT (because the document is RTL
        and the patient-col is the first <th>/<td> in each row, which
        renders rightmost in RTL).
-     - Page size = 297×200mm landscape with ZERO @page margin (so the
-       browser doesn't reserve space for its default print headers/
-       footers like URL, date, page number).
-     - To position the chart on the pre-printed grid (which has a
-       ~12mm white border around it), we use padding on .chart-page
-       instead of @page margin. This shifts the text onto the grid
-       without leaving a printable header/footer area.
+     - Page size = 297×200mm landscape. @page margin injected via JS
+       at print time.
      - The .preprinted-mode class is added to #chart-print-root by
        UI.buildChartReport when mode === "preprinted".
      ============================================================ */
-  .chart-print-root.preprinted-mode {
-    padding: 0;
-  }
-  .chart-print-root.preprinted-mode .chart-page {
-    padding: 13mm 12mm 12mm 12mm;
-    box-sizing: border-box;
-  }
   .chart-print-root.preprinted-mode .chart-matrix {
     border: none !important;
     box-shadow: none !important;
@@ -3445,7 +3427,7 @@ html, body { overflow-x: hidden; max-width: 100vw; }
        - 1 patient name col on RIGHT, ~111px wide (in RTL = first column)
        - 50 medication cols, ~20px each
      After scaling to landscape A4 page (297×200mm @ 96dpi = 1123×756px),
-     with 12-13mm padding (1041×680px usable):
+     with 12-13mm margins (1041×680px usable):
        - Patient col: ~140 CSS px (35mm) — readable for Arabic names
        - Med cols: 18.4 CSS px each (50 × 18.4 = 920px, + 140 = 1060 ✓)
        - Header: 75 CSS px (20mm) — room for vertical med names
