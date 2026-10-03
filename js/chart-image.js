@@ -308,7 +308,12 @@
           const rowTop = G.H_LINES[rowIdx + 1];
           const rowBot = G.H_LINES[rowIdx + 2];
           const cy = (rowTop + rowBot) / 2;
-          ctx.fillText(cellText, cx, cy);
+          // Small rightward nudge (+1px) to compensate for the visual
+          // left-shift that single Latin digits exhibit when centered
+          // with textAlign="center" — the glyph's bounding box has
+          // slightly more empty space on the right, so the visual
+          // center sits a bit left of the bounding-box center.
+          ctx.fillText(cellText, cx + 1, cy);
         });
       });
 
@@ -331,26 +336,34 @@
   }
 
   // Draw vertical text in a header column.
-  // The header row uses vertical text (writing-mode: vertical-rl).
-  // We rotate the canvas -90° around the column's bottom-center point
-  // and draw the text aligned to that anchor.
+  // Text is rotated 90° CW so it reads TOP-TO-BOTTOM, with each
+  // character's head pointing to the RIGHT (i.e., the text appears
+  // "lying on its right side"). This matches the Arabic reading flow
+  // for vertical column headers on the chart paper.
+  //
+  // Anchor: top-center of the header cell. After rotation, text grows
+  // downward from the top, with characters' visual centers on the
+  // column's horizontal midline.
   function drawVerticalText(ctx, text, colIdx) {
     const cellLeft = G.V_LINES[colIdx];
     const cellRight = G.V_LINES[colIdx + 1];
     const cx = (cellLeft + cellRight) / 2;
-    const cyBottom = G.HEADER_BOTTOM - 2;  // bottom-align text in header
+    const cyTop = G.HEADER_TOP + 2;  // top of header, with small inset
 
     ctx.save();
-    ctx.translate(cx, cyBottom);
-    ctx.rotate(-Math.PI / 2);
+    ctx.translate(cx, cyTop);
+    ctx.rotate(Math.PI / 2);  // 90° CW — text reads top-to-bottom
 
-    ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
+    ctx.textAlign = "left";       // text grows in local +X (visually DOWN)
+    ctx.textBaseline = "middle";  // middle of text height on local Y=0
     ctx.direction = "ltr";
-    ctx.font = `bold ${Math.round(G.COL_WIDTH * 0.85)}px Tajawal, Cairo, Arial, sans-serif`;
+    // Smaller font (COL_WIDTH × 0.65 = ~11px) so the rotated glyphs
+    // (~15-16px tall with ascenders/descenders) fit comfortably inside
+    // the 17px-wide column without overlapping the vertical grid lines.
+    ctx.font = `bold ${Math.round(G.COL_WIDTH * 0.65)}px Tajawal, Cairo, Arial, sans-serif`;
     ctx.fillStyle = "#000";
 
-    // Cap text length to fit header height
+    // Cap text length to fit header height (text grows downward).
     const maxHeight = G.HEADER_HEIGHT - 4;
     let displayText = text;
     const metrics = ctx.measureText(displayText);
