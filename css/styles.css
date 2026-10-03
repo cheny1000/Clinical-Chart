@@ -3194,10 +3194,8 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     border-collapse: collapse;
     font-size: 7px;
     table-layout: fixed;
-    /* Outer border around the entire chart table */
-    border: 1.5px solid #000;
-    outline: 1.5px solid #000;
-    outline-offset: 1px;
+    border: 2px solid #000;
+    box-shadow: 0 0 0 3px #fff, 0 0 0 4.5px #000;
   }
 
   /* Patient column (rightmost) — header with two-line text centered
@@ -3275,6 +3273,8 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     line-height: 16px;
     background: #fff;
     box-sizing: border-box;
+    text-align: center !important;
+    display: table-cell;
   }
 
   /* Force all rows to exactly 18px */
