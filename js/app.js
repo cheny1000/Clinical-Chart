@@ -1492,8 +1492,13 @@
       // Build the chart with the supply distribution
       UI.buildChartReport(state.patients, state.medications, supplyDistribution);
 
-      // Print (same iOS / Android logic as before)
+      // Detect iOS and add class for CSS overrides (smaller cells)
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      if (isIOS) {
+        document.documentElement.classList.add("is-ios");
+      }
+
+      // Print (same iOS / Android logic as before)
       const isStandalone =
         window.matchMedia("(display-mode: standalone)").matches ||
         navigator.standalone === true;
