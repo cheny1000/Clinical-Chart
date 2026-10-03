@@ -1537,9 +1537,9 @@
 
       // For pre-printed mode: inject a custom @page rule that
       // overrides the regular A4-landscape @page. The custom rule
-      // sets the page size to 200×297mm (the actual gart paper size,
-      // NOT A4) and adjusts margins to position the text on top of
-      // the pre-printed grid.
+      // sets the page size to 297×200mm LANDSCAPE (paper rotated 90°
+      // clockwise) and adjusts margins to position the rotated text
+      // on top of the pre-printed grid.
       let preprintedStyle = null;
       if (printMode === "preprinted") {
         preprintedStyle = document.createElement("style");
@@ -1547,7 +1547,7 @@
         preprintedStyle.textContent = `
           @media print {
             @page {
-              size: 200mm 297mm;
+              size: 297mm 200mm;
               margin: 13mm 12mm 12mm 12mm;
             }
           }
