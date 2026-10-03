@@ -864,7 +864,8 @@
       return;
     }
 
-    const PATIENTS_PER_PAGE = 35;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const PATIENTS_PER_PAGE = isIOS ? 50 : 35;
     const MED_COLS = 50;
 
     const Ward = global.PharmacyWard;
