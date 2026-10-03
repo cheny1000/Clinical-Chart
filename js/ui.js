@@ -852,10 +852,16 @@
   }
 
   // ---------- Print Chart (التشارت) ----------
-  // Auto-pagination: 35 patients per page, header + med columns repeat.
-  function buildChartReport(patientsMap, meds, supplyDistribution) {
+  // Auto-pagination: chart dimensions depend on mode.
+  //   - "regular" (default): 35 patients × 50 meds on A4 landscape
+  //   - "preprinted":        50 patients × 35 meds on 200×297mm paper
+  //     (matches the user's actual pre-printed gart paper — grid lines
+  //     are already on the paper, so we print ONLY text, no borders)
+  function buildChartReport(patientsMap, meds, supplyDistribution, mode) {
+    mode = mode || "regular";
     const root = document.getElementById("chart-print-root");
     root.innerHTML = "";
+    root.classList.toggle("preprinted-mode", mode === "preprinted");
 
     if (!Array.isArray(meds) || meds.length === 0) {
       root.appendChild(h("div", {
@@ -864,8 +870,8 @@
       return;
     }
 
-    const PATIENTS_PER_PAGE = 35;
-    const MED_COLS = 50;
+    const PATIENTS_PER_PAGE = mode === "preprinted" ? 50 : 35;
+    const MED_COLS = mode === "preprinted" ? 35 : 50;
 
     const Ward = global.PharmacyWard;
     const occupiedRows = [];
