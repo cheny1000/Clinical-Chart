@@ -259,25 +259,22 @@
         // Patient col spans V_LINES[50] → V_LINES[51]
         const cellCx = (G.V_LINES[50] + G.V_LINES[51]) / 2;
         // Row Y calculation: row i (0-indexed) spans H_LINES[i+1] → H_LINES[i+2]
-        // (H_LINES[0]=header top, H_LINES[1]=header bottom=row 0 top,
-        //  H_LINES[2]=row 0 bottom=row 1 top, ...)
         const rowTop = G.H_LINES[rowIdx + 1];
         const rowBot = G.H_LINES[rowIdx + 2];
-        const cellCy = (rowTop + rowBot) / 2;
+        const rowMid = (rowTop + rowBot) / 2;
 
+        // Y centering: alphabetic baseline + downward offset
+        const fontSize = G.ROW_HEIGHT * 0.7;
         ctx.font = nameFont;
         ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        // Note: do NOT set ctx.direction = "rtl" — modern browsers
-        // shape Arabic correctly without it, and setting it can
-        // cause alignment quirks in some browsers.
-        ctx.fillText(name, cellCx, cellCy);
+        ctx.textBaseline = "alphabetic";
+        const y = rowMid + fontSize * 0.35;
+        ctx.fillText(name, cellCx, y);
 
         // Frequency cells in med columns
         ctx.font = freqFont;
         ctx.direction = "ltr";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+        ctx.textAlign = "left";  // overridden per-cell with measureText
 
         const myMedCounts = {};
         (patient.medications || []).forEach(pm => {
@@ -310,23 +307,32 @@
           // Row Y: row i (0-indexed) spans H_LINES[i+1] → H_LINES[i+2]
           const rowTop = G.H_LINES[rowIdx + 1];
           const rowBot = G.H_LINES[rowIdx + 2];
-          const cy = (rowTop + rowBot) / 2;
+          const rowMid = (rowTop + rowBot) / 2;
 
-          // Precise centering: measure the actual text width and
-          // position it manually so the GLYPH's visual center (not the
-          // bounding-box center) lands on the cell's center.
-          // Latin digits in Tajawal have a left-side bearing slightly
-          // larger than the right-side bearing, so textAlign="center"
-          // leaves the glyph ~2-3px left of the cell center. We use
-          // textAlign="left" + measureText to compute the exact X.
+          // ---- Y centering: use baseline-relative position ----
+          // ctx.textBaseline="middle" puts the em-box middle on Y, but
+          // the em-box includes empty space above the cap-height. For
+          // Latin digits (no descenders), the visual center sits ~25-30%
+          // below the em-box middle, leaving the glyph pushed toward
+          // the TOP of the cell.
+          //
+          // Fix: use textBaseline="alphabetic" (the default — baseline
+          // is the bottom of letters like "M" but above descender tails).
+          // Then compute Y = rowMid + (font-size × 0.35) so the visual
+          // center of the glyph lands on rowMid.
+          //
+          // For a 13.6px font (ROW_HEIGHT × 0.85 ≈ 13.6), the cap height
+          // is ~70% of em (≈ 9.5px), and its visual center is ~4.75px
+          // above the baseline. So baseline = rowMid + 4.75 ≈ rowMid + 5.
+          // For an 11px custom freq, scale accordingly.
+          const fontSize = G.ROW_HEIGHT * 0.85;
           ctx.textAlign = "left";
+          ctx.textBaseline = "alphabetic";
           const metrics = ctx.measureText(cellText);
           const textW = metrics.width;
-          // Bounding-box center should be at cellCx, so left edge at
-          // cellCx - textW/2. Then add +2px rightward nudge to shift
-          // the visual glyph center onto the cell center.
-          const x = cellCx - textW / 2 + 2;
-          ctx.fillText(cellText, x, cy);
+          const x = cellCx - textW / 2 + 2;   // +2px right nudge (glyph asymmetry)
+          const y = rowMid + fontSize * 0.35;  // baseline below mid by ~35% of em
+          ctx.fillText(cellText, x, y);
         });
       });
 
