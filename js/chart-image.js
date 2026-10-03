@@ -247,6 +247,18 @@
         drawVerticalText(ctx, label, visualCol);
       });
 
+      // ---- Draw info in the patient-name header cell (top-right) ----
+      // The patient name col header (V_LINES[50] → V_LINES[51],
+      // H_LINES[0] → H_LINES[1]) is a wide empty box at the top-right
+      // of the chart. The user wants three lines written horizontally
+      // in this cell:
+      //   "الطابق الثامن"
+      //   "الوحدة الخامسة"
+      //   "التاريخ" — current date (e.g. "2026/10/2"), no "التاريخ" label
+      // The three lines are stacked vertically, centered horizontally
+      // within the cell.
+      drawInfoBox(ctx);
+
       // ---- Draw patient names + frequency cells ----
       const nameFont = `bold ${Math.round(G.ROW_HEIGHT * 0.7)}px Tajawal, Cairo, Arial, sans-serif`;
       const freqFont = `bold ${Math.round(G.ROW_HEIGHT * 0.85)}px Tajawal, Arial, sans-serif`;
@@ -395,6 +407,54 @@
     const y = fontSize * 0.35;
     ctx.fillText(text, 0, y);
     ctx.restore();
+  }
+
+  // Draw the info box content in the patient-name col header cell.
+  // The cell is at the top-right of the chart (V_LINES[50..51] ×
+  // H_LINES[0..1]). We write three lines of horizontal Arabic text:
+  //   "الطابق الثامن"
+  //   "الوحدة الخامسة"
+  //   "2026/10/2"  (today's date — no "التاريخ" label)
+  // The lines are stacked vertically and centered horizontally inside
+  // the cell. Vertical centering: the middle line's visual center
+  // lands on the cell's vertical center.
+  function drawInfoBox(ctx) {
+    const cellLeft = G.V_LINES[50];
+    const cellRight = G.V_LINES[51];
+    const cellTop = G.H_LINES[0];
+    const cellBottom = G.H_LINES[1];
+    const cellCx = (cellLeft + cellRight) / 2;
+    const cellCy = (cellTop + cellBottom) / 2;
+
+    // Today's date in YYYY/M/D format
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`;
+
+    const lines = ["الطابق الثامن", "الوحدة الخامسة", dateStr];
+
+    // Font size that fits 3 lines in the cell height (~63px).
+    // 3 lines × ~12px line height = 36px, fits comfortably.
+    const fontSize = 11;
+    const lineHeight = fontSize * 1.1;  // ~12.1px per line
+    ctx.font = `bold ${fontSize}px Tajawal, Cairo, Arial, sans-serif`;
+    ctx.fillStyle = "#000";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.direction = "rtl";  // Arabic RTL for proper text flow
+
+    // Stack the 3 lines vertically. Center the middle line on cellCy.
+    // Total stack height = 3 × lineHeight. Top line at:
+    //   topY = cellCy - lineHeight (middle line's Y)
+    // Then each subsequent line is lineHeight below.
+    lines.forEach((line, i) => {
+      // i=0 (top line): center is one line-height above middle
+      // i=1 (middle): center on cellCy
+      // i=2 (bottom): one line-height below middle
+      const lineCenterY = cellCy + (i - 1) * lineHeight;
+      // Alphabetic baseline = lineCenterY + (fontSize × 0.35)
+      const y = lineCenterY + fontSize * 0.35;
+      ctx.fillText(line, cellCx, y);
+    });
   }
 
   // ---- Public API ----
