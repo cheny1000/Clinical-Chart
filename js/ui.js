@@ -870,8 +870,8 @@
       return;
     }
 
-    const PATIENTS_PER_PAGE = 35;  // both modes — matches the pre-printed
-    const MED_COLS = 50;            // gart paper (35 patient rows × 50 med cols)
+    const PATIENTS_PER_PAGE = mode === "preprinted" ? 50 : 35;
+    const MED_COLS = mode === "preprinted" ? 35 : 50;
 
     const Ward = global.PharmacyWard;
     const occupiedRows = [];
