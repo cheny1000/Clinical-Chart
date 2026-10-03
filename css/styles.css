@@ -3157,13 +3157,20 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     padding-bottom: 0;
   }
 
-  /* Page setup: A4 Landscape with minimal margins.
-     This is the ONLY @page rule in the file — putting multiple
-     @page rules in the same @media print block causes iOS Safari
-     to pick up the first one and ignore this landscape rule. */
+  /* Page setup: A4 Landscape.
+     White space (margin) around the chart outer border:
+       - Top (north):    2mm
+       - Bottom (south): 2mm
+       - Right (east):    1.5mm
+       - Left (west):     1.5mm
+     This @page margin is the ONLY page rule. The chart-matrix
+     itself sits 6px inside this printable area so its box-shadow
+     outer border (3px black ring) lands exactly on the printable
+     area edge — i.e. 2mm/1.5mm from the paper edge.
+     Available printable area: 294mm × 206mm = 1111px × 779px (96dpi). */
   @page {
     size: A4 landscape;
-    margin: 3mm;
+    margin: 2mm 1.5mm;
   }
 
   /* Editable header — pharmacist fills by hand (inside the patient col header) */
@@ -3188,16 +3195,21 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     color: #000;
   }
 
-  /* The matrix table — compact.
+  /* The matrix table — sized to fit 35 patients × 50 meds inside the
+     294mm × 206mm printable area, leaving exactly 2mm/1.5mm of white
+     space around the outer border.
      Border structure (three concentric rings):
-       1. Inner border: 2px solid #000 (the table border itself)
+       1. Inner border: 2px solid #000 (the table border)
        2. White gap: 3px (first box-shadow ring)
        3. Outer border: 3px solid #000 (second box-shadow ring)
-     The outer border is 1px thicker than the inner border, with a 3px
-     white gap between them. Both rings print reliably on A4 landscape. */
+     The outer border sits at the printable area edge (2mm/1.5mm
+     from the paper edge). margin: 6px positions the matrix border
+     6px inside the printable area, so the 6px box-shadow reaches
+     the printable area edge exactly. width: calc(100% - 12px)
+     reserves 6px on each side for the box-shadow. */
   .chart-matrix {
-    width: calc(100% - 10px);
-    margin: 5px;
+    width: calc(100% - 12px);
+    margin: 6px;
     border-collapse: collapse;
     font-size: 7px;
     table-layout: fixed;
@@ -3206,7 +3218,9 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   }
 
   /* Patient column (rightmost) — header with two-line text centered
-     vertically and horizontally, larger font. */
+     vertically and horizontally, larger font. Width 70px to use more
+     of the available horizontal space (width budget for 50 meds +
+     patient col = 50×19 + 70 = 1020px, fits in ~1083px usable width). */
   .chart-patient-col-header {
     background: #fff;
     color: #000;
@@ -3215,15 +3229,17 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     border: 1.5px solid #000;
     text-align: center;
     font-size: 9px;
-    width: 60px;
-    min-width: 60px;
+    width: 70px;
+    min-width: 70px;
     vertical-align: middle;
     line-height: 1.3;
   }
 
   /* Medication column headers — vertical text, compact.
-     vertical-align: middle centers the text vertically between the
-     top and bottom edges of the header cell. */
+     Width 19px matches the data cell width (square cells).
+     Height 75px — header + 35 rows × 19px = 75 + 665 = 740px,
+     plus 2×2px inner border + 2×6px box-shadow + 2×6px margin = 768px,
+     comfortably fits the 779px printable height. */
   .chart-med-col-header {
     background: #fff;
     color: #000;
@@ -3231,9 +3247,9 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     padding: 1px 0;
     text-align: center;
     vertical-align: middle;
-    height: 70px;
-    width: 16px;
-    min-width: 16px;
+    height: 75px;
+    width: 19px;
+    min-width: 19px;
   }
   .chart-med-label {
     writing-mode: vertical-rl;
@@ -3244,13 +3260,13 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-height: 65px;
+    max-height: 70px;
     margin: auto 0;
     display: block;
   }
 
-  /* Patient cell (rightmost in each row) — taller to match new row
-     height (19px). */
+  /* Patient cell (rightmost in each row) — 70px wide × 19px tall,
+     matching the row height for the new 35×50 layout. */
   .chart-patient-cell {
     background: #fff;
     font-weight: 700;
@@ -3258,16 +3274,18 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     border: 1.5px solid #000;
     text-align: center;
     vertical-align: middle;
-    width: 60px;
-    min-width: 60px;
+    width: 70px;
+    min-width: 70px;
     height: 19px;
     font-size: 8px;
     color: #000;
     line-height: 19px;
   }
 
-  /* Matrix data cells — width 16px, height 19px (taller rows so the
-     chart fills more of the A4 landscape page). */
+  /* Matrix data cells — 19×19px (square). Sized so 50 med cols +
+     70px patient col = 1020px wide fits in ~1083px usable width,
+     and 35 rows × 19px + 75px header = 740px tall fits in ~755px
+     usable height (within the 294×206mm printable area). */
   .chart-cell {
     border: 1.5px solid #000;
     text-align: center;
@@ -3276,8 +3294,8 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     font-size: 11px;
     font-weight: 800;
     color: #000;
-    width: 16px;
-    min-width: 16px;
+    width: 19px;
+    min-width: 19px;
     height: 19px;
     line-height: 19px;
     background: #fff;
@@ -3346,8 +3364,10 @@ html, body { overflow-x: hidden; max-width: 100vw; }
      causing 35 rows to overflow the A4 page. On iOS, we shrink the
      cells a bit so all 35 rows fit on one page. We detect iOS via
      a class added by JS (html.is-ios) at print time. iOS rows are
-     17px (proportional to the 19px non-iOS row height). */
+     17px and cells 17×17px (proportional to the 19px non-iOS cells). */
   html.is-ios .chart-cell {
+    width: 17px;
+    min-width: 17px;
     height: 17px;
     line-height: 17px;
     font-size: 10px;
@@ -3360,13 +3380,15 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   html.is-ios .chart-matrix tr {
     height: 17px;
   }
-  html.is-ios .chart-cell-custom {
-    font-size: 10px;
-  }
   html.is-ios .chart-med-col-header {
-    height: 60px;
+    width: 17px;
+    min-width: 17px;
+    height: 65px;
   }
   html.is-ios .chart-med-label {
-    max-height: 55px;
+    max-height: 60px;
+  }
+  html.is-ios .chart-cell-custom {
+    font-size: 10px;
   }
 }
