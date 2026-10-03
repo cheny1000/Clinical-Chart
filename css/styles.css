@@ -3394,15 +3394,15 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 
   /* ============================================================
      Pre-printed mode (طباعة على ورق جارت مطبوع مسبقاً)
-     - The user rotates the pre-printed gart paper 90° clockwise and
-       loads it in the printer. The grid that was portrait (50 rows ×
-       35 cols) is now landscape.
-     - We print the chart 90° CW rotated so the text aligns with the
-       rotated grid: patient names (were on LEFT) → TOP, medication
-       headers (were on TOP) → RIGHT.
-     - Page size = 297×200mm LANDSCAPE (the gart paper rotated).
-     - @page margin is injected via JS at print time
-       (margin: 13mm 12mm 12mm 12mm).
+     - The user's pre-printed gart paper is LANDSCAPE (already rotated),
+       with the patient name column on the RIGHT and the medication
+       header row at the TOP. 35 patient rows × 50 med cols.
+     - We print ONLY text (no borders) on top of the existing grid.
+       Patient names appear on the RIGHT (because the document is RTL
+       and the patient-col is the first <th>/<td> in each row, which
+       renders rightmost in RTL).
+     - Page size = 297×200mm landscape. @page margin injected via JS
+       at print time.
      - The .preprinted-mode class is added to #chart-print-root by
        UI.buildChartReport when mode === "preprinted".
      ============================================================ */
@@ -3410,65 +3410,72 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     border: none !important;
     box-shadow: none !important;
     margin: 0;
-    /* Rotate 90° clockwise around the top-left corner. After rotation,
-       the chart visually occupies width=H, height=W (dimensions swap).
-       Use absolute positioning so the rotated chart sits at the
-       page's top-left corner (within the @page margins). */
-    transform: rotate(90deg);
-    transform-origin: top left;
-    position: absolute;
-    top: 0;
-    left: 100%;
-    /* left:100% moves the chart's top-left corner to the right edge
-       of the page area. After rotation, this corner becomes the
-       chart's visible top-left — i.e., the rotated chart now spans
-       from (0,0) to (H, W) inside the page's printable area. */
+    width: 100%;
+    /* NO rotation — the paper is already landscape, and the chart's
+       native RTL layout (patient col on right, med headers on top)
+       matches the paper exactly. */
   }
   .chart-print-root.preprinted-mode .chart-matrix th,
   .chart-print-root.preprinted-mode .chart-matrix td {
     border: none !important;
     background: transparent !important;
   }
-  /* Cell sizes for pre-printed mode.
-     Original (unrotated) chart: 70 + 35×16 = 630px wide × 1025px tall
-     After 90° CW rotation: 1025px wide × 630px tall — fits a 297×200mm
-     landscape page (1123×756 CSS px) with margins. */
+  /* Cell sizes for pre-printed mode — sized to fit the user's actual
+     pre-printed gart paper (measured from the uploaded photo, 1280×905px):
+       - 1 header row, ~72px tall (medication name area)
+       - 35 patient rows, ~18px each
+       - 1 patient name col on RIGHT, ~111px wide (in RTL = first column)
+       - 50 medication cols, ~20px each
+     After scaling to landscape A4 page (297×200mm @ 96dpi = 1123×756px),
+     with 12-13mm margins (1041×680px usable):
+       - Patient col: ~140 CSS px (35mm) — readable for Arabic names
+       - Med cols: 18.4 CSS px each (50 × 18.4 = 920px, + 140 = 1060 ✓)
+       - Header: 75 CSS px (20mm) — room for vertical med names
+       - Row height: 18 CSS px (35 × 18 = 630px + 75 = 705px ✓) */
   .chart-print-root.preprinted-mode .chart-patient-col-header,
   .chart-print-root.preprinted-mode .chart-patient-cell {
-    width: 70px;
-    min-width: 70px;
+    width: 140px;
+    min-width: 140px;
   }
   .chart-print-root.preprinted-mode .chart-med-col-header,
   .chart-print-root.preprinted-mode .chart-cell {
-    width: 16px;
-    min-width: 16px;
+    width: 18px;
+    min-width: 18px;
   }
   .chart-print-root.preprinted-mode .chart-med-col-header {
     height: 75px;
   }
   .chart-print-root.preprinted-mode .chart-med-label {
     max-height: 70px;
+    font-size: 9px;
   }
   .chart-print-root.preprinted-mode .chart-cell,
   .chart-print-root.preprinted-mode .chart-patient-cell {
-    height: 19px;
-    line-height: 19px;
+    height: 18px;
+    line-height: 18px;
+    font-size: 10px;
+  }
+  .chart-print-root.preprinted-mode .chart-patient-cell {
+    font-size: 9px;
   }
   .chart-print-root.preprinted-mode .chart-matrix tr {
-    height: 19px;
+    height: 18px;
   }
-  /* iOS overrides for pre-printed mode */
+  .chart-print-root.preprinted-mode .chart-cell-custom {
+    font-size: 9px;
+  }
+  /* iOS overrides for pre-printed mode — same scale factor as A4 mode */
   html.is-ios .chart-print-root.preprinted-mode .chart-cell,
   html.is-ios .chart-print-root.preprinted-mode .chart-patient-cell {
-    height: 17px;
-    line-height: 17px;
+    height: 16px;
+    line-height: 16px;
   }
   html.is-ios .chart-print-root.preprinted-mode .chart-matrix tr {
-    height: 17px;
+    height: 16px;
   }
   html.is-ios .chart-print-root.preprinted-mode .chart-med-col-header {
-    width: 15px;
-    min-width: 15px;
+    width: 16px;
+    min-width: 16px;
     height: 65px;
   }
   html.is-ios .chart-print-root.preprinted-mode .chart-med-label {
