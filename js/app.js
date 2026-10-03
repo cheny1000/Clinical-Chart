@@ -1590,12 +1590,19 @@
         if (idx < 0) return;
         const snapshot = state.medications.slice();
         const item = state.medications[idx];
+        // IMPORTANT: capture the ORIGINAL array length and index BEFORE
+        // splicing. After splice(idx, 1), the array length shrinks by 1,
+        // so using state.medications.length as the upper bound for the
+        // new index would compute against the WRONG length and could
+        // produce an off-by-one result (especially for move-down of
+        // items near the end of the list).
+        const origLen = state.medications.length;
         state.medications.splice(idx, 1);
         let newIdx;
         if (action === "move-top")         newIdx = 0;
         else if (action === "move-up")      newIdx = Math.max(0, idx - 1);
-        else if (action === "move-down")   newIdx = Math.min(state.medications.length, idx + 1);
-        else if (action === "move-bottom") newIdx = state.medications.length;
+        else if (action === "move-down")   newIdx = Math.min(origLen - 1, idx + 1);
+        else if (action === "move-bottom") newIdx = origLen - 1;
         else return;
         state.medications.splice(newIdx, 0, item);
         Storage.saveMedications(state.medications);
