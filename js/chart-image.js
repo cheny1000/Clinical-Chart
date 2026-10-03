@@ -360,64 +360,40 @@
   }
 
   // Draw vertical text in a header column.
-  // Text is rotated 90° CW so it reads TOP-TO-BOTTOM, with each
-  // character's head pointing to the RIGHT.
-  // The font auto-shrinks for long names so the FULL text always
-  // fits inside the header cell (no truncation with ellipsis).
-  // The text is centered vertically by using alphabetic baseline
-  // with a Y offset of (fontSize × 0.35), same as the freq cells.
+  // Text is rotated 90° CW so it reads TOP-TO-BOTTOM.
+  // All med names use the SAME font size (10px). Long names overflow
+  // the cell rather than being shrunk — the user prefers consistent
+  // size over fitting long names.
+  // The text is centered vertically using alphabetic baseline + Y
+  // offset (fontSize × 0.35).
   function drawVerticalText(ctx, text, colIdx) {
     const cellLeft = G.V_LINES[colIdx];
     const cellRight = G.V_LINES[colIdx + 1];
     const cx = (cellLeft + cellRight) / 2;
-    const maxHeight = G.HEADER_HEIGHT - 6;  // vertical room for text
+    const fontSize = 10;  // FIXED size for all med names
 
-    // Auto-shrink font size so the text always fits. Try sizes from
-    // 11px down to 7px until the measured text width ≤ maxHeight.
-    let fontSize = Math.round(G.COL_WIDTH * 0.65);  // start: ~11px
-    let displayText = text;
-    let metrics = null;
-    while (fontSize >= 7) {
-      ctx.font = `bold ${fontSize}px Tajawal, Cairo, Arial, sans-serif`;
-      metrics = ctx.measureText(displayText);
-      if (metrics.width <= maxHeight) break;
-      fontSize -= 1;
-    }
-    // If at 7px it still doesn't fit, reduce by trimming the rare
-    // extra character (last resort)
-    if (metrics && metrics.width > maxHeight) {
-      // Try smaller font for letters (some browsers floor at 8)
-      ctx.font = `bold 7px Tajawal, Cairo, Arial, sans-serif`;
-      metrics = ctx.measureText(displayText);
-      if (metrics.width > maxHeight) {
-        // Trim from the END (left side after rotation) — drop one char
-        // at a time until it fits. Keep all text otherwise.
-        while (displayText.length > 3 && metrics.width > maxHeight) {
-          displayText = displayText.slice(0, -1);
-          metrics = ctx.measureText(displayText);
-        }
-      }
-    }
-
-    // Vertical centering: text grows downward from the top by
-    // maxHeight amount. Center it: top offset = (maxHeight - textW) / 2
+    ctx.font = `bold ${fontSize}px Tajawal, Cairo, Arial, sans-serif`;
+    ctx.fillStyle = "#000";
+    const metrics = ctx.measureText(text);
     const textW = metrics.width;
+
+    // Vertical centering: top offset = (maxHeight - textW) / 2
+    // (negative when text overflows — pushes start above the header,
+    //  which is fine for long names that need more vertical room)
+    const maxHeight = G.HEADER_HEIGHT - 6;
     const topOffset = (maxHeight - textW) / 2;
-    const cyTop = G.HEADER_TOP + 3 + topOffset;  // 3px inset + centered
+    const cyTop = G.HEADER_TOP + 3 + topOffset;
 
     ctx.save();
     ctx.translate(cx, cyTop);
-    ctx.rotate(Math.PI / 2);  // 90° CW
+    ctx.rotate(Math.PI / 2);
 
-    ctx.textAlign = "left";       // local +X is visually DOWN
+    ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
     ctx.direction = "ltr";
-    ctx.fillStyle = "#000";
 
-    // Y offset for vertical centering of glyph (same formula as freq)
     const y = fontSize * 0.35;
-
-    ctx.fillText(displayText, 0, y);
+    ctx.fillText(text, 0, y);
     ctx.restore();
   }
 
