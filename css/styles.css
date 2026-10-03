@@ -3188,15 +3188,21 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     color: #000;
   }
 
-  /* The matrix table — compact */
+  /* The matrix table — compact.
+     Border structure (three concentric rings):
+       1. Inner border: 2px solid #000 (the table border itself)
+       2. White gap: 3px (first box-shadow ring)
+       3. Outer border: 3px solid #000 (second box-shadow ring)
+     The outer border is 1px thicker than the inner border, with a 3px
+     white gap between them. Both rings print reliably on A4 landscape. */
   .chart-matrix {
-    width: calc(100% - 8px);
-    margin: 4px;
+    width: calc(100% - 10px);
+    margin: 5px;
     border-collapse: collapse;
     font-size: 7px;
     table-layout: fixed;
     border: 2px solid #000;
-    box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #000;
+    box-shadow: 0 0 0 3px #fff, 0 0 0 6px #000;
   }
 
   /* Patient column (rightmost) — header with two-line text centered
@@ -3282,10 +3288,16 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 
   /* Fix: frequency digits appeared slightly toward the top of the cell
      because <center> is a block element and the digit sits in the
-     upper portion of the 19px line-box (font ascender bias).
+     upper portion of the line-box (font ascender bias).
      Using flexbox on <center> centers the digit precisely both
      horizontally and vertically within the cell. line-height: 1
-     eliminates the ascender extra space. */
+     eliminates the ascender extra space.
+     ADDITIONAL NUDGE: even with flexbox + line-height:1, the digit was
+     still ~0.5px above true center because the font's cap-height is
+     less than 100% of em-size, so the visual midpoint of a single
+     digit glyph is slightly above the line-box center. Adding
+     padding-top: 1px; padding-bottom: 0 shifts the flex centering
+     area down by 0.5px, nudging the digit down to the true cell center. */
   .chart-cell > center,
   .chart-patient-cell > center {
     display: flex !important;
@@ -3295,6 +3307,10 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     width: 100%;
     line-height: 1;
     text-align: center;
+    padding-top: 1px;
+    padding-bottom: 0;
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
   /* Force all rows to exactly 19px */
