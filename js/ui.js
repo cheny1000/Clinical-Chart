@@ -699,8 +699,18 @@
       ]);
       container.appendChild(header);
 
+      // Compute the first and last RUNNING INDEX for this form group
+      // (used for logging/debug only — the disabled state for ⤒/↑/↓/⤓
+      // buttons uses the FLAT catalog position, since move-top and
+      // move-bottom move across the entire flat list).
+      const firstIdxInGroup = runningIdx;
+      const lastIdxInGroup = runningIdx + bucket.length - 1;
+
       bucket.forEach((m) => {
         const idx = runningIdx;
+        // Disable ⤒/↑ if the med is at position 0 of the flat catalog,
+        // disable ↓/⤓ if at the last position. (The flat catalog is
+        // what move-top and move-bottom act on.)
         const isFirst = idx === 0;
         const isLast  = idx === meds.length - 1;
         const sci = scientificName(m);
