@@ -303,17 +303,30 @@
 
           // Flip to visual column: col 0 → rightmost (NUM_COLS-1)
           const visualCol = G.NUM_COLS - 1 - colIdx;
-          const cx = (G.V_LINES[visualCol] + G.V_LINES[visualCol + 1]) / 2;
+          // Cell boundaries (using actual grid line positions)
+          const cellLeft = G.V_LINES[visualCol];
+          const cellRight = G.V_LINES[visualCol + 1];
+          const cellCx = (cellLeft + cellRight) / 2;
           // Row Y: row i (0-indexed) spans H_LINES[i+1] → H_LINES[i+2]
           const rowTop = G.H_LINES[rowIdx + 1];
           const rowBot = G.H_LINES[rowIdx + 2];
           const cy = (rowTop + rowBot) / 2;
-          // Small rightward nudge (+1px) to compensate for the visual
-          // left-shift that single Latin digits exhibit when centered
-          // with textAlign="center" — the glyph's bounding box has
-          // slightly more empty space on the right, so the visual
-          // center sits a bit left of the bounding-box center.
-          ctx.fillText(cellText, cx + 1, cy);
+
+          // Precise centering: measure the actual text width and
+          // position it manually so the GLYPH's visual center (not the
+          // bounding-box center) lands on the cell's center.
+          // Latin digits in Tajawal have a left-side bearing slightly
+          // larger than the right-side bearing, so textAlign="center"
+          // leaves the glyph ~2-3px left of the cell center. We use
+          // textAlign="left" + measureText to compute the exact X.
+          ctx.textAlign = "left";
+          const metrics = ctx.measureText(cellText);
+          const textW = metrics.width;
+          // Bounding-box center should be at cellCx, so left edge at
+          // cellCx - textW/2. Then add +2px rightward nudge to shift
+          // the visual glyph center onto the cell center.
+          const x = cellCx - textW / 2 + 2;
+          ctx.fillText(cellText, x, cy);
         });
       });
 
