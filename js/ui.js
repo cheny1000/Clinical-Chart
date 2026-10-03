@@ -708,11 +708,6 @@
 
       bucket.forEach((m) => {
         const idx = runningIdx;
-        // Disable ⤒/↑ if the med is at position 0 of the flat catalog,
-        // disable ↓/⤓ if at the last position. (The flat catalog is
-        // what move-top and move-bottom act on.)
-        const isFirst = idx === 0;
-        const isLast  = idx === meds.length - 1;
         const sci = scientificName(m);
         const metaParts = [];
         if (sci) metaParts.push(sci);
@@ -725,7 +720,8 @@
 
         const row = h("div", {
           class: "admin-med-row" + (selectedId === m.id ? " selected" : ""),
-          dataset: { medId: m.id }
+          dataset: { medId: m.id },
+          draggable: "true"  // enable HTML5 drag-and-drop for reordering
         }, [
           h("div", { class: "admin-med-pos", title: "ترتيب الظهور في قائمة الاختيار" }, String(idx + 1)),
           h("div", { class: "admin-med-info" }, [
@@ -737,34 +733,11 @@
               metaParts.length ? metaParts.join(" · ") : "—")
           ]),
           h("div", { class: "admin-med-actions" }, [
-            h("button", {
-              class: "admin-ico-btn move top",
-              type: "button",
-              dataset: { medId: m.id, action: "move-top" },
-              title: "نقل للأعلى (أول القائمة)",
-              disabled: isFirst ? "disabled" : undefined
-            }, "⤒"),
-            h("button", {
-              class: "admin-ico-btn move up",
-              type: "button",
-              dataset: { medId: m.id, action: "move-up" },
-              title: "تحريك لأعلى",
-              disabled: isFirst ? "disabled" : undefined
-            }, "↑"),
-            h("button", {
-              class: "admin-ico-btn move down",
-              type: "button",
-              dataset: { medId: m.id, action: "move-down" },
-              title: "تحريك لأسفل",
-              disabled: isLast ? "disabled" : undefined
-            }, "↓"),
-            h("button", {
-              class: "admin-ico-btn move bottom",
-              type: "button",
-              dataset: { medId: m.id, action: "move-bottom" },
-              title: "نقل للأسفل (آخر القائمة)",
-              disabled: isLast ? "disabled" : undefined
-            }, "⤓"),
+            h("div", {
+              class: "admin-ico-btn drag-handle",
+              title: "اسحب لإعادة الترتيب",
+              "aria-label": "اسحب لإعادة الترتيب"
+            }, "⠿"),
             h("button", {
               class: "admin-ico-btn edit",
               type: "button",

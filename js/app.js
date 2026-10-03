@@ -1545,11 +1545,11 @@
       $("adm-name-ar").focus();
     });
 
-    // Admin list clicks (delegated) — edit / delete / move
+    // Admin list clicks (delegated) — edit / delete
+    // (move-up/down/top/bottom replaced with drag-and-drop, see below)
     $("admin-med-list").addEventListener("click", (e) => {
       const editBtn = e.target.closest('[data-action="edit-med"]');
       const delBtn  = e.target.closest('[data-action="del-med"]');
-      const moveBtn = e.target.closest('[data-action^="move-"]');
       if (editBtn) {
         const id = editBtn.dataset.medId;
         const m = state.medications.find(x => x.id === id);
@@ -1583,35 +1583,95 @@
         state.admin.selectedId = null;
         UI.renderAdminMedList(state.medications, null);
         flashHint("تم حذف الدواء من الكتالوج");
-      } else if (moveBtn) {
-        const id = moveBtn.dataset.medId;
-        const action = moveBtn.dataset.action; // move-top | move-up | move-down | move-bottom
-        const idx = state.medications.findIndex(x => x.id === id);
-        if (idx < 0) return;
-        const snapshot = state.medications.slice();
-        const item = state.medications[idx];
-        const origLen = state.medications.length;
+      }
+    });
 
-        state.medications.splice(idx, 1);
-        let newIdx;
-        if (action === "move-top")         newIdx = 0;                          // first position in flat catalog
-        else if (action === "move-up")      newIdx = Math.max(0, idx - 1);
-        else if (action === "move-down")   newIdx = Math.min(origLen - 1, idx + 1);
-        else if (action === "move-bottom") newIdx = origLen - 1;               // last position in flat catalog
-        else return;
-        state.medications.splice(newIdx, 0, item);
+    // ---- Drag-and-drop reordering for the admin med list ----
+    // Each .admin-med-row is draggable=true (set in ui.js). We use
+    // HTML5 Drag and Drop API to allow the user to grab a row and
+    // drop it in a new position — the entire state.medications array
+    // is reordered accordingly (across all form groups). On drop,
+    // we save + push to cloud + re-render.
+    (function setupAdminDragDrop() {
+      const listEl = $("admin-med-list");
+      if (!listEl) return;
+
+      let draggedId = null;
+      let draggedRow = null;
+
+      // dragstart: capture the dragged row's med id
+      listEl.addEventListener("dragstart", (e) => {
+        const row = e.target.closest(".admin-med-row");
+        if (!row) return;
+        draggedId = row.dataset.medId;
+        draggedRow = row;
+        row.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+        // Some browsers require setData for drag to start
+        try { e.dataTransfer.setData("text/plain", draggedId); } catch (_) {}
+      });
+
+      // dragend: cleanup
+      listEl.addEventListener("dragend", (e) => {
+        const row = e.target.closest(".admin-med-row");
+        if (row) row.classList.remove("dragging");
+        // Clear any remaining drag-over markers
+        listEl.querySelectorAll(".admin-med-row.drag-over").forEach(r => {
+          r.classList.remove("drag-over");
+        });
+        draggedId = null;
+        draggedRow = null;
+      });
+
+      // dragover: prevent default to allow drop, mark the row under the
+      // cursor with .drag-over so we can show a visual indicator
+      listEl.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        const row = e.target.closest(".admin-med-row");
+        if (!row || row === draggedRow) return;
+        // Clear previous drag-over markers, set on the new one
+        listEl.querySelectorAll(".admin-med-row.drag-over").forEach(r => {
+          r.classList.remove("drag-over");
+        });
+        row.classList.add("drag-over");
+      });
+
+      // dragleave: clear drag-over when leaving a row
+      listEl.addEventListener("dragleave", (e) => {
+        const row = e.target.closest(".admin-med-row");
+        if (row) row.classList.remove("drag-over");
+      });
+
+      // drop: reorder the med in state.medications
+      listEl.addEventListener("drop", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const targetRow = e.target.closest(".admin-med-row");
+        if (!targetRow || !draggedId) return;
+        const targetId = targetRow.dataset.medId;
+        if (targetId === draggedId) return;  // dropped on itself
+
+        const fromIdx = state.medications.findIndex(x => x.id === draggedId);
+        const toIdx   = state.medications.findIndex(x => x.id === targetId);
+        if (fromIdx < 0 || toIdx < 0) return;
+
+        const snapshot = state.medications.slice();
+        const item = state.medications[fromIdx];
+        state.medications.splice(fromIdx, 1);
+        state.medications.splice(toIdx, 0, item);
         Storage.saveMedications(state.medications);
         pushCatalogAfterEdit(() => {
           state.medications = snapshot;
           Storage.saveMedications(snapshot);
-          UI.renderAdminMedList(snapshot, id);
+          UI.renderAdminMedList(snapshot, draggedId);
         });
-        UI.renderAdminMedList(state.medications, id);
-        // Scroll the moved row into view if it's outside the visible area
-        const rowEl = document.querySelector(`.admin-med-row[data-med-id="${id}"]`);
+        UI.renderAdminMedList(state.medications, draggedId);
+        // Scroll the moved row into view
+        const rowEl = document.querySelector(`.admin-med-row[data-med-id="${draggedId}"]`);
         if (rowEl) rowEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
-      }
-    });
+      });
+    })();
 
     // Admin: frequency dropdown — toggle custom field
     $("adm-freq").addEventListener("change", UI.toggleAdminFreqCustom);
