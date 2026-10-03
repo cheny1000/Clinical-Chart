@@ -3190,12 +3190,13 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 
   /* The matrix table — compact */
   .chart-matrix {
-    width: 100%;
+    width: calc(100% - 8px);
+    margin: 4px;
     border-collapse: collapse;
     font-size: 7px;
     table-layout: fixed;
     border: 2px solid #000;
-    box-shadow: 0 0 0 3px #fff, 0 0 0 4.5px #000;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #000;
   }
 
   /* Patient column (rightmost) — header with two-line text centered

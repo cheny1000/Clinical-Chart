@@ -707,7 +707,7 @@
       'body { background: #fff; margin: 0; padding: 0; color: #000; font-family: "Tajawal", "Cairo", "Arial", sans-serif; }',
       '.chart-print-root { display: table; width: 100%; height: 100%; }',
       '.chart-page { display: table-cell; vertical-align: middle; }',
-      '.chart-matrix { width: 100%; border-collapse: collapse; font-size: 7px; table-layout: fixed; border: 2px solid #000; box-shadow: 0 0 0 3px #fff, 0 0 0 4.5px #000; }',
+      '.chart-matrix { width: calc(100% - 8px); margin: 4px; border-collapse: collapse; font-size: 7px; table-layout: fixed; border: 2px solid #000; box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #000; }',
       '.chart-patient-col-header { background: #fff; color: #000; font-weight: 800; padding: 1px 2px; border: 1.5px solid #000; text-align: center; font-size: 9px; width: 60px; min-width: 60px; vertical-align: middle; line-height: 1.3; }',
       '.chart-med-col-header { background: #fff; color: #000; border: 1.5px solid #000; padding: 1px 0; text-align: center; vertical-align: middle; height: 70px; width: 16px; min-width: 16px; }',
       '.chart-med-label { writing-mode: vertical-rl; text-orientation: mixed; font-size: 10px; font-weight: 700; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-height: 65px; margin: auto 0; display: block; }',

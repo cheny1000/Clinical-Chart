@@ -1159,7 +1159,9 @@
               }
             }
           }
-          tr.appendChild(h("td", { class: cellClass }, cellText));
+          tr.appendChild(h("td", { class: cellClass }, [
+            h("center", {}, cellText)
+          ]));
         });
 
         tbody.appendChild(tr);
