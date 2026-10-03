@@ -330,8 +330,13 @@
           ctx.textBaseline = "alphabetic";
           const metrics = ctx.measureText(cellText);
           const textW = metrics.width;
-          const x = cellCx - textW / 2 + 2;   // +2px right nudge (glyph asymmetry)
-          const y = rowMid + fontSize * 0.35;  // baseline below mid by ~35% of em
+          // Center the bounding box on the cell. No additional nudge —
+          // the +2px rightward offset from a previous attempt was
+          // overshooting and pushing digits to the right of center.
+          // Tajawal digits are nearly symmetric in their side bearings,
+          // so bounding-box center ≈ glyph visual center.
+          const x = cellCx - textW / 2;
+          const y = rowMid + fontSize * 0.35;
           ctx.fillText(cellText, x, y);
         });
       });
@@ -356,43 +361,63 @@
 
   // Draw vertical text in a header column.
   // Text is rotated 90° CW so it reads TOP-TO-BOTTOM, with each
-  // character's head pointing to the RIGHT (i.e., the text appears
-  // "lying on its right side"). This matches the Arabic reading flow
-  // for vertical column headers on the chart paper.
-  //
-  // Anchor: top-center of the header cell. After rotation, text grows
-  // downward from the top, with characters' visual centers on the
-  // column's horizontal midline.
+  // character's head pointing to the RIGHT.
+  // The font auto-shrinks for long names so the FULL text always
+  // fits inside the header cell (no truncation with ellipsis).
+  // The text is centered vertically by using alphabetic baseline
+  // with a Y offset of (fontSize × 0.35), same as the freq cells.
   function drawVerticalText(ctx, text, colIdx) {
     const cellLeft = G.V_LINES[colIdx];
     const cellRight = G.V_LINES[colIdx + 1];
     const cx = (cellLeft + cellRight) / 2;
-    const cyTop = G.HEADER_TOP + 2;  // top of header, with small inset
+    const maxHeight = G.HEADER_HEIGHT - 6;  // vertical room for text
+
+    // Auto-shrink font size so the text always fits. Try sizes from
+    // 11px down to 7px until the measured text width ≤ maxHeight.
+    let fontSize = Math.round(G.COL_WIDTH * 0.65);  // start: ~11px
+    let displayText = text;
+    let metrics = null;
+    while (fontSize >= 7) {
+      ctx.font = `bold ${fontSize}px Tajawal, Cairo, Arial, sans-serif`;
+      metrics = ctx.measureText(displayText);
+      if (metrics.width <= maxHeight) break;
+      fontSize -= 1;
+    }
+    // If at 7px it still doesn't fit, reduce by trimming the rare
+    // extra character (last resort)
+    if (metrics && metrics.width > maxHeight) {
+      // Try smaller font for letters (some browsers floor at 8)
+      ctx.font = `bold 7px Tajawal, Cairo, Arial, sans-serif`;
+      metrics = ctx.measureText(displayText);
+      if (metrics.width > maxHeight) {
+        // Trim from the END (left side after rotation) — drop one char
+        // at a time until it fits. Keep all text otherwise.
+        while (displayText.length > 3 && metrics.width > maxHeight) {
+          displayText = displayText.slice(0, -1);
+          metrics = ctx.measureText(displayText);
+        }
+      }
+    }
+
+    // Vertical centering: text grows downward from the top by
+    // maxHeight amount. Center it: top offset = (maxHeight - textW) / 2
+    const textW = metrics.width;
+    const topOffset = (maxHeight - textW) / 2;
+    const cyTop = G.HEADER_TOP + 3 + topOffset;  // 3px inset + centered
 
     ctx.save();
     ctx.translate(cx, cyTop);
-    ctx.rotate(Math.PI / 2);  // 90° CW — text reads top-to-bottom
+    ctx.rotate(Math.PI / 2);  // 90° CW
 
-    ctx.textAlign = "left";       // text grows in local +X (visually DOWN)
-    ctx.textBaseline = "middle";  // middle of text height on local Y=0
+    ctx.textAlign = "left";       // local +X is visually DOWN
+    ctx.textBaseline = "alphabetic";
     ctx.direction = "ltr";
-    // Smaller font (COL_WIDTH × 0.65 = ~11px) so the rotated glyphs
-    // (~15-16px tall with ascenders/descenders) fit comfortably inside
-    // the 17px-wide column without overlapping the vertical grid lines.
-    ctx.font = `bold ${Math.round(G.COL_WIDTH * 0.65)}px Tajawal, Cairo, Arial, sans-serif`;
     ctx.fillStyle = "#000";
 
-    // Cap text length to fit header height (text grows downward).
-    const maxHeight = G.HEADER_HEIGHT - 4;
-    let displayText = text;
-    const metrics = ctx.measureText(displayText);
-    if (metrics.width > maxHeight) {
-      const charWidth = metrics.width / displayText.length;
-      const maxChars = Math.floor(maxHeight / charWidth) - 1;
-      displayText = displayText.slice(0, maxChars) + "…";
-    }
+    // Y offset for vertical centering of glyph (same formula as freq)
+    const y = fontSize * 0.35;
 
-    ctx.fillText(displayText, 0, 0);
+    ctx.fillText(displayText, 0, y);
     ctx.restore();
   }
 
