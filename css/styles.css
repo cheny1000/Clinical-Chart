@@ -3243,7 +3243,8 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     display: block;
   }
 
-  /* Patient cell (rightmost in each row) — same height as med cell width */
+  /* Patient cell (rightmost in each row) — taller to match new row
+     height (19px). */
   .chart-patient-cell {
     background: #fff;
     font-weight: 700;
@@ -3253,13 +3254,14 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     vertical-align: middle;
     width: 60px;
     min-width: 60px;
-    height: 16px;
+    height: 19px;
     font-size: 8px;
     color: #000;
-    line-height: 16px;
+    line-height: 19px;
   }
 
-  /* Matrix data cells — same width and height = 18px (square) */
+  /* Matrix data cells — width 16px, height 19px (taller rows so the
+     chart fills more of the A4 landscape page). */
   .chart-cell {
     border: 1.5px solid #000;
     text-align: center;
@@ -3270,17 +3272,34 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     color: #000;
     width: 16px;
     min-width: 16px;
-    height: 16px;
-    line-height: 16px;
+    height: 19px;
+    line-height: 19px;
     background: #fff;
     box-sizing: border-box;
     text-align: center !important;
     display: table-cell;
   }
 
-  /* Force all rows to exactly 18px */
+  /* Fix: frequency digits appeared slightly toward the top of the cell
+     because <center> is a block element and the digit sits in the
+     upper portion of the 19px line-box (font ascender bias).
+     Using flexbox on <center> centers the digit precisely both
+     horizontally and vertically within the cell. line-height: 1
+     eliminates the ascender extra space. */
+  .chart-cell > center,
+  .chart-patient-cell > center {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+    line-height: 1;
+    text-align: center;
+  }
+
+  /* Force all rows to exactly 19px */
   .chart-matrix tr {
-    height: 16px;
+    height: 19px;
   }
 
   /* Custom freq cell (e.g. "حسب القياس", "حسب الحاجة") — same font
@@ -3310,19 +3329,20 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   /* iOS Safari renders fonts slightly larger than Android/Chrome,
      causing 35 rows to overflow the A4 page. On iOS, we shrink the
      cells a bit so all 35 rows fit on one page. We detect iOS via
-     a class added by JS (html.is-ios) at print time. */
+     a class added by JS (html.is-ios) at print time. iOS rows are
+     17px (proportional to the 19px non-iOS row height). */
   html.is-ios .chart-cell {
-    height: 14px;
-    line-height: 14px;
+    height: 17px;
+    line-height: 17px;
     font-size: 10px;
   }
   html.is-ios .chart-patient-cell {
-    height: 14px;
-    line-height: 14px;
+    height: 17px;
+    line-height: 17px;
     font-size: 7px;
   }
   html.is-ios .chart-matrix tr {
-    height: 14px;
+    height: 17px;
   }
   html.is-ios .chart-cell-custom {
     font-size: 10px;
