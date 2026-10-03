@@ -269,11 +269,9 @@
     const isAdmin = Auth.isAdmin();
     const adminBtn = $("open-admin");
     if (adminBtn) adminBtn.hidden = !isAdmin;
-    // chart buttons + logout button are always visible (both roles)
+    // chart button + PDF button + logout button are always visible (both roles)
     const chartBtn = $("print-chart-btn");
     if (chartBtn) chartBtn.hidden = false;
-    const preprintedBtn = $("print-preprinted-btn");
-    if (preprintedBtn) preprintedBtn.hidden = false;
     const logoutBtn = $("logout-btn");
     if (logoutBtn) logoutBtn.hidden = false;
   }
@@ -1329,36 +1327,13 @@
         flashHint("لا توجد أدوية في الكتالوج");
         return;
       }
+      // Count occupied patients
       const occCount = Object.values(state.patients || {})
         .filter(p => p && p.name && p.name.trim()).length;
       if (occCount === 0) {
         flashHint("لا يوجد مرضى مشغولون لطباعة التشارت");
         return;
       }
-      state._printMode = "regular";
-      openSupplyOrderModal(occCount);
-    });
-
-    // ----- Print Chart on PRE-PRINTED paper (no grid lines) -----
-    // Same flow but the chart is built with 50 rows × 35 cols to match
-    // the user's actual pre-printed gart paper, and at print time we
-    // strip ALL borders + use a custom @page size of 200×297mm with
-    // margins matching the grid position on the paper.
-    // The user loads the pre-printed paper in their printer; the
-    // printer prints only the text (names, frequencies, med names)
-    // on top of the existing grid.
-    $("print-preprinted-btn").addEventListener("click", () => {
-      if (!state.medications || state.medications.length === 0) {
-        flashHint("لا توجد أدوية في الكتالوج");
-        return;
-      }
-      const occCount = Object.values(state.patients || {})
-        .filter(p => p && p.name && p.name.trim()).length;
-      if (occCount === 0) {
-        flashHint("لا يوجد مرضى مشغولون لطباعة التشارت");
-        return;
-      }
-      state._printMode = "preprinted";
       openSupplyOrderModal(occCount);
     });
 
@@ -1522,37 +1497,13 @@
 
       closeSupplyOrderModal();
 
-      // Determine chart mode (set by the button that opened the modal)
-      const printMode = state._printMode || "regular";
-      delete state._printMode;
-
-      // Build the chart with the supply distribution
-      UI.buildChartReport(state.patients, state.medications, supplyDistribution, printMode);
+      // Build the chart with the supply distribution (HTML chart path)
+      UI.buildChartReport(state.patients, state.medications, supplyDistribution);
 
       // Detect iOS and add class for CSS overrides (smaller cells)
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
       if (isIOS) {
         document.documentElement.classList.add("is-ios");
-      }
-
-      // For pre-printed mode: inject a custom @page rule that
-      // overrides the regular A4-landscape @page. The custom rule
-      // sets the page size to 200×297mm (the actual gart paper size,
-      // NOT A4) and adjusts margins to position the text on top of
-      // the pre-printed grid.
-      let preprintedStyle = null;
-      if (printMode === "preprinted") {
-        preprintedStyle = document.createElement("style");
-        preprintedStyle.id = "preprinted-page-rule";
-        preprintedStyle.textContent = `
-          @media print {
-            @page {
-              size: 200mm 297mm;
-              margin: 13mm 12mm 12mm 12mm;
-            }
-          }
-        `;
-        document.head.appendChild(preprintedStyle);
       }
 
       // Print (same iOS / Android logic as before)
@@ -1570,17 +1521,6 @@
             window.print();
           });
         });
-      }
-
-      // Clean up the injected @page rule after printing (3s grace
-      // period to ensure the print dialog has finished reading the
-      // styles).
-      if (preprintedStyle) {
-        setTimeout(() => {
-          if (preprintedStyle.parentNode) {
-            preprintedStyle.parentNode.removeChild(preprintedStyle);
-          }
-        }, 3000);
       }
     });
 
