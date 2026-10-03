@@ -3394,15 +3394,12 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 
   /* ============================================================
      Pre-printed mode (طباعة على ورق جارت مطبوع مسبقاً)
-     - The user rotates the pre-printed gart paper 90° clockwise and
-       loads it in the printer. The grid that was portrait (50 rows ×
-       35 cols) is now landscape.
-     - We print the chart 90° CW rotated so the text aligns with the
-       rotated grid: patient names (were on LEFT) → TOP, medication
-       headers (were on TOP) → RIGHT.
-     - Page size = 297×200mm LANDSCAPE (the gart paper rotated).
-     - @page margin is injected via JS at print time
-       (margin: 13mm 12mm 12mm 12mm).
+     - The user loads pre-printed gart paper (with grid lines already
+       on it) into their printer; we print ONLY text (names, freq,
+       med names) on top of the existing grid.
+     - Page size = 200×297mm (the actual gart paper, NOT A4)
+     - @page margin is overridden via JS-injected <style> at print
+       time (see app.js printChartPreprinted flow).
      - The .preprinted-mode class is added to #chart-print-root by
        UI.buildChartReport when mode === "preprinted".
      ============================================================ */
@@ -3410,29 +3407,18 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     border: none !important;
     box-shadow: none !important;
     margin: 0;
-    /* Rotate 90° clockwise around the top-left corner. After rotation,
-       the chart visually occupies width=H, height=W (dimensions swap).
-       Use absolute positioning so the rotated chart sits at the
-       page's top-left corner (within the @page margins). */
-    transform: rotate(90deg);
-    transform-origin: top left;
-    position: absolute;
-    top: 0;
-    left: 100%;
-    /* left:100% moves the chart's top-left corner to the right edge
-       of the page area. After rotation, this corner becomes the
-       chart's visible top-left — i.e., the rotated chart now spans
-       from (0,0) to (H, W) inside the page's printable area. */
+    width: 100%;
   }
   .chart-print-root.preprinted-mode .chart-matrix th,
   .chart-print-root.preprinted-mode .chart-matrix td {
     border: none !important;
     background: transparent !important;
   }
-  /* Cell sizes for pre-printed mode.
-     Original (unrotated) chart: 70 + 35×16 = 630px wide × 1025px tall
-     After 90° CW rotation: 1025px wide × 630px tall — fits a 297×200mm
-     landscape page (1123×756 CSS px) with margins. */
+  /* Cell sizes for pre-printed mode — sized to fit 50 rows × 35 cols
+     inside 200×297mm paper with 12mm side margins and 13mm top margin.
+     Available: 176mm × 271mm = 666 × 1024 CSS px.
+     Layout: 70px patient col + 35 × 16.7px med cols ≈ 655px wide
+             75px header + 50 × 19px rows = 1025px tall */
   .chart-print-root.preprinted-mode .chart-patient-col-header,
   .chart-print-root.preprinted-mode .chart-patient-cell {
     width: 70px;
