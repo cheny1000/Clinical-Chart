@@ -90,10 +90,19 @@
     ctx.fillText(text, x, y + fontPx * 0.35);
   }
 
-  // Get the best display name for a med (matches UI.primaryName logic)
+  // Get the best display name for a med — for the pills form, the
+  // user wants the Arabic name shown (not the English trade name).
+  // Order of preference:
+  //   1. nameAr (Arabic generic name) — preferred for the pills form
+  //   2. nameTrade (English trade name) — fallback if no Arabic name
+  //   3. nameEn (English generic name) — last resort
+  //   4. name / id — never shown to users, but as last-resort fallback
+  // Note: this is DIFFERENT from the rest of the app (which prefers
+  // nameTrade first). The pills form is meant to be readable by the
+  // patient in their own language (Arabic).
   function primaryName(m) {
     if (!m) return "";
-    return m.nameTrade || m.nameAr || m.nameEn || m.name || m.id || "";
+    return m.nameAr || m.nameTrade || m.nameEn || m.name || m.id || "";
   }
 
   // ---- Section drawing helpers ----
