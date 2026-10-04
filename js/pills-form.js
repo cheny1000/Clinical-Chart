@@ -143,6 +143,29 @@
     const col4_cx = (G.V_LINES[0] + G.V_LINES[1]) / 2;
     drawArabicLine(ctx, "طريقة الاستخدام", col4_cx, row_cy, label_font_px);
 
+    // ---- 3. Footer: "الصيدلي السريري" at bottom-left of the page ----
+    // Placed below the table (y > 1961), aligned with the left edge
+    // of the table content (x ~ 200), with some vertical padding from
+    // the table's bottom border. The user said "يسار اسفل الصفحة".
+    // In RTL pixel coordinates, "left" = low X. We place the text
+    // near the bottom-left corner, with the text baseline at y=2150
+    // (about 200px below the table's bottom line at y=1961).
+    const footer_text = "الصيدلي السريري";
+    const footer_font_px = 36;
+    const footer_x = 200;       // left side of the page (low X = left)
+    const footer_y = 2150;      // ~200px below the table's bottom border
+    // Use left-alignment so the text starts from the left edge of the
+    // cell. (textAlign="left" + drawArabicLine handles Arabic shaping
+    // natively.)
+    ctx.font = `bold ${footer_font_px}px Tajawal, Cairo, Arial, sans-serif`;
+    ctx.fillStyle = "#000";
+    ctx.textAlign = "left";       // text grows rightward from footer_x
+    ctx.textBaseline = "alphabetic";
+    // Arabic text rendered with textAlign="left" still shapes RTL
+    // internally; the "left" anchor just sets where the bounding box's
+    // left edge sits.
+    ctx.fillText(footer_text, footer_x, footer_y);
+
     // ---- Convert to PNG blob and download ----
     const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
     const stamp = new Date().toISOString().slice(0, 10);
