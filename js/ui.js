@@ -204,12 +204,26 @@
     document.getElementById("loc-room").textContent = "غرفة " + roomId;
     document.getElementById("loc-bed").textContent  = "سرير " + bedNumber;
 
+    // IMPORTANT: Don't reset the name input value if it's currently
+    // FOCUSED. Otherwise, when Supabase Realtime broadcasts the
+    // patient update back to this same device (echo from our own push),
+    // the renderPatientView call would overwrite the user's in-progress
+    // typing with the value they JUST typed (effectively losing any
+    // characters typed between the input event and the realtime echo,
+    // typically 100-400ms). On slow phones this looks like characters
+    // being auto-erased while typing fast.
     const nameInput = document.getElementById("patient-name-input");
-    nameInput.value = (patient && patient.name) ? patient.name : "";
+    const isNameFocused = document.activeElement === nameInput;
+    if (!isNameFocused) {
+      nameInput.value = (patient && patient.name) ? patient.name : "";
+    }
 
-    // Plate number (optional field under the name input)
+    // Same logic for plate input.
     const plateInput = document.getElementById("patient-plate-input");
-    plateInput.value = (patient && patient.plateNumber) ? String(patient.plateNumber) : "";
+    const isPlateFocused = document.activeElement === plateInput;
+    if (!isPlateFocused) {
+      plateInput.value = (patient && patient.plateNumber) ? String(patient.plateNumber) : "";
+    }
 
     const medsList = document.getElementById("meds-list");
     const emptyMeds = document.getElementById("empty-meds");
