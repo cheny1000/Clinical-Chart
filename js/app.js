@@ -1748,9 +1748,10 @@
           const pages = await global.PharmacyChartImage.generateChartImage(wrapState);
           if (pages && pages.length > 0) {
             flashHint(`تم توليد ${pages.length} صفحة جارت — تحقق من التنزيلات`);
-            // After the chart is generated, show the med summary list
-            // (includes the auto-distributed supplies).
-            showMedSummaryList(supplyDistribution);
+            // The med summary modal no longer pops up automatically
+            // after chart generation. The user opens it explicitly
+            // via the red med-summary button (which uses the saved
+            // _lastSupplyDistribution set above).
           }
         } catch (err) {
           console.error("[chart-image] error:", err);
