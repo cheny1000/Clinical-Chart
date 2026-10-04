@@ -269,9 +269,11 @@
     const isAdmin = Auth.isAdmin();
     const adminBtn = $("open-admin");
     if (adminBtn) adminBtn.hidden = !isAdmin;
-    // chart button + PDF button + logout button are always visible (both roles)
+    // chart button + pills form button + logout button are always visible
     const chartBtn = $("print-chart-btn");
     if (chartBtn) chartBtn.hidden = false;
+    const pillsBtn = $("print-pills-form-btn");
+    if (pillsBtn) pillsBtn.hidden = false;
     const logoutBtn = $("logout-btn");
     if (logoutBtn) logoutBtn.hidden = false;
   }
@@ -1335,6 +1337,26 @@
         return;
       }
       openSupplyOrderModal(occCount);
+    });
+
+    // ----- Pills Form Download (تنزيل استمارة اعطاء الحبوب) -----
+    // Generates a downloadable PNG of the pill dispensing form with
+    // the hospital/department/title pre-printed and column labels
+    // (العلاج / الجرعة / طريقة الاستخدام) filled in. No patient-
+    // specific data is needed — the form is a fixed template.
+    $("print-pills-form-btn").addEventListener("click", async () => {
+      if (!global.PharmacyPillsForm) {
+        flashHint("تعذّر تحميل وحدة استمارة الحبوب");
+        return;
+      }
+      flashHint("يتم توليد استمارة الحبوب... انتظر قليلاً");
+      try {
+        const result = await global.PharmacyPillsForm.generatePillsForm();
+        flashHint("تم تنزيل استمارة الحبوب — تحقق من التنزيلات");
+      } catch (err) {
+        console.error("[pills-form] error:", err);
+        flashHint("تعذّر توليد الاستمارة: " + (err.message || err));
+      }
     });
 
     // ----- Display Mode (TV / large screen) -----
