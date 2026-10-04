@@ -1365,7 +1365,11 @@
             return;
           }
           if (result && result.count) {
-            flashHint(`تم تنزيل ${result.count} استمارة حبوب — تحقق من التنزيلات`);
+            if (result.mode === "pdf") {
+              flashHint(`تم تنزيل ملف PDF موحّد لـ ${result.count} مريض — تحقق من التنزيلات`);
+            } else {
+              flashHint(`تم تنزيل ${result.count} استمارة حبوب — تحقق من التنزيلات`);
+            }
           } else {
             flashHint("لم يتم توليد أي استمارة");
           }

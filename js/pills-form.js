@@ -415,28 +415,71 @@
     // Load template once (reused for all patient forms)
     const templateImg = await loadImage(TEMPLATE_URL);
 
-    // Generate a form for each patient
-    const pages = [];
+    // Generate a canvas for each patient (in memory — NOT downloaded
+    // individually). All canvases are kept in memory so we can merge
+    // them into a single multi-page PDF below.
+    const canvases = [];
     for (let i = 0; i < tabletPatients.length; i++) {
       const patient = tabletPatients[i];
       const canvas = await buildPillsFormCanvas(
         templateImg, patient, patient.tabletMeds
       );
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
-      pages.push({ blob, patient });
+      canvases.push(canvas);
     }
 
-    // Download each (stagger to avoid browser blocking multiple
-    // simultaneous downloads)
-    const stamp = new Date().toISOString().slice(0, 10);
-    pages.forEach((p, i) => {
-      // Sanitize patient name for filename (replace path-unsafe chars)
-      const safeName = p.patient.name.replace(/[\\/:*?"<>|]/g, "_");
-      const filename = `pills-form-${safeName}-${stamp}.png`;
-      setTimeout(() => downloadBlob(p.blob, filename), i * 300);
+    // ---- Merge all canvases into a single multi-page PDF ----
+    // The form template is 1654×2339 px @ 300 DPI = 1654/300×25.4mm
+    // wide × 2339/300×25.4mm tall = 140×198 mm (close to A4: 210×297mm).
+    // We use A4 portrait orientation and fit the form image to the
+    // page so the pharmacist can print the PDF directly on A4 paper.
+    const PDF_PAGE_W = 210;  // A4 width in mm
+    const PDF_PAGE_H = 297;  // A4 height in mm
+    const IMG_W_MM = 140;    // form image width in mm
+    const IMG_H_MM = 198;    // form image height in mm
+    // Center the form image on the A4 page
+    const IMG_X = (PDF_PAGE_W - IMG_W_MM) / 2;  // 35mm left margin
+    const IMG_Y = (PDF_PAGE_H - IMG_H_MM) / 2;  // 49.5mm top margin
+
+    // Try to access jsPDF from the global window. html2pdf.js bundle
+    // includes jsPDF as window.jspdf.jsPDF (and also as window.jsPDF
+    // in some builds).
+    const JsPDF = (global.jspdf && global.jspdf.jsPDF) || global.jsPDF;
+    if (!JsPDF) {
+      // Fallback: if jsPDF isn't available, fall back to downloading
+      // each canvas as a separate PNG (old behavior).
+      console.warn("[pills-form] jsPDF not available — falling back to separate PNGs");
+      const stamp = new Date().toISOString().slice(0, 10);
+      for (let i = 0; i < canvases.length; i++) {
+        const blob = await new Promise(resolve => canvases[i].toBlob(resolve, "image/png"));
+        const safeName = tabletPatients[i].name.replace(/[\\/:*?"<>|]/g, "_");
+        const filename = `pills-form-${safeName}-${stamp}.png`;
+        setTimeout(() => downloadBlob(blob, filename), i * 300);
+      }
+      return { count: canvases.length, mode: "png-fallback" };
+    }
+
+    const pdf = new JsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4"
     });
 
-    return { count: pages.length, pages: pages };
+    for (let i = 0; i < canvases.length; i++) {
+      const canvas = canvases[i];
+      // Convert canvas to JPEG data URL (smaller file size than PNG
+      // for the same visual quality when the image is mostly white
+      // background + black text).
+      const dataURL = canvas.toDataURL("image/jpeg", 0.85);
+      if (i > 0) pdf.addPage();
+      pdf.addImage(dataURL, "JPEG", IMG_X, IMG_Y, IMG_W_MM, IMG_H_MM);
+    }
+
+    // Save the merged PDF
+    const stamp = new Date().toISOString().slice(0, 10);
+    const filename = `pills-forms-${stamp}.pdf`;
+    pdf.save(filename);
+
+    return { count: canvases.length, mode: "pdf", filename: filename };
   }
 
   // ---- Exports ----
