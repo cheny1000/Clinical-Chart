@@ -233,29 +233,30 @@
   // category (most tablets → "بدون قيود").
   const MED_USAGE_TABLE = {
     // Pain / fever
-    "paracetamol":              "بدون قيود",
+    "paracetamol":              "مع أو بدون طعام",
     // Antibiotics
     "amoxclav":                 "مع الطعام",
-    "fucidin":                  "بدون قيود",
+    "fucidin":                  "مع أو بدون طعام",
     "flagyl-500":               "مع الطعام",
     // Cardiovascular
-    "amlodipine-5":             "بدون قيود",
-    "apixaban-5":               "بدون قيود",
+    "amlodipine-5":             "مع أو بدون طعام",
+    "apixaban-5":               "مع أو بدون طعام",
     // Supplements
     "calcium-carbonate-500":    "مع الطعام"
   };
 
-  // Look up usage instructions for a med. Falls back to "بدون قيود"
-  // (no restrictions) for unknown meds — most tablets have no specific
-  // timing requirement unless explicitly stated by the pharmacist.
+  // Look up usage instructions for a med. Falls back to "مع أو بدون طعام"
+  // (with or without food) for unknown meds — most tablets can be
+  // taken either way unless specifically required to be taken with
+  // food (e.g. NSAIDs) or on an empty stomach (e.g. bisphosphonates).
   function getMedUsage(catalog) {
-    if (!catalog || !catalog.id) return "بدون قيود";
+    if (!catalog || !catalog.id) return "مع أو بدون طعام";
     if (MED_USAGE_TABLE[catalog.id]) return MED_USAGE_TABLE[catalog.id];
     // Allow per-med override via catalog.usage field (if the user has
     // added this field via the admin UI — currently not exposed in the
     // form, but reserved for future use).
     if (catalog.usage) return catalog.usage;
-    return "بدون قيود";
+    return "مع أو بدون طعام";
   }
 
   // Draw medications in rows 3-10 (y=454-1958, 185px each, max 8 rows).
