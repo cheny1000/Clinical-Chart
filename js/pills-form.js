@@ -103,10 +103,23 @@
       drawArabicLine(ctx, line, page_cx, header_top_y + i * line_h, header_font_px);
     });
 
-    // ---- 2. Column labels in the first table row (y=322-388, 63px) ----
-    const row_top = G.H_LINES[0];  // 322
-    const row_bot = G.H_LINES[1];  // 388
-    const row_cy = (row_top + row_bot) / 2;  // 355
+    // ---- 2. Column labels in the SECOND table row (y=388-454, 63px) ----
+    // The user said "في الصف الثاني" — the SECOND row of the table, not
+    // the first. The first row (y=322-388) is left blank (it may be
+    // used by the pharmacist for header info or notes); the labels
+    // go in the second row (y=388-454), which is the user's "الصف
+    // الثاني" (counted from the top of the table, RTL Arabic reading
+    // order — first row at top, second row below it).
+    //
+    // RTL column order: "الصف الأول / العامود الأول" = the rightmost
+    // column for an Arabic user. So:
+    //   Col 1 (rightmost, V_LINES[0..1]): "العلاج" (medication name)
+    //   Col 2 (V_LINES[1..2]):            "الجرعة" (dose)
+    //   Col 3 (V_LINES[2..3]):            "طريقة الاستخدام" (usage method)
+    //   Col 4 (leftmost, V_LINES[3..4]):  blank (signature/notes)
+    const row_top = G.H_LINES[1];  // 388 — top of the SECOND row
+    const row_bot = G.H_LINES[2];  // 454 — bottom of the SECOND row
+    const row_cy = (row_top + row_bot) / 2;  // 421
     const label_font_px = 32;
 
     // Col 1 (rightmost in RTL = first column): "العلاج"
