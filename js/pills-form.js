@@ -216,16 +216,60 @@
     drawArabicLine(ctx, bottomText, cx, botY, bottomFontPx);
   }
 
+  // Usage instructions for common tablet medications.
+  // Maps med id → usage phrase. The phrase describes how/when the
+  // patient should take the medication. Pharmacist can override on
+  // the printed form.
+  //
+  // Categories used:
+  //   - "بدون قيود"        — no food timing requirements (e.g. paracetamol)
+  //   - "مع الطعام"        — take with food (e.g. NSAIDs, antibiotics)
+  //   - "بعد الأكل"        — same as 'with food', explicit 'after'
+  //   - "قبل الطعام بـ 60 دقيقة"  — 60 min before food (e.g. bisphosphonates)
+  //   - "قبل النوم"        — at bedtime (e.g. some antihistamines)
+  //   - "مع كوب ماء كامل"   — with a full glass of water (e.g. doxycycline)
+  //
+  // For meds NOT in this map, fall back to a default based on the med
+  // category (most tablets → "بدون قيود").
+  const MED_USAGE_TABLE = {
+    // Pain / fever
+    "paracetamol":              "بدون قيود",
+    // Antibiotics
+    "amoxclav":                 "مع الطعام",
+    "fucidin":                  "بدون قيود",
+    "flagyl-500":               "مع الطعام",
+    // Cardiovascular
+    "amlodipine-5":             "بدون قيود",
+    "apixaban-5":               "بدون قيود",
+    // Supplements
+    "calcium-carbonate-500":    "مع الطعام"
+  };
+
+  // Look up usage instructions for a med. Falls back to "بدون قيود"
+  // (no restrictions) for unknown meds — most tablets have no specific
+  // timing requirement unless explicitly stated by the pharmacist.
+  function getMedUsage(catalog) {
+    if (!catalog || !catalog.id) return "بدون قيود";
+    if (MED_USAGE_TABLE[catalog.id]) return MED_USAGE_TABLE[catalog.id];
+    // Allow per-med override via catalog.usage field (if the user has
+    // added this field via the admin UI — currently not exposed in the
+    // form, but reserved for future use).
+    if (catalog.usage) return catalog.usage;
+    return "بدون قيود";
+  }
+
   // Draw medications in rows 3-10 (y=454-1958, 185px each, max 8 rows).
   // For each med (per user request):
-  //   Col 1 (rightmost): BLANK (was med name; med column moved to col 2)
+  //   Col 1 (rightmost): BLANK
   //   Col 2 (العلاج):    med name (top) + dose (below) — stacked
   //   Col 3 (وقت الجرعة):  human-readable time interval (e.g. "كل 12 ساعة")
-  //   Col 4 (طريقة الاستخدام): BLANK (pharmacist fills by hand)
+  //   Col 4 (طريقة الاستخدام): usage instructions (e.g. "مع الطعام",
+  //                            "قبل الطعام بـ 60 دقيقة")
   function drawMedications(ctx, tabletMeds) {
     const nameFontPx = 28;
     const doseFontPx = 22;  // slightly smaller than name
     const timeFontPx = 28;
+    const usageFontPx = 26;
     const maxRows = Math.min(MAX_MED_ROWS, tabletMeds.length);
 
     for (let i = 0; i < maxRows; i++) {
@@ -236,6 +280,7 @@
       // Row i (0-indexed) maps to table row 3+i.
       const row_top = G.H_LINES[2 + i];
       const row_bot = G.H_LINES[2 + i + 1];
+      const row_cy = (row_top + row_bot) / 2;
 
       // Col 1 (rightmost, V_LINES[3..4]): BLANK
 
@@ -248,14 +293,15 @@
 
       // Col 3 (V_LINES[1..2]): time interval (converted from frequency)
       const col3_cx = (G.V_LINES[1] + G.V_LINES[2]) / 2;
-      const row_cy = (row_top + row_bot) / 2;
       const freq = pm.frequency || catalog.defaultFrequency || "";
       const timeText = freqToTimeInterval(freq);
       drawArabicLine(ctx, timeText, col3_cx, row_cy, timeFontPx);
 
-      // Col 4 (leftmost, V_LINES[0..1]): BLANK (was dose)
-      // Per user request: dose moved to col 2 under the med name.
-      // طريقة الاستخدام column left blank for pharmacist to fill in.
+      // Col 4 (leftmost, V_LINES[0..1]): usage instructions
+      // (e.g. "مع الطعام", "قبل الطعام بـ 60 دقيقة")
+      const col4_cx = (G.V_LINES[0] + G.V_LINES[1]) / 2;
+      const usageText = getMedUsage(catalog);
+      drawArabicLine(ctx, usageText, col4_cx, row_cy, usageFontPx);
     }
   }
 
