@@ -98,6 +98,14 @@
   let _displayModeActive = false;
   let _displayClockTimer = null;
 
+  // -------- Last supply distribution memory --------
+  // When the user generates the chart via the supply-order modal, the
+  // supplyDistribution is saved here. Later, if the user opens the
+  // med summary modal via the red button (without re-running through
+  // the supply-order flow), this saved distribution is used so the
+  // Supplies category reflects what was last distributed.
+  let _lastSupplyDistribution = null;
+
   function initDisplayMode() {
     const btn = $("display-mode-exit");
     if (btn) {
@@ -1548,13 +1556,14 @@
 
     // ----- Med Summary Button (opens the summary modal on demand) -----
     // The summary also appears automatically after the chart is
-    // generated (with supply distribution), but this button lets the
-    // pharmacist open it any time without generating the chart again.
-    // When opened via the button, supplies are NOT included (only the
-    // patient-prescribed meds are tallied) — supplies are only shown
-    // after they're distributed via the supply-order modal.
+    // generated (with the fresh supply distribution). When opened via
+    // this button, it uses the LAST supply distribution (saved at
+    // chart-generation time) — so the Supplies category reflects
+    // what was distributed in the last chart. If no chart has been
+    // generated yet (no last distribution saved), the modal shows only
+    // the patient-prescribed meds (no supplies).
     $("med-summary-btn").addEventListener("click", () => {
-      showMedSummaryList(null);
+      showMedSummaryList(_lastSupplyDistribution);
     });
 
     // ----- Display Mode (TV / large screen) -----
@@ -1716,6 +1725,11 @@
       });
 
       closeSupplyOrderModal();
+
+      // Save this distribution as the "last" — used by the med-summary
+      // button (red button) to display the same supplies without
+      // requiring the user to re-distribute via the supply-order modal.
+      _lastSupplyDistribution = supplyDistribution;
 
       // ---- Generate chart as a downloadable image overlay on the
       //      reference chart template (img/chart-reference.png).
