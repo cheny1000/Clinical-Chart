@@ -89,6 +89,8 @@
     ctx.drawImage(templateImg, 0, 0, G.IMG_W, G.IMG_H);
 
     // ---- 1. Page header: 3 lines centered horizontally ----
+    // The user requested the header text be moved down a bit from the
+    // top of the page (was at y=80, now at y=130).
     const page_cx = G.IMG_W / 2;
     const header_lines = [
       "مستشفى بغداد التعليمي",
@@ -97,7 +99,7 @@
     ];
     const header_font_px = 48;
     const line_h = 60;  // 48px font + 12px gap
-    const header_top_y = 80;  // comfortable top margin
+    const header_top_y = 130;  // moved down from 80 per user request
 
     header_lines.forEach((line, i) => {
       drawArabicLine(ctx, line, page_cx, header_top_y + i * line_h, header_font_px);
@@ -107,34 +109,38 @@
     // The user said "في الصف الثاني" — the SECOND row of the table, not
     // the first. The first row (y=322-388) is left blank (it may be
     // used by the pharmacist for header info or notes); the labels
-    // go in the second row (y=388-454), which is the user's "الصف
-    // الثاني" (counted from the top of the table, RTL Arabic reading
-    // order — first row at top, second row below it).
+    // go in the second row (y=388-454).
     //
-    // RTL column order: "الصف الأول / العامود الأول" = the rightmost
-    // column for an Arabic user. So:
-    //   Col 1 (rightmost, V_LINES[0..1]): "العلاج" (medication name)
-    //   Col 2 (V_LINES[1..2]):            "الجرعة" (dose)
-    //   Col 3 (V_LINES[2..3]):            "طريقة الاستخدام" (usage method)
-    //   Col 4 (leftmost, V_LINES[3..4]):  blank (signature/notes)
+    // RTL layout: V_LINES[0]=133 is the LEFT edge of the page (in pixel
+    // coordinates), and V_LINES[4]=1529 is the RIGHT edge. So:
+    //   - Rightmost column (RTL "first") = V_LINES[3..4] = x=1206..1529
+    //   - Middle-right column            = V_LINES[2..3] = x=981..1206
+    //   - Middle-left column              = V_LINES[1..2] = x=778..981
+    //   - Leftmost column                 = V_LINES[0..1] = x=133..778
+    //
+    // User's mapping (RTL Arabic reading order, rightmost = first):
+    //   العامود الأول (rightmost): "العلاج"          → V_LINES[3..4]
+    //   العامود الثاني:           "الجرعة"          → V_LINES[2..3]
+    //   العامود الثالث (leftmost): "طريقة الاستخدام" → V_LINES[1..2]
+    //   العامود الرابع (leftmost): blank (signature) → V_LINES[0..1]
     const row_top = G.H_LINES[1];  // 388 — top of the SECOND row
     const row_bot = G.H_LINES[2];  // 454 — bottom of the SECOND row
     const row_cy = (row_top + row_bot) / 2;  // 421
     const label_font_px = 32;
 
-    // Col 1 (rightmost in RTL = first column): "العلاج"
-    const col1_cx = (G.V_LINES[0] + G.V_LINES[1]) / 2;
+    // Col 1 (RIGHTMOST in RTL, V_LINES[3..4]): "العلاج" (medication name)
+    const col1_cx = (G.V_LINES[3] + G.V_LINES[4]) / 2;
     drawArabicLine(ctx, "العلاج", col1_cx, row_cy, label_font_px);
 
-    // Col 2: "الجرعة"
-    const col2_cx = (G.V_LINES[1] + G.V_LINES[2]) / 2;
+    // Col 2 (V_LINES[2..3]): "الجرعة" (dose)
+    const col2_cx = (G.V_LINES[2] + G.V_LINES[3]) / 2;
     drawArabicLine(ctx, "الجرعة", col2_cx, row_cy, label_font_px);
 
-    // Col 3: "طريقة الاستخدام"
-    const col3_cx = (G.V_LINES[2] + G.V_LINES[3]) / 2;
+    // Col 3 (LEFTMOST labeled, V_LINES[1..2]): "طريقة الاستخدام" (usage)
+    const col3_cx = (G.V_LINES[1] + G.V_LINES[2]) / 2;
     drawArabicLine(ctx, "طريقة الاستخدام", col3_cx, row_cy, label_font_px);
 
-    // Col 4 (leftmost): left blank for signature/notes
+    // Col 4 (leftmost, V_LINES[0..1]): left blank (signature/notes)
 
     // ---- Convert to PNG blob and download ----
     const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
