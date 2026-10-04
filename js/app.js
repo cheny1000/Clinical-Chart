@@ -276,7 +276,7 @@
     if (!Auth) return;
     const isAdmin = Auth.isAdmin();
     const adminBtn = $("open-admin");
-    if (adminBtn) adminBtn.hidden = !isAdmin;
+    if (adminBtn) adminBtn.hidden = false;  // Always visible (both roles)
     // chart button + med summary button + pills form button + logout
     // are always visible
     const chartBtn = $("print-chart-btn");
@@ -1327,8 +1327,19 @@
       UI.showView("home");
     });
 
-    // ----- Admin: open via header gear -----
-    $("open-admin").addEventListener("click", openAdminView);
+    // ----- Settings/Admin: open via header gear -----
+    // The gear ⚙ button opens a different view depending on the user's
+    // role:
+    //   - admin  → full admin view (med catalog + users + audit log)
+    //   - pharmacist → simple settings view (dark mode + TV + logout)
+    $("open-admin").addEventListener("click", () => {
+      const isAdmin = Auth && Auth.isAdmin();
+      if (isAdmin) {
+        openAdminView();
+      } else {
+        openSettingsView();
+      }
+    });
 
     // ----- Print Chart (التشارت) -----
     // Instead of printing directly, we first open the Supply Order
@@ -1771,6 +1782,48 @@
       UI.hideAdminForm();
       state.currentBed = null;
       UI.showView("home");
+    });
+
+    // ----- Settings view (for non-admin pharmacists) -----
+    $("settings-back-btn").addEventListener("click", () => {
+      state.currentBed = null;
+      UI.showView("home");
+    });
+
+    // Settings: dark mode toggle button
+    $("settings-darkmode-btn").addEventListener("click", () => {
+      const html = document.documentElement;
+      const isDark = html.getAttribute("data-theme") === "dark";
+      if (isDark) {
+        html.removeAttribute("data-theme");
+        try { localStorage.setItem("pharma.darkmode", "false"); } catch (e) {}
+      } else {
+        html.setAttribute("data-theme", "dark");
+        try { localStorage.setItem("pharma.darkmode", "true"); } catch (e) {}
+      }
+      // Update the value display immediately
+      const valueEl = $("settings-darkmode-value");
+      if (valueEl) {
+        const nowDark = html.getAttribute("data-theme") === "dark";
+        valueEl.textContent = nowDark ? "مُفعّل" : "مُعطّل";
+      }
+    });
+
+    // Settings: TV display mode entry
+    $("settings-tv-btn").addEventListener("click", () => {
+      // Close the settings view first, then enter display mode
+      UI.showView("home");
+      enterDisplayMode();
+    });
+
+    // Settings: logout button
+    $("settings-logout-btn").addEventListener("click", () => {
+      if (typeof Auth !== "undefined" && Auth && typeof Auth.logout === "function") {
+        Auth.logout();
+      } else {
+        // Fallback: just go to login screen
+        if (typeof UI !== "undefined" && UI) UI.showView("home");
+      }
     });
 
     // Admin "دواء جديد"
@@ -2319,9 +2372,25 @@
     else if (list) list.innerHTML = '<div class="admin-audit-error">فشل تحميل السجل: ' + (res.error || "") + '</div>';
   }
 
+  // -------- Settings view (for non-admin pharmacists) --------
+  // Shows a simplified settings page with:
+  //   - Dark/light mode toggle
+  //   - TV display mode entry
+  //   - Logout button
+  // Opens when a non-admin pharmacist taps the gear ⚙ button. Admins
+  // see the full admin view (openAdminView) instead.
+  function openSettingsView() {
+    // Update the dark-mode value display
+    const valueEl = $("settings-darkmode-value");
+    if (valueEl) {
+      const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+      valueEl.textContent = isDark ? "مُفعّل" : "مُعطّل";
+    }
+    UI.showView("settings");
+  }
+
   // -------- Admin view --------
   function openAdminView() {
-    state.admin.editingId = null;
     state.admin.isNew = false;
     state.admin.selectedId = null;
     UI.hideAdminForm();

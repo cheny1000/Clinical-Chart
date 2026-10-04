@@ -423,6 +423,45 @@
         </div>
       </section>
 
+      <!-- ===== Settings view (for non-admin pharmacists) =====
+           A simplified settings page shown when a non-admin pharmacist
+           taps the gear ⚙ button. Contains only:
+             - Dark / light mode toggle
+             - TV display mode entry
+             - Logout button
+           Admin-only sections (med catalog, user management, audit log)
+           remain accessible to admins via the same gear button, which
+           opens the full admin view (view-admin) for admins. -->
+      <section class="view view-settings" id="view-settings" data-view="settings" hidden>
+        <button class="back-btn" id="settings-back-btn" type="button" aria-label="رجوع">
+          <span class="back-arrow">›</span>
+          <span>رجوع</span>
+        </button>
+
+        <div class="section-title">
+          <h2>الإعدادات</h2>
+          <p>إعدادات المستخدم للصيدلي</p>
+        </div>
+
+        <div class="settings-list">
+          <button class="settings-row" id="settings-darkmode-btn" type="button">
+            <span class="settings-row-icon">🌙</span>
+            <span class="settings-row-label">الوضع الليلي / النهاري</span>
+            <span class="settings-row-value" id="settings-darkmode-value">—</span>
+          </button>
+          <button class="settings-row" id="settings-tv-btn" type="button">
+            <span class="settings-row-icon">📺</span>
+            <span class="settings-row-label">وضع العرض (شاشة التلفاز)</span>
+            <span class="settings-row-arrow">›</span>
+          </button>
+          <button class="settings-row settings-row-danger" id="settings-logout-btn" type="button">
+            <span class="settings-row-icon">🚪</span>
+            <span class="settings-row-label">تسجيل الخروج</span>
+            <span class="settings-row-arrow">›</span>
+          </button>
+        </div>
+      </section>
+
     </main>
 
     <!-- ===== Bottom Navigation ===== -->
