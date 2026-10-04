@@ -258,10 +258,11 @@
 
   // Generate pills forms for ALL patients who have at least one tablet-
   // form medication. Auto-downloads each as a separate PNG.
-  // @param state — { patients: bedKey→patient, meds: catalog[] }
-  // @returns array of generated blobs (one per patient)
+  // @param state — { patients: bedKey→patient, medications: catalog[] }
+  //   NOTE: the state field name is `medications` (not `meds`) to
+  //   match the rest of the app's state shape.
   async function generateAllPatientPillsForms(state) {
-    if (!state || !state.patients || !state.meds) {
+    if (!state || !state.patients || !state.medications) {
       return { error: "لا توجد بيانات" };
     }
 
@@ -282,7 +283,7 @@
         const tabletMeds = (Array.isArray(p.medications) ? p.medications : [])
           .filter(pm => pm && pm.id)
           .map(pm => {
-            const catalog = (state.meds || []).find(m => m && m.id === pm.id);
+            const catalog = (state.medications || []).find(m => m && m.id === pm.id);
             if (!catalog || catalog.form !== "tablet") return null;
             return { pm: pm, catalog: catalog };
           })
