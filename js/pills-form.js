@@ -120,11 +120,12 @@
     const row_cy = (row_top + row_bot) / 2;  // 421
     const fontPx = 32;
 
-    // Col 1 (rightmost, V_LINES[3..4]): "العلاج"
-    const col1_cx = (G.V_LINES[3] + G.V_LINES[4]) / 2;
-    drawArabicLine(ctx, "العلاج", col1_cx, row_cy, fontPx);
+    // Col 1 (rightmost, V_LINES[3..4]): BLANK (per user request —
+    // العلاج moved from col 1 to col 2)
 
-    // Col 2 (V_LINES[2..3]): blank (per user request)
+    // Col 2 (V_LINES[2..3]): "العلاج" (was blank, moved here per user)
+    const col2_cx = (G.V_LINES[2] + G.V_LINES[3]) / 2;
+    drawArabicLine(ctx, "العلاج", col2_cx, row_cy, fontPx);
 
     // Col 3 (V_LINES[1..2]): "وقت الجرعة"
     const col3_cx = (G.V_LINES[1] + G.V_LINES[2]) / 2;
@@ -160,13 +161,71 @@
     drawArabicLine(ctx, "غرفة " + roomNumber, col2_cx, row_cy, fontPx);
   }
 
-  // Draw medications in rows 3-10 (y=454-1958, 185px each, max 8 rows)
-  // For each med:
-  //   Col 1 (rightmost, العلاج): medication name
-  //   Col 3 (وقت الجرعة):        frequency (e.g. "1×3")
-  //   Col 4 (طريقة الاستخدام):    dose (e.g. "500 ملغ")
+  // Convert a frequency string like "1×2" or "×3" or "2" to a
+  // human-readable Arabic time interval. Math: hours = 24 / N where N
+  // is the daily frequency. Arabic plural rules: 3-10 use "ساعات",
+  // others (1, 2, 11+) use "ساعة".
+  //   "1×1" → "كل 24 ساعة"
+  //   "1×2" → "كل 12 ساعة"
+  //   "1×3" → "كل 8 ساعات"
+  //   "1×4" → "كل 6 ساعات"
+  //   "1×6" → "كل 4 ساعات"
+  // Non-parseable frequencies (e.g. "حسب القياس") return as-is.
+  function freqToTimeInterval(freq) {
+    if (!freq) return "";
+    // Try to extract N from "×N" or "1×N" or just "N"
+    let n = null;
+    const m = freq.match(/×\s*(\d+)/);
+    if (m) {
+      n = parseInt(m[1], 10);
+    } else {
+      const plainNum = parseInt(freq, 10);
+      if (!isNaN(plainNum) && plainNum > 0) n = plainNum;
+    }
+    if (n === null || n === 0) return freq;  // can't parse, return raw
+
+    const hours = 24 / n;
+    let hoursStr;
+    if (Number.isInteger(hours)) {
+      hoursStr = String(hours);
+    } else {
+      hoursStr = hours.toFixed(1);
+    }
+    // Arabic plural: 3-10 use "ساعات", others use "ساعة".
+    // For non-integer hours (like 4.8), use "ساعة".
+    let unit;
+    if (Number.isInteger(hours) && hours >= 3 && hours <= 10) {
+      unit = "ساعات";
+    } else {
+      unit = "ساعة";
+    }
+    return `كل ${hoursStr} ${unit}`;
+  }
+
+  // Draw two Arabic lines stacked vertically in the same column.
+  // topText appears in the upper half, bottomText in the lower half.
+  // Used for the medication column where the dose is written below the
+  // medication name.
+  function drawArabicLineStacked(ctx, topText, bottomText, cx, cellTop, cellBot, topFontPx, bottomFontPx) {
+    const cellCy = (cellTop + cellBot) / 2;
+    // Position: top text 16px above center, bottom text 18px below center.
+    // (16 + 18 = 34px gap between the two lines, fits in 185px row easily)
+    const topY = cellCy - 18;
+    const botY = cellCy + 18;
+    drawArabicLine(ctx, topText, cx, topY, topFontPx);
+    drawArabicLine(ctx, bottomText, cx, botY, bottomFontPx);
+  }
+
+  // Draw medications in rows 3-10 (y=454-1958, 185px each, max 8 rows).
+  // For each med (per user request):
+  //   Col 1 (rightmost): BLANK (was med name; med column moved to col 2)
+  //   Col 2 (العلاج):    med name (top) + dose (below) — stacked
+  //   Col 3 (وقت الجرعة):  human-readable time interval (e.g. "كل 12 ساعة")
+  //   Col 4 (طريقة الاستخدام): BLANK (pharmacist fills by hand)
   function drawMedications(ctx, tabletMeds) {
-    const fontPx = 28;  // readable in 185px tall rows
+    const nameFontPx = 28;
+    const doseFontPx = 22;  // slightly smaller than name
+    const timeFontPx = 28;
     const maxRows = Math.min(MAX_MED_ROWS, tabletMeds.length);
 
     for (let i = 0; i < maxRows; i++) {
@@ -174,27 +233,29 @@
       const pm = entry.pm;
       const catalog = entry.catalog;
 
-      // Row i (0-indexed) maps to table row 3+i (since rows 1-2 are
-      // patient info and labels). H_LINES[2] is the top of row 3,
-      // H_LINES[i+3] is the bottom of row (3+i).
-      const row_top = G.H_LINES[2 + i];       // top of med row i
-      const row_bot = G.H_LINES[2 + i + 1];   // bottom of med row i
-      const row_cy = (row_top + row_bot) / 2;
+      // Row i (0-indexed) maps to table row 3+i.
+      const row_top = G.H_LINES[2 + i];
+      const row_bot = G.H_LINES[2 + i + 1];
 
-      // Col 1 (rightmost): medication name
-      const col1_cx = (G.V_LINES[3] + G.V_LINES[4]) / 2;
+      // Col 1 (rightmost, V_LINES[3..4]): BLANK
+
+      // Col 2 (V_LINES[2..3]): med name (top) + dose (below) — stacked
+      const col2_cx = (G.V_LINES[2] + G.V_LINES[3]) / 2;
       const medName = primaryName(catalog);
-      drawArabicLine(ctx, medName, col1_cx, row_cy, fontPx);
-
-      // Col 3: frequency (pm.frequency or catalog.defaultFrequency)
-      const col3_cx = (G.V_LINES[1] + G.V_LINES[2]) / 2;
-      const freq = pm.frequency || catalog.defaultFrequency || "";
-      drawArabicLine(ctx, freq, col3_cx, row_cy, fontPx);
-
-      // Col 4 (leftmost): dose (pm.dose or catalog.defaultDose)
-      const col4_cx = (G.V_LINES[0] + G.V_LINES[1]) / 2;
       const dose = pm.dose || catalog.defaultDose || "";
-      drawArabicLine(ctx, dose, col4_cx, row_cy, fontPx);
+      drawArabicLineStacked(ctx, medName, dose, col2_cx, row_top, row_bot,
+                            nameFontPx, doseFontPx);
+
+      // Col 3 (V_LINES[1..2]): time interval (converted from frequency)
+      const col3_cx = (G.V_LINES[1] + G.V_LINES[2]) / 2;
+      const row_cy = (row_top + row_bot) / 2;
+      const freq = pm.frequency || catalog.defaultFrequency || "";
+      const timeText = freqToTimeInterval(freq);
+      drawArabicLine(ctx, timeText, col3_cx, row_cy, timeFontPx);
+
+      // Col 4 (leftmost, V_LINES[0..1]): BLANK (was dose)
+      // Per user request: dose moved to col 2 under the med name.
+      // طريقة الاستخدام column left blank for pharmacist to fill in.
     }
   }
 
