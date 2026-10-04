@@ -1540,6 +1540,55 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   .sheet-tab-label { font-size: 9px; }
   .sheet-tab-icon { font-size: 12px; }
   .sheet-tab-icon-img { max-width: 12px; max-height: 14px; }
+
+  /* Header: prevent button crowding on small screens.
+     The brand-actions row now has many buttons (chart, med-summary,
+     pills-form, display, settings, logout, darkmode). On a 360-400px
+     wide phone these don't all fit in one row alongside the brand
+     icon + text. Fix:
+       - Shrink all header buttons to 32×32px (was 40×40)
+       - Reduce gap between them (6→3px)
+       - Reduce brand-text h1 size (17→14px) and the unit subtitle
+         (12→10px) so the text column takes less horizontal room
+       - Allow the .brand row to wrap (buttons → 2nd row) if they
+         STILL don't fit (extra-small phones < 320px) */
+  .brand {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .brand-actions {
+    gap: 3px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .brand-chart,
+  .brand-settings,
+  .brand-display,
+  .brand-pdf,
+  .brand-logout,
+  .brand-darkmode,
+  .brand-sync {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--r-sm);
+  }
+  .brand-chart svg,
+  .brand-settings svg,
+  .brand-display svg,
+  .brand-pdf svg,
+  .brand-logout svg,
+  .brand-darkmode svg,
+  .brand-sync svg {
+    width: 16px;
+    height: 16px;
+  }
+  .brand-icon {
+    width: 32px;
+    height: 32px;
+  }
+  .brand-text h1 { font-size: 14px; }
+  .brand-text p { font-size: 10px; margin-top: 1px; }
 }
 .sheet-tab-icon {
   font-size: 18px;
