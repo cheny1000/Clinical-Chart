@@ -1,24 +1,37 @@
-// Pills form overlay generator
+// Pills form overlay generator (استمارة الحبوب)
 // =========================================================
-// Generates the "استمارة اعطاء الحبوب" (Pill Dispensing Form) as a
-// downloadable PNG. Uses a scanned blank form template
-// (img/pills-form-template.png) and overlays the hospital/department
-// title + 3 column labels.
+// Generates "استمارة اعطاء الحبوب" (Pill Dispensing Form) as PNG:
 //
-// Layout (measured from the blank form, 1654×2339px @ 300 DPI = A4):
-//   - Page header area: y=0-322 (above the table)
-//       Three lines centered on the page:
-//         "مستشفى بغداد التعليمي"
-//         "الصيدلية السريرية"
-//         "استمارة اعطاء الحبوب"
-//   - Table first row: y=322-388 (63px tall) — column labels row
-//       Col 1 (rightmost, V_LINES[0..1] = 133-778, 645px wide): "العلاج"
-//       Col 2 (V_LINES[1..2] = 778-981, 203px wide): "الجرعة"
-//       Col 3 (V_LINES[2..3] = 981-1206, 225px wide): "طريقة الاستخدام"
-//       Col 4 (V_LINES[3..4] = 1206-1529, 323px wide): left blank
-//         (signature/notes column)
-//   - Data rows: y=388-1958 (8 rows of 185px each — left blank for
-//     the pharmacist to fill in)
+// 1. PharmacyPillsForm.generatePillsForm() — generates ONE blank form
+//    (for reference / printing as a master copy)
+//
+// 2. PharmacyPillsForm.generateAllPatientPillsForms(state) — iterates
+//    all patients, finds those with at least one medication from the
+//    "tablet" form category, and generates a personalized form for
+//    each. The form contains:
+//      - Static header: مستشفى بغداد التعليمي / الصيدلية السريرية /
+//        استمارة اعطاء الحبوب
+//      - Row 1 of the table: patient name (col 1, rightmost) +
+//        room number "غرفة N" (col 2)
+//      - Row 2 of the table: column labels (العلاج / blank /
+//        وقت الجرعة / طريقة الاستخدام) — static
+//      - Rows 3-10: the patient's tablet-form medications
+//        (med name in col 1, freq in col 3, dose in col 4)
+//      - Footer: "الصيدلي السريري" — static
+//
+// Layout (measured from the blank form, 1654×2339 px @ 300 DPI = A4):
+//   - Page header area: y=130-310 (3 lines, 48px font)
+//   - Table row 1 (patient info): y=322-388 (63px tall)
+//   - Table row 2 (column labels): y=388-454 (63px tall)
+//   - Table rows 3-10 (medication rows): y=454-1958 (185px each, 8 rows)
+//   - Footer: y=2150 (left side)
+//
+// Vertical grid lines (X coords, left→right):
+//   V_LINES = [133, 778, 981, 1206, 1529]
+//   → Col 1 (rightmost, RTL first) = V_LINES[3..4] (x=1206-1529, w=323)
+//   → Col 2                          = V_LINES[2..3] (x=981-1206,  w=225)
+//   → Col 3                          = V_LINES[1..2] (x=778-981,   w=203)
+//   → Col 4 (leftmost, RTL last)    = V_LINES[0..1] (x=133-778,   w=645)
 
 (function (global) {
   "use strict";
@@ -28,13 +41,14 @@
   // Grid geometry — measured from the uploaded blank form (1654×2339px)
   const G = {
     IMG_W: 1654, IMG_H: 2339,
-    // Vertical grid lines (X coordinates of line centers, left → right)
     V_LINES: [133, 778, 981, 1206, 1529],
-    // Horizontal grid lines (Y coordinates, top → bottom)
     H_LINES: [322, 388, 454, 642, 830, 1018, 1206, 1394, 1582, 1770, 1958]
   };
 
-  // Helper: load image
+  // Number of medication rows available (rows 3-10, 8 rows × 185px each)
+  const MAX_MED_ROWS = 8;
+
+  // ---- Helpers ----
   function loadImage(url) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -45,7 +59,6 @@
     });
   }
 
-  // Helper: trigger download
   function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -57,116 +70,176 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  // Draw a single Arabic text line centered on (cx, cy).
-  // Arabic text is shaped correctly by the browser when drawn with
-  // ctx.fillText — no need for arabic_reshaper/bidi in JS.
+  // Draw Arabic text centered on (cx, cy)
   function drawArabicLine(ctx, text, cx, cy, fontPx, bold = true) {
     ctx.font = `${bold ? "bold " : ""}${fontPx}px Tajawal, Cairo, Arial, sans-serif`;
     ctx.fillStyle = "#000";
     ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    // Note: do NOT set ctx.direction = "rtl" — modern browsers shape
-    // Arabic correctly without it, and the property can cause alignment
-    // quirks. textAlign="center" + the page's RTL direction handles
-    // proper Arabic rendering.
-    ctx.fillText(text, cx, cy);
+    ctx.textBaseline = "alphabetic";
+    // Alphabetic baseline + Y offset = (fontSize × 0.35) for proper
+    // glyph vertical centering (matches the chart-image.js approach).
+    ctx.fillText(text, cx, cy + fontPx * 0.35);
   }
 
-  // Main entry — generate the pills form PNG and download it.
-  // No data inputs needed — the form is a fixed template with fixed
-  // labels (no patient-specific content).
-  async function generatePillsForm() {
-    // Load template
-    const templateImg = await loadImage(TEMPLATE_URL);
+  // Draw Arabic text left-aligned at (x, y)
+  function drawArabicLeft(ctx, text, x, y, fontPx, bold = true) {
+    ctx.font = `${bold ? "bold " : ""}${fontPx}px Tajawal, Cairo, Arial, sans-serif`;
+    ctx.fillStyle = "#000";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(text, x, y + fontPx * 0.35);
+  }
 
-    // Create canvas at template's native resolution
+  // Get the best display name for a med (matches UI.primaryName logic)
+  function primaryName(m) {
+    if (!m) return "";
+    return m.nameTrade || m.nameAr || m.nameEn || m.name || m.id || "";
+  }
+
+  // ---- Section drawing helpers ----
+
+  function drawPageHeader(ctx) {
+    const page_cx = G.IMG_W / 2;
+    const lines = [
+      "مستشفى بغداد التعليمي",
+      "الصيدلية السريرية",
+      "استمارة اعطاء الحبوب"
+    ];
+    const fontPx = 48;
+    const line_h = 60;
+    const top_y = 130;
+    lines.forEach((line, i) => {
+      drawArabicLine(ctx, line, page_cx, top_y + i * line_h, fontPx);
+    });
+  }
+
+  function drawColumnLabels(ctx) {
+    // Row 2 of the table (y=388-454)
+    const row_top = G.H_LINES[1];  // 388
+    const row_bot = G.H_LINES[2];  // 454
+    const row_cy = (row_top + row_bot) / 2;  // 421
+    const fontPx = 32;
+
+    // Col 1 (rightmost, V_LINES[3..4]): "العلاج"
+    const col1_cx = (G.V_LINES[3] + G.V_LINES[4]) / 2;
+    drawArabicLine(ctx, "العلاج", col1_cx, row_cy, fontPx);
+
+    // Col 2 (V_LINES[2..3]): blank (per user request)
+
+    // Col 3 (V_LINES[1..2]): "وقت الجرعة"
+    const col3_cx = (G.V_LINES[1] + G.V_LINES[2]) / 2;
+    drawArabicLine(ctx, "وقت الجرعة", col3_cx, row_cy, fontPx);
+
+    // Col 4 (leftmost, V_LINES[0..1]): "طريقة الاستخدام"
+    const col4_cx = (G.V_LINES[0] + G.V_LINES[1]) / 2;
+    drawArabicLine(ctx, "طريقة الاستخدام", col4_cx, row_cy, fontPx);
+  }
+
+  function drawFooter(ctx) {
+    // "الصيدلي السريري" at bottom-left of the page
+    const text = "الصيدلي السريري";
+    const fontPx = 36;
+    drawArabicLeft(ctx, text, 200, 2150, fontPx);
+  }
+
+  // Draw patient info in row 1 of the table (y=322-388, 63px tall)
+  //   Col 1 (rightmost): patient name
+  //   Col 2: room number like "غرفة 3"
+  function drawPatientInfo(ctx, patientName, roomNumber) {
+    const row_top = G.H_LINES[0];  // 322
+    const row_bot = G.H_LINES[1];  // 388
+    const row_cy = (row_top + row_bot) / 2;  // 355
+    const fontPx = 28;  // smaller than labels so the name fits
+
+    // Col 1 (rightmost, V_LINES[3..4]): patient name
+    const col1_cx = (G.V_LINES[3] + G.V_LINES[4]) / 2;
+    drawArabicLine(ctx, patientName, col1_cx, row_cy, fontPx);
+
+    // Col 2 (V_LINES[2..3]): room number "غرفة N"
+    const col2_cx = (G.V_LINES[2] + G.V_LINES[3]) / 2;
+    drawArabicLine(ctx, "غرفة " + roomNumber, col2_cx, row_cy, fontPx);
+  }
+
+  // Draw medications in rows 3-10 (y=454-1958, 185px each, max 8 rows)
+  // For each med:
+  //   Col 1 (rightmost, العلاج): medication name
+  //   Col 3 (وقت الجرعة):        frequency (e.g. "1×3")
+  //   Col 4 (طريقة الاستخدام):    dose (e.g. "500 ملغ")
+  function drawMedications(ctx, tabletMeds) {
+    const fontPx = 28;  // readable in 185px tall rows
+    const maxRows = Math.min(MAX_MED_ROWS, tabletMeds.length);
+
+    for (let i = 0; i < maxRows; i++) {
+      const entry = tabletMeds[i];
+      const pm = entry.pm;
+      const catalog = entry.catalog;
+
+      // Row i (0-indexed) maps to table row 3+i (since rows 1-2 are
+      // patient info and labels). H_LINES[2] is the top of row 3,
+      // H_LINES[i+3] is the bottom of row (3+i).
+      const row_top = G.H_LINES[2 + i];       // top of med row i
+      const row_bot = G.H_LINES[2 + i + 1];   // bottom of med row i
+      const row_cy = (row_top + row_bot) / 2;
+
+      // Col 1 (rightmost): medication name
+      const col1_cx = (G.V_LINES[3] + G.V_LINES[4]) / 2;
+      const medName = primaryName(catalog);
+      drawArabicLine(ctx, medName, col1_cx, row_cy, fontPx);
+
+      // Col 3: frequency (pm.frequency or catalog.defaultFrequency)
+      const col3_cx = (G.V_LINES[1] + G.V_LINES[2]) / 2;
+      const freq = pm.frequency || catalog.defaultFrequency || "";
+      drawArabicLine(ctx, freq, col3_cx, row_cy, fontPx);
+
+      // Col 4 (leftmost): dose (pm.dose or catalog.defaultDose)
+      const col4_cx = (G.V_LINES[0] + G.V_LINES[1]) / 2;
+      const dose = pm.dose || catalog.defaultDose || "";
+      drawArabicLine(ctx, dose, col4_cx, row_cy, fontPx);
+    }
+  }
+
+  // ---- Build a complete pills form canvas (used by both blank and
+  //      per-patient variants) ----
+  async function buildPillsFormCanvas(templateImg, patient, tabletMeds) {
     const canvas = document.createElement("canvas");
     canvas.width = G.IMG_W;
     canvas.height = G.IMG_H;
     const ctx = canvas.getContext("2d");
 
-    // Draw the blank template
+    // 1. Draw the template (grid lines + outer border)
     ctx.drawImage(templateImg, 0, 0, G.IMG_W, G.IMG_H);
 
-    // ---- 1. Page header: 3 lines centered horizontally ----
-    // The user requested the header text be moved down a bit from the
-    // top of the page (was at y=80, now at y=130).
-    const page_cx = G.IMG_W / 2;
-    const header_lines = [
-      "مستشفى بغداد التعليمي",
-      "الصيدلية السريرية",
-      "استمارة اعطاء الحبوب"
-    ];
-    const header_font_px = 48;
-    const line_h = 60;  // 48px font + 12px gap
-    const header_top_y = 130;  // moved down from 80 per user request
+    // 2. Static page header (hospital / dept / title)
+    drawPageHeader(ctx);
 
-    header_lines.forEach((line, i) => {
-      drawArabicLine(ctx, line, page_cx, header_top_y + i * line_h, header_font_px);
-    });
+    // 3. Patient info in row 1 (only if patient data is provided)
+    if (patient) {
+      drawPatientInfo(ctx, patient.name, patient.roomNumber);
+    }
 
-    // ---- 2. Column labels in the SECOND table row (y=388-454, 63px) ----
-    // The user said "في الصف الثاني" — the SECOND row of the table, not
-    // the first. The first row (y=322-388) is left blank (it may be
-    // used by the pharmacist for header info or notes); the labels
-    // go in the second row (y=388-454).
-    //
-    // RTL layout: V_LINES[0]=133 is the LEFT edge of the page (in pixel
-    // coordinates), and V_LINES[4]=1529 is the RIGHT edge. So:
-    //   - Rightmost column (RTL "first")  = V_LINES[3..4] = x=1206..1529
-    //   - Middle-right column             = V_LINES[2..3] = x=981..1206
-    //   - Middle-left column               = V_LINES[1..2] = x=778..981
-    //   - Leftmost column                  = V_LINES[0..1] = x=133..778
-    //
-    // User's mapping (RTL Arabic reading order, rightmost = first):
-    //   العامود الأول (rightmost): "العلاج"          → V_LINES[3..4]
-    //   العامود الثاني:           blank              → V_LINES[2..3]
-    //   العامود الثالث:           "الجرعة"           → V_LINES[1..2]
-    //   العامود الرابع (leftmost): "طريقة الاستخدام" → V_LINES[0..1]
-    const row_top = G.H_LINES[1];  // 388 — top of the SECOND row
-    const row_bot = G.H_LINES[2];  // 454 — bottom of the SECOND row
-    const row_cy = (row_top + row_bot) / 2;  // 421
-    const label_font_px = 32;
+    // 4. Static column labels in row 2
+    drawColumnLabels(ctx);
 
-    // Col 1 (RIGHTMOST in RTL, V_LINES[3..4]): "العلاج" (medication name)
-    const col1_cx = (G.V_LINES[3] + G.V_LINES[4]) / 2;
-    drawArabicLine(ctx, "العلاج", col1_cx, row_cy, label_font_px);
+    // 5. Medications in rows 3+ (only if tabletMeds is provided)
+    if (tabletMeds && tabletMeds.length > 0) {
+      drawMedications(ctx, tabletMeds);
+    }
 
-    // Col 2 (V_LINES[2..3]): LEFT BLANK (per user request — was "الجرعة"
-    // before, now moved to col 3)
+    // 6. Static footer
+    drawFooter(ctx);
 
-    // Col 3 (V_LINES[1..2]): "الجرعة" (dose)
-    const col3_cx = (G.V_LINES[1] + G.V_LINES[2]) / 2;
-    drawArabicLine(ctx, "وقت الجرعة", col3_cx, row_cy, label_font_px);
+    return canvas;
+  }
 
-    // Col 4 (LEFTMOST, V_LINES[0..1]): "طريقة الاستخدام" (usage method)
-    const col4_cx = (G.V_LINES[0] + G.V_LINES[1]) / 2;
-    drawArabicLine(ctx, "طريقة الاستخدام", col4_cx, row_cy, label_font_px);
+  // ============================================================
+  // PUBLIC API
+  // ============================================================
 
-    // ---- 3. Footer: "الصيدلي السريري" at bottom-left of the page ----
-    // Placed below the table (y > 1961), aligned with the left edge
-    // of the table content (x ~ 200), with some vertical padding from
-    // the table's bottom border. The user said "يسار اسفل الصفحة".
-    // In RTL pixel coordinates, "left" = low X. We place the text
-    // near the bottom-left corner, with the text baseline at y=2150
-    // (about 200px below the table's bottom line at y=1961).
-    const footer_text = "الصيدلي السريري";
-    const footer_font_px = 36;
-    const footer_x = 200;       // left side of the page (low X = left)
-    const footer_y = 2150;      // ~200px below the table's bottom border
-    // Use left-alignment so the text starts from the left edge of the
-    // cell. (textAlign="left" + drawArabicLine handles Arabic shaping
-    // natively.)
-    ctx.font = `bold ${footer_font_px}px Tajawal, Cairo, Arial, sans-serif`;
-    ctx.fillStyle = "#000";
-    ctx.textAlign = "left";       // text grows rightward from footer_x
-    ctx.textBaseline = "alphabetic";
-    // Arabic text rendered with textAlign="left" still shapes RTL
-    // internally; the "left" anchor just sets where the bounding box's
-    // left edge sits.
-    ctx.fillText(footer_text, footer_x, footer_y);
-
-    // ---- Convert to PNG blob and download ----
+  // Generate a BLANK pills form (no patient data, just the static
+  // template). Useful as a master copy or for manual filling.
+  async function generatePillsForm() {
+    const templateImg = await loadImage(TEMPLATE_URL);
+    const canvas = await buildPillsFormCanvas(templateImg, null, null);
     const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
     const stamp = new Date().toISOString().slice(0, 10);
     const filename = `pills-form-${stamp}.png`;
@@ -174,9 +247,94 @@
     return { blob, filename };
   }
 
-  // ---- Public API ----
+  // Generate ONE pills form for a specific patient (returns the Blob,
+  // does NOT auto-download — caller handles downloading).
+  async function generatePatientPillsForm(patient, tabletMeds) {
+    const templateImg = await loadImage(TEMPLATE_URL);
+    const canvas = await buildPillsFormCanvas(templateImg, patient, tabletMeds);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+    return blob;
+  }
+
+  // Generate pills forms for ALL patients who have at least one tablet-
+  // form medication. Auto-downloads each as a separate PNG.
+  // @param state — { patients: bedKey→patient, meds: catalog[] }
+  // @returns array of generated blobs (one per patient)
+  async function generateAllPatientPillsForms(state) {
+    if (!state || !state.patients || !state.meds) {
+      return { error: "لا توجد بيانات" };
+    }
+
+    const Ward = global.PharmacyWard;
+    if (!Ward || !Ward.ROOMS) {
+      return { error: "تعذّر الوصول إلى بيانات الغرف" };
+    }
+
+    // Find all patients with at least one tablet-form medication
+    const tabletPatients = [];
+    Ward.ROOMS.forEach(room => {
+      room.beds.forEach(bed => {
+        const key = Ward.bedKey(room.id, bed.number);
+        const p = state.patients[key];
+        if (!p || !p.name || !p.name.trim()) return;
+
+        // Filter patient's meds to tablet-form only
+        const tabletMeds = (Array.isArray(p.medications) ? p.medications : [])
+          .filter(pm => pm && pm.id)
+          .map(pm => {
+            const catalog = (state.meds || []).find(m => m && m.id === pm.id);
+            if (!catalog || catalog.form !== "tablet") return null;
+            return { pm: pm, catalog: catalog };
+          })
+          .filter(x => x !== null);
+
+        if (tabletMeds.length === 0) return;
+
+        tabletPatients.push({
+          bedKey: key,
+          name: p.name.trim(),
+          roomNumber: room.id,
+          tabletMeds: tabletMeds
+        });
+      });
+    });
+
+    if (tabletPatients.length === 0) {
+      return { error: "لا يوجد مرضى لديهم أدوية من قسم الحبوب (tablets)" };
+    }
+
+    // Load template once (reused for all patient forms)
+    const templateImg = await loadImage(TEMPLATE_URL);
+
+    // Generate a form for each patient
+    const pages = [];
+    for (let i = 0; i < tabletPatients.length; i++) {
+      const patient = tabletPatients[i];
+      const canvas = await buildPillsFormCanvas(
+        templateImg, patient, patient.tabletMeds
+      );
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+      pages.push({ blob, patient });
+    }
+
+    // Download each (stagger to avoid browser blocking multiple
+    // simultaneous downloads)
+    const stamp = new Date().toISOString().slice(0, 10);
+    pages.forEach((p, i) => {
+      // Sanitize patient name for filename (replace path-unsafe chars)
+      const safeName = p.patient.name.replace(/[\\/:*?"<>|]/g, "_");
+      const filename = `pills-form-${safeName}-${stamp}.png`;
+      setTimeout(() => downloadBlob(p.blob, filename), i * 300);
+    });
+
+    return { count: pages.length, pages: pages };
+  }
+
+  // ---- Exports ----
   global.PharmacyPillsForm = {
-    generatePillsForm
+    generatePillsForm,
+    generatePatientPillsForm,
+    generateAllPatientPillsForms
   };
 
 })(window);

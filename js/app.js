@@ -1339,24 +1339,41 @@
       openSupplyOrderModal(occCount);
     });
 
-    // ----- Pills Form Download (تنزيل استمارة اعطاء الحبوب) -----
-    // Generates a downloadable PNG of the pill dispensing form with
-    // the hospital/department/title pre-printed and column labels
-    // (العلاج / الجرعة / طريقة الاستخدام) filled in. No patient-
-    // specific data is needed — the form is a fixed template.
+    // ----- Pills Form Download (تنزيل استمارة الحبوب) -----
+    // Generates a downloadable PNG of the pill dispensing form for
+    // EVERY patient who has at least one medication from the "tablet"
+    // form category. Each patient gets their own form containing:
+    //   - Static header (hospital/department/title)
+    //   - Patient name + room number "غرفة N" in row 1 of the table
+    //   - Static column labels in row 2 (العلاج / blank / وقت الجرعة
+    //     / طريقة الاستخدام)
+    //   - Patient's tablet-form meds in rows 3+ (name in col 1,
+    //     frequency in col 3, dose in col 4)
+    //   - Static footer ("الصيدلي السريري")
     $("print-pills-form-btn").addEventListener("click", async () => {
       if (!global.PharmacyPillsForm) {
         flashHint("تعذّر تحميل وحدة استمارة الحبوب");
         return;
       }
-      flashHint("يتم توليد استمارة الحبوب... انتظر قليلاً");
-      try {
-        const result = await global.PharmacyPillsForm.generatePillsForm();
-        flashHint("تم تنزيل استمارة الحبوب — تحقق من التنزيلات");
-      } catch (err) {
-        console.error("[pills-form] error:", err);
-        flashHint("تعذّر توليد الاستمارة: " + (err.message || err));
-      }
+      flashHint("يتم توليد استمارات الحبوب... انتظر قليلاً");
+      // Defer so flashHint renders before the heavy canvas work
+      setTimeout(async () => {
+        try {
+          const result = await global.PharmacyPillsForm.generateAllPatientPillsForms(state);
+          if (result && result.error) {
+            flashHint(result.error);
+            return;
+          }
+          if (result && result.count) {
+            flashHint(`تم تنزيل ${result.count} استمارة حبوب — تحقق من التنزيلات`);
+          } else {
+            flashHint("لم يتم توليد أي استمارة");
+          }
+        } catch (err) {
+          console.error("[pills-form] error:", err);
+          flashHint("تعذّر توليد الاستمارة: " + (err.message || err));
+        }
+      }, 50);
     });
 
     // ----- Display Mode (TV / large screen) -----
