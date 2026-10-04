@@ -1838,8 +1838,17 @@
 
     // Settings: logout button
     $("settings-logout-btn").addEventListener("click", () => {
+      if (!confirm("هل تريد تسجيل الخروج؟")) return;
+      // Unsubscribe from Realtime before logging out
+      if (realtimeChannel) {
+        try { realtimeChannel.unsubscribe(); } catch (e) { /* ignore */ }
+        realtimeChannel = null;
+      }
       if (typeof Auth !== "undefined" && Auth && typeof Auth.logout === "function") {
         Auth.logout();
+        applyRoleVisibility();
+        showLogin();
+        flashHint("تم تسجيل الخروج");
       } else {
         // Fallback: just go to login screen
         if (typeof UI !== "undefined" && UI) UI.showView("home");
