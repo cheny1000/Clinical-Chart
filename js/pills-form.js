@@ -428,17 +428,24 @@
     }
 
     // ---- Merge all canvases into a single multi-page PDF ----
-    // The form template is 1654×2339 px @ 300 DPI = 1654/300×25.4mm
-    // wide × 2339/300×25.4mm tall = 140×198 mm (close to A4: 210×297mm).
-    // We use A4 portrait orientation and fit the form image to the
-    // page so the pharmacist can print the PDF directly on A4 paper.
+    // The form template is 1654×2339 px (aspect ratio ≈ 0.707 ≈ A4's
+    // 210/297 = 0.707). So the form fits PERFECTLY on A4 with minimal
+    // margins — just a small white border around the form image.
+    //
+    // We use A4 portrait orientation. To make the form fill almost
+    // the entire A4 page, we use small margins:
+    //   - 10mm horizontal margin (left + right)
+    //   - 10mm vertical margin (top + bottom)
+    // Result: form occupies 190×277mm on a 210×297mm A4 page — about
+    // 90% of the page area, vs. the previous ~45% (140×198mm centered).
     const PDF_PAGE_W = 210;  // A4 width in mm
     const PDF_PAGE_H = 297;  // A4 height in mm
-    const IMG_W_MM = 140;    // form image width in mm
-    const IMG_H_MM = 198;    // form image height in mm
-    // Center the form image on the A4 page
-    const IMG_X = (PDF_PAGE_W - IMG_W_MM) / 2;  // 35mm left margin
-    const IMG_Y = (PDF_PAGE_H - IMG_H_MM) / 2;  // 49.5mm top margin
+    const MARGIN_MM = 10;    // small white border around the form
+    const IMG_W_MM = PDF_PAGE_W - 2 * MARGIN_MM;  // 190mm
+    const IMG_H_MM = PDF_PAGE_H - 2 * MARGIN_MM;  // 277mm
+    // Center the form image on the A4 page (= margin on all sides)
+    const IMG_X = MARGIN_MM;
+    const IMG_Y = MARGIN_MM;
 
     // Try to access jsPDF from various globals:
     //   - jspdf@2.x UMD: window.jspdf.jsPDF
