@@ -137,7 +137,7 @@
 
     // Col 3 (V_LINES[1..2]): "الجرعة" (dose)
     const col3_cx = (G.V_LINES[1] + G.V_LINES[2]) / 2;
-    drawArabicLine(ctx, "الجرعة", col3_cx, row_cy, label_font_px);
+    drawArabicLine(ctx, "وقت الجرعة", col3_cx, row_cy, label_font_px);
 
     // Col 4 (LEFTMOST, V_LINES[0..1]): "طريقة الاستخدام" (usage method)
     const col4_cx = (G.V_LINES[0] + G.V_LINES[1]) / 2;
