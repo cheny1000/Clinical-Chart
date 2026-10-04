@@ -269,11 +269,14 @@
     const isAdmin = Auth.isAdmin();
     const adminBtn = $("open-admin");
     if (adminBtn) adminBtn.hidden = !isAdmin;
-    // chart button + pills form button + logout button are always visible
+    // chart button + pills form button + med summary button + logout
+    // are always visible
     const chartBtn = $("print-chart-btn");
     if (chartBtn) chartBtn.hidden = false;
     const pillsBtn = $("print-pills-form-btn");
     if (pillsBtn) pillsBtn.hidden = false;
+    const summaryBtn = $("med-summary-btn");
+    if (summaryBtn) summaryBtn.hidden = false;
     const logoutBtn = $("logout-btn");
     if (logoutBtn) logoutBtn.hidden = false;
   }
@@ -1340,16 +1343,10 @@
     });
 
     // ----- Pills Form Download (تنزيل استمارة الحبوب) -----
-    // Generates a downloadable PNG of the pill dispensing form for
-    // EVERY patient who has at least one medication from the "tablet"
-    // form category. Each patient gets their own form containing:
-    //   - Static header (hospital/department/title)
-    //   - Patient name + room number "غرفة N" in row 1 of the table
-    //   - Static column labels in row 2 (العلاج / blank / وقت الجرعة
-    //     / طريقة الاستخدام)
-    //   - Patient's tablet-form meds in rows 3+ (name in col 1,
-    //     frequency in col 3, dose in col 4)
-    //   - Static footer ("الصيدلي السريري")
+    // Generates a downloadable PDF of pill dispensing forms for every
+    // patient who has at least one medication from the "tablet" form
+    // category. All patient forms are merged into a single PDF (one
+    // page per patient).
     $("print-pills-form-btn").addEventListener("click", async () => {
       if (!global.PharmacyPillsForm) {
         flashHint("تعذّر تحميل وحدة استمارة الحبوب");
@@ -1376,6 +1373,35 @@
         } catch (err) {
           console.error("[pills-form] error:", err);
           flashHint("تعذّر توليد الاستمارة: " + (err.message || err));
+        }
+      }, 50);
+    });
+
+    // ----- Med Summary Download (تنزيل إحصاء الأدوية) -----
+    // Generates a downloadable PDF listing each prescribed medication
+    // with its form category (Vial / Tablet / Ampule / Supplies / …)
+    // and the total daily count across all patients.
+    $("med-summary-btn").addEventListener("click", async () => {
+      if (!global.PharmacyMedSummary) {
+        flashHint("تعذّر تحميل وحدة إحصاء الأدوية");
+        return;
+      }
+      flashHint("يتم توليد إحصاء الأدوية... انتظر قليلاً");
+      setTimeout(async () => {
+        try {
+          const result = await global.PharmacyMedSummary.generateMedSummary(state);
+          if (result && result.error) {
+            flashHint(result.error);
+            return;
+          }
+          if (result && result.count) {
+            flashHint(`تم تنزيل إحصاء ${result.count} دواء (إجمالي ${result.total} تكرار يومي) — تحقق من التنزيلات`);
+          } else {
+            flashHint("لا يوجد أدوية موصوفة لعرضها");
+          }
+        } catch (err) {
+          console.error("[med-summary] error:", err);
+          flashHint("تعذّر توليد الإحصاء: " + (err.message || err));
         }
       }, 50);
     });
