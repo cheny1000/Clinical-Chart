@@ -440,14 +440,18 @@
     const IMG_X = (PDF_PAGE_W - IMG_W_MM) / 2;  // 35mm left margin
     const IMG_Y = (PDF_PAGE_H - IMG_H_MM) / 2;  // 49.5mm top margin
 
-    // Try to access jsPDF from the global window. html2pdf.js bundle
-    // includes jsPDF as window.jspdf.jsPDF (and also as window.jsPDF
-    // in some builds).
-    const JsPDF = (global.jspdf && global.jspdf.jsPDF) || global.jsPDF;
+    // Try to access jsPDF from various globals:
+    //   - jspdf@2.x UMD: window.jspdf.jsPDF
+    //   - jsPDF legacy global: window.jsPDF
+    //   - html2pdf bundle may also expose jsPDF internally
+    const JsPDF =
+      (global.jspdf && global.jspdf.jsPDF) ||
+      global.jsPDF ||
+      (global.jspdf && typeof global.jspdf === "function" ? global.jspdf : null);
+
     if (!JsPDF) {
-      // Fallback: if jsPDF isn't available, fall back to downloading
-      // each canvas as a separate PNG (old behavior).
       console.warn("[pills-form] jsPDF not available — falling back to separate PNGs");
+      // Fallback: download each canvas as a separate PNG.
       const stamp = new Date().toISOString().slice(0, 10);
       for (let i = 0; i < canvases.length; i++) {
         const blob = await new Promise(resolve => canvases[i].toBlob(resolve, "image/png"));
@@ -458,28 +462,40 @@
       return { count: canvases.length, mode: "png-fallback" };
     }
 
-    const pdf = new JsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4"
-    });
+    try {
+      const pdf = new JsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4"
+      });
 
-    for (let i = 0; i < canvases.length; i++) {
-      const canvas = canvases[i];
-      // Convert canvas to JPEG data URL (smaller file size than PNG
-      // for the same visual quality when the image is mostly white
-      // background + black text).
-      const dataURL = canvas.toDataURL("image/jpeg", 0.85);
-      if (i > 0) pdf.addPage();
-      pdf.addImage(dataURL, "JPEG", IMG_X, IMG_Y, IMG_W_MM, IMG_H_MM);
+      for (let i = 0; i < canvases.length; i++) {
+        const canvas = canvases[i];
+        // Convert canvas to JPEG data URL (smaller file size than PNG
+        // for the same visual quality when the image is mostly white
+        // background + black text).
+        const dataURL = canvas.toDataURL("image/jpeg", 0.85);
+        if (i > 0) pdf.addPage();
+        pdf.addImage(dataURL, "JPEG", IMG_X, IMG_Y, IMG_W_MM, IMG_H_MM);
+      }
+
+      // Save the merged PDF
+      const stamp = new Date().toISOString().slice(0, 10);
+      const filename = `pills-forms-${stamp}.pdf`;
+      pdf.save(filename);
+      return { count: canvases.length, mode: "pdf", filename: filename };
+    } catch (pdfErr) {
+      console.error("[pills-form] jsPDF error:", pdfErr);
+      // Fallback: separate PNG downloads
+      const stamp = new Date().toISOString().slice(0, 10);
+      for (let i = 0; i < canvases.length; i++) {
+        const blob = await new Promise(resolve => canvases[i].toBlob(resolve, "image/png"));
+        const safeName = tabletPatients[i].name.replace(/[\\/:*?"<>|]/g, "_");
+        const filename = `pills-form-${safeName}-${stamp}.png`;
+        setTimeout(() => downloadBlob(blob, filename), i * 300);
+      }
+      return { count: canvases.length, mode: "png-fallback", error: pdfErr.message };
     }
-
-    // Save the merged PDF
-    const stamp = new Date().toISOString().slice(0, 10);
-    const filename = `pills-forms-${stamp}.pdf`;
-    pdf.save(filename);
-
-    return { count: canvases.length, mode: "pdf", filename: filename };
   }
 
   // ---- Exports ----
