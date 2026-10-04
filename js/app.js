@@ -269,9 +269,12 @@
     const isAdmin = Auth.isAdmin();
     const adminBtn = $("open-admin");
     if (adminBtn) adminBtn.hidden = !isAdmin;
-    // chart button + pills form button + logout button are always visible
+    // chart button + med summary button + pills form button + logout
+    // are always visible
     const chartBtn = $("print-chart-btn");
     if (chartBtn) chartBtn.hidden = false;
+    const summaryBtn = $("med-summary-btn");
+    if (summaryBtn) summaryBtn.hidden = false;
     const pillsBtn = $("print-pills-form-btn");
     if (pillsBtn) pillsBtn.hidden = false;
     const logoutBtn = $("logout-btn");
@@ -1542,6 +1545,17 @@
     // Close handlers for med summary modal
     $("med-summary-close").addEventListener("click", closeMedSummary);
     $("med-summary-overlay").addEventListener("click", closeMedSummary);
+
+    // ----- Med Summary Button (opens the summary modal on demand) -----
+    // The summary also appears automatically after the chart is
+    // generated (with supply distribution), but this button lets the
+    // pharmacist open it any time without generating the chart again.
+    // When opened via the button, supplies are NOT included (only the
+    // patient-prescribed meds are tallied) — supplies are only shown
+    // after they're distributed via the supply-order modal.
+    $("med-summary-btn").addEventListener("click", () => {
+      showMedSummaryList(null);
+    });
 
     // ----- Display Mode (TV / large screen) -----
     $("display-mode-btn").addEventListener("click", enterDisplayMode);
