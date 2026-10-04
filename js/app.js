@@ -271,22 +271,42 @@
     $("login-screen").hidden = true;
   }
 
-  // Apply role-based visibility (hide ⚙ from pharmacist role)
+  // Apply role-based visibility (which buttons appear on the header
+  // for each role). The "always-visible" buttons are: chart, med
+  // summary, pills form, and the gear (settings/admin) button.
+  //
+  // For non-admin pharmacists, the following header buttons are now
+  // HIDDEN because they're available from the Settings view (the gear
+  // button → settings view → dark mode + TV + logout):
+  //   - darkmode-toggle (🌙)
+  //   - display-mode-btn (📺)
+  //   - logout-btn (🚪)
+  // These remain visible for admins because admins don't have the
+  // simplified settings view — they have the full admin view.
   function applyRoleVisibility() {
     if (!Auth) return;
     const isAdmin = Auth.isAdmin();
+
+    // Gear button (settings/admin): always visible for both roles
     const adminBtn = $("open-admin");
-    if (adminBtn) adminBtn.hidden = false;  // Always visible (both roles)
-    // chart button + med summary button + pills form button + logout
-    // are always visible
+    if (adminBtn) adminBtn.hidden = false;
+
+    // Chart buttons: always visible (both roles)
     const chartBtn = $("print-chart-btn");
     if (chartBtn) chartBtn.hidden = false;
     const summaryBtn = $("med-summary-btn");
     if (summaryBtn) summaryBtn.hidden = false;
     const pillsBtn = $("print-pills-form-btn");
     if (pillsBtn) pillsBtn.hidden = false;
+
+    // Dark mode + TV + logout: only visible to admins (non-admins
+    // access them via the Settings view instead).
+    const darkBtn = $("darkmode-toggle");
+    if (darkBtn) darkBtn.hidden = !isAdmin;
+    const displayBtn = $("display-mode-btn");
+    if (displayBtn) displayBtn.hidden = !isAdmin;
     const logoutBtn = $("logout-btn");
-    if (logoutBtn) logoutBtn.hidden = false;
+    if (logoutBtn) logoutBtn.hidden = !isAdmin;
   }
 
   // Bind login form + quick buttons + logout
