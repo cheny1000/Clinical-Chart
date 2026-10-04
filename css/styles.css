@@ -2744,6 +2744,138 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 }
 .supply-order-pdf:active { transform: scale(0.98); }
 
+/* ---------- Med Summary Modal (shown after chart generation) ---------- */
+.med-summary-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  z-index: 102;
+  animation: fadeIn 200ms ease-out;
+}
+.med-summary-overlay[hidden] { display: none !important; }
+.med-summary-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 103;
+  padding: 16px;
+}
+.med-summary-modal[hidden] { display: none !important; }
+.med-summary-card {
+  background: #fff;
+  border-radius: var(--r-xl);
+  max-width: 560px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  animation: supplySlideUp 250ms ease-out;
+}
+.med-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--primary);
+  color: #fff;
+  padding: 16px 20px;
+  flex-shrink: 0;
+}
+.med-summary-head h3 { margin: 0; font-size: 18px; font-weight: 800; }
+.med-summary-close {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.med-summary-close:active { background: rgba(255,255,255,0.4); }
+.med-summary-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 20px;
+  background: #fff;
+}
+.med-summary-group {
+  margin-bottom: 16px;
+}
+.med-summary-group-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--primary-dark);
+  padding: 6px 10px;
+  background: var(--primary-soft);
+  border-radius: var(--r-sm);
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.med-summary-group-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  background: rgba(255,255,255,0.7);
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+}
+.med-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.med-summary-row:last-child { border-bottom: none; }
+.med-summary-row-name {
+  flex: 1;
+  font-weight: 700;
+  color: var(--text);
+}
+.med-summary-row-count {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--primary);
+  min-width: 40px;
+  text-align: center;
+  background: var(--primary-soft);
+  padding: 2px 10px;
+  border-radius: var(--r-full);
+}
+.med-summary-row-count.custom {
+  background: #F1F5F9;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.med-summary-footer {
+  padding: 10px 20px;
+  background: #F8FAFC;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+html[data-theme="dark"] .med-summary-card,
+html[data-theme="dark"] .med-summary-body { background: var(--bg-card); }
+html[data-theme="dark"] .med-summary-footer { background: var(--bg); color: var(--text-muted); }
+html[data-theme="dark"] .med-summary-row { border-color: var(--border); }
+html[data-theme="dark"] .med-summary-row-count.custom { background: var(--bg); }
+
 /* ---------- User Management + Audit Log (admin only) ---------- */
 .admin-users-section,
 .admin-audit-section {

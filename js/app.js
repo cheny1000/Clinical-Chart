@@ -269,14 +269,11 @@
     const isAdmin = Auth.isAdmin();
     const adminBtn = $("open-admin");
     if (adminBtn) adminBtn.hidden = !isAdmin;
-    // chart button + pills form button + med summary button + logout
-    // are always visible
+    // chart button + pills form button + logout button are always visible
     const chartBtn = $("print-chart-btn");
     if (chartBtn) chartBtn.hidden = false;
     const pillsBtn = $("print-pills-form-btn");
     if (pillsBtn) pillsBtn.hidden = false;
-    const summaryBtn = $("med-summary-btn");
-    if (summaryBtn) summaryBtn.hidden = false;
     const logoutBtn = $("logout-btn");
     if (logoutBtn) logoutBtn.hidden = false;
   }
@@ -1377,34 +1374,174 @@
       }, 50);
     });
 
-    // ----- Med Summary Download (تنزيل إحصاء الأدوية) -----
-    // Generates a downloadable PDF listing each prescribed medication
-    // with its form category (Vial / Tablet / Ampule / Supplies / …)
-    // and the total daily count across all patients.
-    $("med-summary-btn").addEventListener("click", async () => {
-      if (!global.PharmacyMedSummary) {
-        flashHint("تعذّر تحميل وحدة إحصاء الأدوية");
-        return;
+    // ----- Med Summary Modal (إحصاء الأدوية — shown after chart) -----
+    // After the chart is generated, show a modal list of all meds +
+    // supplies with their total daily count across all patients.
+    // This gives the pharmacist an at-a-glance view of what was
+    // distributed, including the supplies just assigned in the
+    // supply-order modal.
+
+    function closeMedSummary() {
+      const overlay = $("med-summary-overlay");
+      const modal = $("med-summary-modal");
+      if (overlay) overlay.hidden = true;
+      if (modal) modal.hidden = true;
+    }
+
+    // Build and show the med summary modal. Includes BOTH:
+    //   - Patient-prescribed meds (from patient.medications[])
+    //   - Auto-injected supplies (from supplyDistribution)
+    function showMedSummaryList(supplyDistribution) {
+      const body = $("med-summary-body");
+      const footer = $("med-summary-footer");
+      const overlay = $("med-summary-overlay");
+      const modal = $("med-summary-modal");
+      if (!body || !overlay || !modal) return;
+
+      const Meds = global.PharmacyMedications || {};
+      const FORM_LABELS = Meds.FORM_LABELS || {};
+      const FORM_ORDER = Meds.FORM_ORDER ||
+        ["vial", "ampule", "prefilled-syringe", "tablet", "syrup-and-oral-drop", "suppository", "solution", "supplies"];
+
+      // Helper: parse "1×3" → 3
+      function parseFreq(freq) {
+        if (!freq) return 0;
+        const m = freq.match(/×\s*(\d+)/);
+        if (m) return parseInt(m[1], 10);
+        const n = parseInt(freq, 10);
+        return !isNaN(n) && n > 0 ? n : 0;
       }
-      flashHint("يتم توليد إحصاء الأدوية... انتظر قليلاً");
-      setTimeout(async () => {
-        try {
-          const result = await global.PharmacyMedSummary.generateMedSummary(state);
-          if (result && result.error) {
-            flashHint(result.error);
-            return;
+
+      // Helper: get display label (Arabic preferred)
+      function getLabel(m) {
+        if (!m) return "";
+        return m.nameAr || m.nameTrade || m.nameEn || m.name || m.id || "";
+      }
+
+      // Build med-by-id lookup
+      const medById = {};
+      (state.medications || []).forEach(m => {
+        if (m && m.id) medById[m.id] = m;
+      });
+
+      // Tally counts across all occupied patients
+      const tally = {};
+      const occupiedPatients = Object.values(state.patients || {})
+        .filter(p => p && p.name && p.name.trim());
+
+      occupiedPatients.forEach(p => {
+        const seen = new Set();
+        (p.medications || []).forEach(pm => {
+          if (!pm || !pm.id) return;
+          const catalog = medById[pm.id];
+          if (!catalog) return;
+          if (!tally[pm.id]) {
+            tally[pm.id] = {
+              catalog: catalog,
+              total: 0,
+              custom: false
+            };
           }
-          if (result && result.count) {
-            flashHint(`تم تنزيل إحصاء ${result.count} دواء (إجمالي ${result.total} تكرار يومي) — تحقق من التنزيلات`);
-          } else {
-            flashHint("لا يوجد أدوية موصوفة لعرضها");
+          const freq = pm.frequency || catalog.defaultFrequency || "";
+          const n = parseFreq(freq);
+          if (n === 0 && freq) tally[pm.id].custom = true;
+          tally[pm.id].total += n;
+          if (!seen.has(pm.id)) {
+            seen.add(pm.id);
           }
-        } catch (err) {
-          console.error("[med-summary] error:", err);
-          flashHint("تعذّر توليد الإحصاء: " + (err.message || err));
-        }
-      }, 50);
-    });
+        });
+      });
+
+      // Inject auto-distributed supplies as additional "patients" of
+      // the supplies category. supplyDistribution maps supplyId →
+      // { bedKey: freq }. Sum the frequencies across all bedKeys.
+      if (supplyDistribution && typeof supplyDistribution === "object") {
+        Object.keys(supplyDistribution).forEach(supplyId => {
+          const dist = supplyDistribution[supplyId];
+          if (!dist || typeof dist !== "object") return;
+          let total = 0;
+          Object.values(dist).forEach(freq => { total += (freq || 0); });
+          if (total === 0) return;  // supply wasn't distributed to anyone
+
+          const catalog = medById[supplyId] || { id: supplyId, form: "supplies", nameTrade: supplyId };
+          tally[supplyId] = {
+            catalog: catalog,
+            total: total,
+            custom: false
+          };
+        });
+      }
+
+      // Group by form category
+      const groups = {};
+      FORM_ORDER.forEach(form => { groups[form] = []; });
+      Object.values(tally).forEach(t => {
+        const formKey = (t.catalog.form && FORM_ORDER.indexOf(t.catalog.form) !== -1)
+          ? t.catalog.form : "supplies";
+        if (!groups[formKey]) groups[formKey] = [];
+        groups[formKey].push(t);
+      });
+
+      // Sort each group: numeric counts descending, then custom
+      Object.values(groups).forEach(arr => {
+        arr.sort((a, b) => {
+          if (a.custom && !b.custom) return 1;
+          if (!a.custom && b.custom) return -1;
+          if (!a.custom && !b.custom) return b.total - a.total;
+          return getLabel(a.catalog).localeCompare(getLabel(b.catalog));
+        });
+      });
+
+      // Render HTML
+      let html = "";
+      let firstGroup = true;
+      FORM_ORDER.forEach(form => {
+        const arr = groups[form] || [];
+        if (arr.length === 0) return;
+        if (!firstGroup) html += "";
+        firstGroup = false;
+        const formLabel = FORM_LABELS[form] || form;
+        html += `<div class="med-summary-group">`;
+        html += `<div class="med-summary-group-title">`;
+        html += `<span>${formLabel}</span>`;
+        html += `<span class="med-summary-group-count">${arr.length} دواء</span>`;
+        html += `</div>`;
+        arr.forEach(t => {
+          const name = getLabel(t.catalog);
+          const countText = t.custom ? "—" : String(t.total);
+          const countClass = t.custom ? "med-summary-row-count custom" : "med-summary-row-count";
+          html += `<div class="med-summary-row">`;
+          html += `<span class="med-summary-row-name">${name}</span>`;
+          html += `<span class="${countClass}">${countText}</span>`;
+          html += `</div>`;
+        });
+        html += `</div>`;
+      });
+
+      if (firstGroup) {
+        // No groups at all — no patient has any medication
+        html = `<div style="text-align:center;padding:40px;color:var(--text-muted);">لا يوجد أدوية موصوفة</div>`;
+      }
+
+      body.innerHTML = html;
+
+      // Footer with totals
+      const totalCount = Object.values(tally).reduce((s, t) => s + (t.custom ? 0 : t.total), 0);
+      const totalMeds = Object.keys(tally).length;
+      const totalPatients = occupiedPatients.length;
+      footer.innerHTML = `
+        <div>إجمالي التكرارات اليومية: ${totalCount}</div>
+        <div>عدد الأدوية والمستلزمات: ${totalMeds}  ·  عدد المرضى: ${totalPatients}</div>
+      `;
+
+      // Show modal
+      overlay.hidden = false;
+      modal.hidden = false;
+    }
+
+    // Close handlers for med summary modal
+    $("med-summary-close").addEventListener("click", closeMedSummary);
+    $("med-summary-overlay").addEventListener("click", closeMedSummary);
 
     // ----- Display Mode (TV / large screen) -----
     $("display-mode-btn").addEventListener("click", enterDisplayMode);
@@ -1583,6 +1720,9 @@
           const pages = await global.PharmacyChartImage.generateChartImage(wrapState);
           if (pages && pages.length > 0) {
             flashHint(`تم توليد ${pages.length} صفحة جارت — تحقق من التنزيلات`);
+            // After the chart is generated, show the med summary list
+            // (includes the auto-distributed supplies).
+            showMedSummaryList(supplyDistribution);
           }
         } catch (err) {
           console.error("[chart-image] error:", err);
