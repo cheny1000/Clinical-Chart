@@ -298,6 +298,8 @@
     if (summaryBtn) summaryBtn.hidden = false;
     const pillsBtn = $("print-pills-form-btn");
     if (pillsBtn) pillsBtn.hidden = false;
+    const excelBtn = $("chart-excel-btn");
+    if (excelBtn) excelBtn.hidden = false;
 
     // Dark mode + TV + logout: only visible to admins (non-admins
     // access them via the Settings view instead).
@@ -1595,6 +1597,42 @@
     // the patient-prescribed meds (no supplies).
     $("med-summary-btn").addEventListener("click", () => {
       showMedSummaryList(_lastSupplyDistribution);
+    });
+
+    // ----- Chart Excel Export (تصدير الجارت كـ Excel) -----
+    // Generates a .xlsx file with one row per occupied patient and one
+    // column per prescribed medication + supply. Uses the LAST supply
+    // distribution saved from chart generation so the Excel matches
+    // the last chart produced.
+    $("chart-excel-btn").addEventListener("click", async () => {
+      if (!global.PharmacyChartExcel) {
+        flashHint("تعذّر تحميل وحدة تصدير Excel");
+        return;
+      }
+      flashHint("يتم توليد ملف Excel... انتظر قليلاً");
+      // Defer so flashHint renders first
+      setTimeout(async () => {
+        try {
+          const wrapState = {
+            patients: state.patients,
+            medications: state.medications,
+            supplyDistribution: _lastSupplyDistribution
+          };
+          const result = await global.PharmacyChartExcel.generateChartExcel(wrapState);
+          if (result && result.error) {
+            flashHint(result.error);
+            return;
+          }
+          if (result && result.ok) {
+            flashHint(`تم تنزيل ${result.filename} — ${result.count} مريض × ${result.medCount} دواء`);
+          } else {
+            flashHint("لم يتم توليد الملف");
+          }
+        } catch (err) {
+          console.error("[chart-excel] error:", err);
+          flashHint("تعذّر توليد Excel: " + (err.message || err));
+        }
+      }, 50);
     });
 
     // ----- Display Mode (TV / large screen) -----
