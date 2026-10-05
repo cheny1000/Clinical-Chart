@@ -150,80 +150,55 @@
     const orderedMeds = restBucket.concat(priorityBucket);
 
     // ---- Step 4: build the worksheet data (as a 2D array) ----
-    // Layout: each ROW is an array of cell values. RTL sheet view
-    // (set below) makes column A appear on the right.
-    //   Col A (rightmost in RTL): patient name
-    //   Col B:                    room number
-    //   Col C, D, E, ...:         med1, med2, med3, ...
-    //
-    // For the header row (row 0), use a friendly label for each med
-    // (Arabic preferred, then trade name, then English).
-    function getLabel(m) {
-      if (!m) return "";
-      return m.nameAr || m.nameTrade || m.nameEn || m.name || m.id || "";
+    // SIMPLIFIED LAYOUT (per user request):
+    //   - Two columns only:
+    //     Col A (rightmost in RTL): اسم المريض (patient name)
+    //     Col B:                    التكرار (total daily frequency)
+    //   - No medication names as headers
+    //   - No per-med columns
+    //   - Just the patient name + the SUM of all their medications'
+    //     daily frequencies (e.g. if patient has paracetamol 1×3 +
+    //     fucidin 1×2 → total = 5).
+    //   - Custom frequencies (like "حسب القياس") are skipped in the
+    //     sum (can't be added numerically).
+
+    function parseFreqCount(freq) {
+      if (!freq) return 0;
+      const m = freq.match(/×\s*(\d+)/);
+      if (m) return parseInt(m[1], 10);
+      const n = parseInt(freq, 10);
+      return (!isNaN(n) && n > 0) ? n : 0;
     }
 
     // Header row
-    const header = ["اسم المريض", "الغرفة"];
-    orderedMeds.forEach(m => header.push(getLabel(m)));
+    const header = ["اسم المريض", "التكرار"];
 
     // Data rows
     const rows = [header];
+    let grandTotal = 0;
     occupiedRows.forEach(patient => {
-      const row = [patient.name, "غرفة " + patient.roomNumber];
-
-      // Build medId → count map for this patient
-      const counts = {};
+      // Sum all daily frequencies across the patient's meds + supplies
+      let total = 0;
       (patient.medications || []).forEach(pm => {
         if (!pm || !pm.id) return;
         const freq = pm.frequency || "";
-        const match = freq.match(/×\s*(\d+)/);
-        let n;
-        if (match) n = parseInt(match[1], 10);
-        else {
-          const plain = parseInt(freq, 10);
-          n = isNaN(plain) ? 0 : plain;
-        }
-        // For custom freq (like "حسب القياس"), keep the text if no number
-        counts[pm.id] = (n > 0) ? String(n) : (freq || "");
+        total += parseFreqCount(freq);
       });
-
-      // Fill each med column with the count (or empty string if med not given)
-      orderedMeds.forEach(m => {
-        row.push(m && m.id ? (counts[m.id] || "") : "");
-      });
-
-      rows.push(row);
+      grandTotal += total;
+      rows.push([patient.name, total]);
     });
 
-    // Totals row at the bottom — sum of each med column (numeric only)
-    const totalsRow = ["الإجمالي", ""];
-    orderedMeds.forEach((m, i) => {
-      let total = 0;
-      let hasCustom = false;
-      occupiedRows.forEach(patient => {
-        const v = m && m.id ? (counts_lookup(patient, m.id)) : "";
-        if (v === "" || v == null) return;
-        const n = parseInt(v, 10);
-        if (!isNaN(n)) total += n;
-        else hasCustom = true;
-      });
-      // Show total, or "—" if all custom, or "total (+ custom)" if mixed
-      if (total === 0 && !hasCustom) totalsRow.push("");
-      else if (total > 0 && hasCustom) totalsRow.push(String(total) + " +؟");
-      else totalsRow.push(String(total));
-    });
-    rows.push(totalsRow);
+    // Totals row at the bottom
+    rows.push(["الإجمالي", grandTotal]);
 
     // ---- Step 5: create workbook + worksheet ----
     const ws = XLSX.utils.aoa_to_sheet(rows);
 
-    // Set column widths — wider for the name column, narrow for meds
+    // Set column widths — wider for the name column
     ws["!cols"] = [
       { wch: 22 },  // اسم المريض (col A)
-      { wch: 10 }   // الغرفة (col B)
+      { wch: 12 }   // التكرار (col B)
     ];
-    orderedMeds.forEach(() => ws["!cols"].push({ wch: 8 }));  // med cols
 
     // Set RTL view (sheet shows right-to-left)
     const wb = XLSX.utils.book_new();
