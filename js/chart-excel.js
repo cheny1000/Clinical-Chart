@@ -36,6 +36,9 @@
     }
 
     // ---- Step 1: build occupied rows (deep copy, drop legacy 5cc) ----
+    // Each row captures: patient name, plate number (الطبلة), bed
+    // number (سرير), and a deep copy of their medications (so the
+    // supply injection below doesn't mutate the stored patient data).
     const occupiedRows = [];
     Ward.ROOMS.forEach(room => {
       room.beds.forEach(bed => {
@@ -48,6 +51,8 @@
           occupiedRows.push({
             bedKey: key,
             name: p.name.trim(),
+            plateNumber: p.plateNumber || "",
+            bedNumber: bed.number,
             roomNumber: room.id,
             medications: medsCopy
           });
@@ -152,52 +157,56 @@
     // ---- Step 4: build the worksheet data (as a 2D array) ----
     // SIMPLIFIED LAYOUT (per user request):
     //   - Two columns only:
-    //     Col A (rightmost in RTL): اسم المريض (patient name)
-    //     Col B:                    التكرار (total daily frequency)
+    //     Col A (rightmost in RTL): اسم المريض (patient name + plate)
+    //     Col B:                    التكرار (one row PER MEDICATION)
     //   - No medication names as headers
     //   - No per-med columns
-    //   - Just the patient name + the SUM of all their medications'
-    //     daily frequencies (e.g. if patient has paracetamol 1×3 +
-    //     fucidin 1×2 → total = 5).
-    //   - Custom frequencies (like "حسب القياس") are skipped in the
-    //     sum (can't be added numerically).
+    //   - No summing of frequencies (each medication gets its own row
+    //     with its individual frequency number)
+    //
+    // Example output:
+    //   محمد أحمد | 3
+    //   محمد أحمد | 2
+    //   فاطمة حسن | 1
+    //   فاطمة حسن | 3
+    //
+    // The patient name is repeated for each of their medications, so
+    // the pharmacist can see every prescription without med names.
 
     function parseFreqCount(freq) {
-      if (!freq) return 0;
+      if (!freq) return "";
       const m = freq.match(/×\s*(\d+)/);
       if (m) return parseInt(m[1], 10);
       const n = parseInt(freq, 10);
-      return (!isNaN(n) && n > 0) ? n : 0;
+      if (!isNaN(n) && n > 0) return n;
+      return freq;  // custom text like "حسب القياس"
     }
 
     // Header row
     const header = ["اسم المريض", "التكرار"];
 
-    // Data rows
+    // Data rows — one row per (patient, medication) pair
     const rows = [header];
-    let grandTotal = 0;
     occupiedRows.forEach(patient => {
-      // Sum all daily frequencies across the patient's meds + supplies
-      let total = 0;
+      // Patient name + plate number combined (e.g. "محمد أحمد · طبلة 5")
+      const nameWithPlate = patient.plateNumber
+        ? `${patient.name} · طبلة ${patient.plateNumber}`
+        : patient.name;
       (patient.medications || []).forEach(pm => {
         if (!pm || !pm.id) return;
         const freq = pm.frequency || "";
-        total += parseFreqCount(freq);
+        const count = parseFreqCount(freq);
+        rows.push([nameWithPlate, count]);
       });
-      grandTotal += total;
-      rows.push([patient.name, total]);
     });
-
-    // Totals row at the bottom
-    rows.push(["الإجمالي", grandTotal]);
 
     // ---- Step 5: create workbook + worksheet ----
     const ws = XLSX.utils.aoa_to_sheet(rows);
 
-    // Set column widths — wider for the name column
+    // Set column widths
     ws["!cols"] = [
-      { wch: 22 },  // اسم المريض (col A)
-      { wch: 12 }   // التكرار (col B)
+      { wch: 28 },  // اسم المريض + رقم الطبلة
+      { wch: 12 }   // التكرار
     ];
 
     // Set RTL view (sheet shows right-to-left)
