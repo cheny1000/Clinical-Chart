@@ -155,23 +155,22 @@
     const orderedMeds = restBucket.concat(priorityBucket);
 
     // ---- Step 4: build the worksheet data (as a 2D array) ----
-    // SIMPLIFIED LAYOUT (per user request):
-    //   - Two columns only:
-    //     Col A (rightmost in RTL): اسم المريض (patient name + plate)
-    //     Col B:                    التكرار (one row PER MEDICATION)
-    //   - No medication names as headers
-    //   - No per-med columns
-    //   - No summing of frequencies (each medication gets its own row
-    //     with its individual frequency number)
+    // LAYOUT (per user request):
+    //   - One row per occupied patient
+    //   - First column:  اسم المريض (patient name only)
+    //   - Second column: رقم الطبلة (plate number — empty if not set)
+    //   - Subsequent columns: each column is a medication's frequency
+    //     number, in the same order across all patients.
+    //   - No medication names as column headers (the user wants just
+    //     numbers — the pharmacist can recognize the meds by position
+    //     since they're in the same order as the chart/Excel).
+    //   - Column headers for the med columns are blank ("").
     //
-    // Example output:
-    //   محمد أحمد | 3
-    //   محمد أحمد | 2
-    //   فاطمة حسن | 1
-    //   فاطمة حسن | 3
-    //
-    // The patient name is repeated for each of their medications, so
-    // the pharmacist can see every prescription without med names.
+    // Example:
+    //   اسم المريض  | رقم الطبلة |     |     |     |
+    //   محمد أحمد   | 5          | 3   | 2   |     |
+    //   فاطمة حسن   |            | 1   |     | 3   |
+    //   عبدالله     | 2          | 2   | 1   | 1   |
 
     function parseFreqCount(freq) {
       if (!freq) return "";
@@ -182,32 +181,35 @@
       return freq;  // custom text like "حسب القياس"
     }
 
-    // Header row
-    const header = ["اسم المريض", "التكرار"];
+    // Header row: اسم المريض + رقم الطبلة + one blank cell per med column
+    const maxMedCount = occupiedRows.reduce((m, p) =>
+      Math.max(m, (p.medications || []).length), 0);
+    const header = ["اسم المريض", "رقم الطبلة"];
+    for (let i = 0; i < maxMedCount; i++) header.push("");
 
-    // Data rows — one row per (patient, medication) pair
+    // Data rows — one row per patient, columns = each med's frequency
     const rows = [header];
     occupiedRows.forEach(patient => {
-      // Patient name + plate number combined (e.g. "محمد أحمد · طبلة 5")
-      const nameWithPlate = patient.plateNumber
-        ? `${patient.name} · طبلة ${patient.plateNumber}`
-        : patient.name;
+      const row = [patient.name, patient.plateNumber || ""];
       (patient.medications || []).forEach(pm => {
         if (!pm || !pm.id) return;
         const freq = pm.frequency || "";
-        const count = parseFreqCount(freq);
-        rows.push([nameWithPlate, count]);
+        row.push(parseFreqCount(freq));
       });
+      // Pad with empty strings to align columns (Excel needs rectangular)
+      while (row.length < header.length) row.push("");
+      rows.push(row);
     });
 
     // ---- Step 5: create workbook + worksheet ----
     const ws = XLSX.utils.aoa_to_sheet(rows);
 
-    // Set column widths
+    // Set column widths: wider for name + plate, narrower for med cols
     ws["!cols"] = [
-      { wch: 28 },  // اسم المريض + رقم الطبلة
-      { wch: 12 }   // التكرار
+      { wch: 22 },  // اسم المريض
+      { wch: 12 }   // رقم الطبلة
     ];
+    for (let i = 0; i < maxMedCount; i++) ws["!cols"].push({ wch: 6 });
 
     // Set RTL view (sheet shows right-to-left)
     const wb = XLSX.utils.book_new();
