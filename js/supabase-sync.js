@@ -289,6 +289,7 @@
       bed_number:   bedNum,
       name:         (p && p.name) ? p.name : "",
       plate_number: (p && p.plateNumber) ? String(p.plateNumber) : "",
+      doctor:       (p && p.doctor) ? String(p.doctor) : "",   // الطبيب المعالج
       medications:  JSON.stringify((p && p.medications) || []),
       // Use the local updatedAt if present (ms → ISO); otherwise now.
       updated_at:   new Date(_toMs(p && p.updatedAt) || Date.now()).toISOString()
@@ -308,6 +309,7 @@
     return {
       name:        row.name || "",
       plateNumber: row.plate_number || "",
+      doctor:      row.doctor || "",   // الطبيب المعالج (attending physician)
       medications: Array.isArray(meds) ? meds : [],
       updatedAt:   _toMs(row.updated_at)
     };

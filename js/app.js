@@ -312,6 +312,12 @@
     const bridgeBtn = $("chart-bridge-btn");
     if (bridgeBtn) bridgeBtn.hidden = !isChartRole;
 
+    // Print ALL patient sheets button: admin + doctor only.
+    // The pharmacist prints individual sheets from the patient view.
+    const isPrintAllRole = isAdmin || isDoctor;
+    const allSheetsBtn = $("print-all-sheets-btn");
+    if (allSheetsBtn) allSheetsBtn.hidden = !isPrintAllRole;
+
     // Dark mode + TV + logout: only visible to admins (non-admins
     // access them via the Settings view instead).
     const darkBtn = $("darkmode-toggle");
@@ -518,6 +524,7 @@
         state.patients[bedKey] = {
           name:        row.name || "",
           plateNumber: row.plate_number || "",
+          doctor:      row.doctor || "",   // الطبيب المعالج (attending physician)
           medications: Array.isArray(meds) ? meds : [],
           updatedAt:   Date.parse(row.updated_at) || Date.now()
         };
@@ -1097,6 +1104,25 @@
       clearTimeout(plateTimer);
       persistPatient(state.currentBed.key);
     });
+
+    // Doctor (الطبيب المعالج) — free-text field. Each patient has ONE
+    // attending physician (the specialist who manages the patient's
+    // care — not the doctor using the app, who may be a resident
+    // covering the ward). The attending physician is shown on the bed
+    // buttons in the rooms grid + on the printed patient sheet.
+    let doctorTimer = null;
+    $("patient-doctor-input").addEventListener("input", (e) => {
+      if (!state.currentBed) return;
+      const p = ensurePatient(state.currentBed.key);
+      p.doctor = e.target.value;
+      clearTimeout(doctorTimer);
+      doctorTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
+    });
+    $("patient-doctor-input").addEventListener("blur", () => {
+      if (!state.currentBed) return;
+      clearTimeout(doctorTimer);
+      persistPatient(state.currentBed.key);
+    });
     $("patient-name-input").addEventListener("blur", () => {
       if (!state.currentBed) return;
       clearTimeout(nameTimer);
@@ -1410,6 +1436,39 @@
         return;
       }
       openSupplyOrderModal(occCount);
+    });
+
+    // ----- Print All Patient Sheets (طباعة كل أوراق المرضى) -----
+    // Generates a multi-page PDF containing one patient sheet per
+    // occupied bed (same layout as printPatientSheet, but for ALL
+    // patients in one download). Available to admin + doctor only —
+    // the pharmacist prints individual sheets from the patient view.
+    $("print-all-sheets-btn").addEventListener("click", async () => {
+      const occPatients = [];
+      const Ward = global.PharmacyWard;
+      Ward.ROOMS.forEach(room => {
+        room.beds.forEach(bed => {
+          const key = Ward.bedKey(room.id, bed.number);
+          const p = state.patients[key];
+          if (p && p.name && p.name.trim()) {
+            occPatients.push({ patient: p, currentBed: { key, roomId: room.id, bed: bed.number } });
+          }
+        });
+      });
+      if (occPatients.length === 0) {
+        flashHint("لا يوجد مرضى مشغولون");
+        return;
+      }
+      flashHint(`يتم توليد ${occPatients.length} ورقة... انتظر قليلاً`);
+      setTimeout(async () => {
+        try {
+          await printAllPatientSheets(occPatients);
+          flashHint(`تم تنزيل ${occPatients.length} ورقة في ملف PDF موحّد`);
+        } catch (err) {
+          console.error("[print-all-sheets] error:", err);
+          flashHint("تعذّر توليد الأوراق: " + (err.message || err));
+        }
+      }, 50);
     });
 
     // ----- Pills Form Download (تنزيل استمارة الحبوب) -----
@@ -2568,14 +2627,21 @@
     if (!patient || !currentBed) return;
     const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
     // Build the doctor's display name with the title (دكتور/دكتورة)
-    // based on the stored gender.
-    let doctorName = "—";
+    // based on the stored gender. This is the doctor currently logged
+    // into the app (a resident covering the ward) — not the patient's
+    // attending physician (specialist). We show BOTH on the printed
+    // sheet so it's clear who's the resident on duty + who's the
+    // attending specialist.
+    let loggedDoctor = "—";
     if (user && user.displayName) {
       const cleanName = user.displayName.split("|")[0] || user.displayName;
       const gender = user.gender || (user.displayName.split("|")[1] || "male");
       const title = gender === "female" ? "دكتورة" : "دكتور";
-      doctorName = `${title} ${cleanName}`;
+      loggedDoctor = `${title} ${cleanName}`;
     }
+    // The patient's attending physician (الطبيب المعالج) — stored as
+    // a free-text field on the patient record (e.g. "أ.د. محمد الجبوري").
+    const attendingDoctor = patient.doctor || "—";
     const patientName = patient.name || "—";
     const room = `غرفة ${currentBed.roomId}`;
     const bed = `سرير ${currentBed.bed}`;
@@ -2690,7 +2756,8 @@
       '<body>',
       '<div class="ps-header">',
       '  <div class="ps-header-row">',
-      '    <div class="ps-header-cell"><strong>الطبيب</strong>' + escapeHtml(doctorName) + '</div>',
+      '    <div class="ps-header-cell"><strong>الطبيب المقيم</strong>' + escapeHtml(loggedDoctor) + '</div>',
+      '    <div class="ps-header-cell"><strong>الطبيب المعالج</strong>' + escapeHtml(attendingDoctor) + '</div>',
       '    <div class="ps-header-cell"><strong>المريض</strong>' + escapeHtml(patientName) + '</div>',
       '    <div class="ps-header-cell"><strong>الغرفة</strong>' + escapeHtml(room + ' · ' + bed + plate) + '</div>',
       '    <div class="ps-header-cell"><strong>التاريخ</strong>' + dateStr + '</div>',
@@ -2726,6 +2793,135 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  // -------- Print ALL patient sheets as one multi-page PDF --------
+  // Iterates all occupied patients, builds a single HTML document
+  // with one page per patient (using CSS page-break-after), then
+  // opens a print window. This is the same layout as printPatientSheet
+  // but for all patients in one download.
+  //
+  // The PDF is generated by the browser's print-to-PDF feature (the
+  // user picks "Save as PDF" in the print dialog). This works on all
+  // platforms including iOS Safari.
+  function printAllPatientSheets(occPatients) {
+    if (!occPatients || occPatients.length === 0) return;
+
+    const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+    let loggedDoctor = "—";
+    if (user && user.displayName) {
+      const cleanName = user.displayName.split("|")[0] || user.displayName;
+      const gender = user.gender || (user.displayName.split("|")[1] || "male");
+      const title = gender === "female" ? "دكتورة" : "دكتور";
+      loggedDoctor = `${title} ${cleanName}`;
+    }
+
+    // Build each patient's section as a page div
+    const pagesHtml = occPatients.map(({ patient, currentBed }) => {
+      const attendingDoctor = patient.doctor || "—";
+      const patientName = patient.name || "—";
+      const room = `غرفة ${currentBed.roomId}`;
+      const bed = `سرير ${currentBed.bed}`;
+      const plate = patient.plateNumber ? ` · طبلة ${patient.plateNumber}` : "";
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`;
+
+      // Build medications list (same as printPatientSheet)
+      const meds = (Array.isArray(patient.medications) ? patient.medications : [])
+        .filter(pm => pm && pm.id !== "syringe-5cc");
+      let medsRows = "";
+      if (meds.length === 0) {
+        medsRows = `<div class="ps-empty">No medications</div>`;
+      } else {
+        medsRows = meds.map((m, i) => {
+          const name = m.nameEn || m.nameTrade || m.nameAr || m.name || m.id || "—";
+          const dose = m.dose || "";
+          let freqStr = "";
+          const freq = m.frequency || "";
+          const m1 = freq.match(/×\s*(\d+)/);
+          const m2 = freq.match(/^(\d+)$/);
+          if (m1) freqStr = "x " + m1[1];
+          else if (m2) freqStr = "x " + m2[1];
+          const parts = [
+            escapeHtml(name),
+            dose ? escapeHtml(dose) : "",
+            freqStr ? escapeHtml(freqStr) : ""
+          ].filter(p => p).join("&nbsp;&nbsp;");
+          return `<div class="ps-med-line"><span class="ps-med-num">${i + 1}.</span> <span class="ps-med-name">${parts}</span></div>`;
+        }).join("");
+      }
+
+      return `
+        <div class="ps-page">
+          <div class="ps-header">
+            <div class="ps-header-row">
+              <div class="ps-header-cell"><strong>الطبيب المقيم</strong>${escapeHtml(loggedDoctor)}</div>
+              <div class="ps-header-cell"><strong>الطبيب المعالج</strong>${escapeHtml(attendingDoctor)}</div>
+              <div class="ps-header-cell"><strong>المريض</strong>${escapeHtml(patientName)}</div>
+              <div class="ps-header-cell"><strong>الغرفة</strong>${escapeHtml(room + ' · ' + bed + plate)}</div>
+              <div class="ps-header-cell"><strong>التاريخ</strong>${dateStr}</div>
+            </div>
+          </div>
+          <div class="ps-body">
+            <div class="ps-vs-col"><div class="ps-vs-box"></div></div>
+            <div class="ps-meds-col">${medsRows}</div>
+          </div>
+        </div>`;
+    }).join("");
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      flashHint("تعذّر فتح نافذة الطباعة — اسمح بالنوافذ المنبثقة");
+      return;
+    }
+    const doc = printWindow.document;
+    doc.open();
+    doc.write([
+      '<!DOCTYPE html>',
+      '<html lang="ar" dir="rtl">',
+      '<head>',
+      '<meta charset="UTF-8">',
+      '<title></title>',
+      '<link rel="preconnect" href="https://fonts.googleapis.com">',
+      '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
+      '<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">',
+      '<style>',
+      '@page { size: A4 portrait; margin: 0; }',
+      '* { margin: 0; padding: 0; box-sizing: border-box; }',
+      'body { font-family: "Tajawal", Arial, sans-serif; color: #000; line-height: 1.4; }',
+      // Each patient sheet is a .ps-page — page-break after each
+      '.ps-page { padding: 12mm; page-break-after: always; }',
+      '.ps-page:last-child { page-break-after: auto; }',
+      '.ps-header { border: 2px solid #000; padding: 10px 14px; margin-bottom: 12px; }',
+      '.ps-header-row { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }',
+      '.ps-header-cell { font-size: 13px; font-weight: 700; line-height: 1.6; }',
+      '.ps-header-cell strong { display: block; font-size: 14px; font-weight: 800; margin-bottom: 2px; }',
+      '.ps-body { display: grid; grid-template-columns: 50% 50%; gap: 12px; min-height: 230mm; }',
+      '.ps-vs-col { border: 1.5px solid #000; padding: 10px; }',
+      '.ps-vs-box { width: 100%; height: 100%; min-height: 220mm; }',
+      '.ps-meds-col { border: 1.5px solid #000; padding: 10px 12px; direction: ltr; text-align: left; }',
+      '.ps-med-line { font-size: 13px; font-weight: 700; padding: 4px 0; border-bottom: 1px dashed #ccc; }',
+      '.ps-med-line:last-child { border-bottom: none; }',
+      '.ps-med-num { font-weight: 700; }',
+      '.ps-med-name { font-weight: 700; }',
+      '.ps-empty { text-align: center; padding: 20px; color: #999; font-size: 12px; }',
+      '@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }',
+      '</style>',
+      '</head>',
+      '<body>',
+      pagesHtml,
+      '<script>',
+      'window.addEventListener("load", function() {',
+      '  setTimeout(function() {',
+      '    try { window.print(); } catch (e) {}',
+      '    setTimeout(function() { try { window.close(); } catch (e) {} }, 1000);',
+      '  }, 800);',
+      '});',
+      '<\/script>',
+      '</body>',
+      '</html>'
+    ].join('\n'));
+    doc.close();
   }
 
   function openSheetFromPatientView() {

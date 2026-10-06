@@ -191,17 +191,37 @@
     const key = global.PharmacyWard.bedKey(room.id, bed.number);
     const patient = patientsMap[key] || null;
     const status = bedStatus(patient);
-    // Bed colors are back to the default (green/yellow/gray).
-    // Albumin/Meronem detection is now only used in the patients
-    // list view (renderPatientsList) where we show a small yellow
-    // badge next to the patient name when they have Albumin.
+    // Bed content layout (per user request):
+    //   - For empty beds: "سرير N" (the bed number, unchanged)
+    //   - For occupied beds: patient name (top) + attending doctor
+    //     (bottom, in a smaller muted text). The bed number is no
+    //     longer shown when the bed is occupied — the patient's name
+    //     replaces it. The attending physician is the specialist who
+    //     manages the patient's care (stored as patient.doctor field).
+    const bedNum = "سرير " + bed.number;
+    if (patient && patient.name && patient.name.trim()) {
+      // Occupied bed — show patient name + attending doctor (if any)
+      const children = [
+        h("span", { class: "bed-icon" }),
+        h("span", { class: "bed-name" }, patient.name.trim())
+      ];
+      if (patient.doctor && patient.doctor.trim()) {
+        children.push(h("span", { class: "bed-doctor" }, patient.doctor.trim()));
+      }
+      return h("button", {
+        class: `bed-btn state-${status}`,
+        dataset: { roomId: room.id, bed: bed.number, key: key },
+        type: "button"
+      }, children);
+    }
+    // Empty bed — show "سرير N" (the bed number)
     return h("button", {
       class: `bed-btn state-${status}`,
       dataset: { roomId: room.id, bed: bed.number, key: key },
       type: "button"
     }, [
       h("span", { class: "bed-icon" }),
-      h("span", { class: "bed-num" }, "سرير " + bed.number),
+      h("span", { class: "bed-num" }, bedNum),
       h("span", { class: "bed-state" })
     ]);
   }
@@ -230,6 +250,15 @@
     const isPlateFocused = document.activeElement === plateInput;
     if (!isPlateFocused) {
       plateInput.value = (patient && patient.plateNumber) ? String(patient.plateNumber) : "";
+    }
+
+    // Same logic for doctor (الطبيب المعالج) input — don't reset the
+    // value if the input is currently focused (avoids Supabase Realtime
+    // echo loop erasing characters while typing fast).
+    const doctorInput = document.getElementById("patient-doctor-input");
+    const isDoctorFocused = document.activeElement === doctorInput;
+    if (!isDoctorFocused) {
+      doctorInput.value = (patient && patient.doctor) ? String(patient.doctor) : "";
     }
 
     const medsList = document.getElementById("meds-list");
