@@ -14,7 +14,7 @@
   "use strict";
 
   /* ================= جسر الجارت ================= */
-  const CHART_URL = "http://رابط-الجارت-كاملاً-كما-تفتحه-يومياً/";
+  const CHART_URL = "https://clinical-pharmacy-app.onrender.com/";
 
   /* ⚠️ collectPatientsFromApp() — جمع المرضى من بيانات التطبيق
      نستخدم نفس البيانات التي يمر عليها زر الطباعة عندنا:
