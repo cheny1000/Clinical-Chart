@@ -2821,6 +2821,51 @@
   }
 
   // -------- Sheet helpers --------
+  // -------- Build the labs + vitals column content (RIGHT side of sheet) --------
+  // Shows filled-in lab values (from patient.labs) + empty fields for
+  // BP (ضغط) and O2 (أوكسجين) for the doctor to fill manually.
+  function buildLabsVitalsHtml(patient) {
+    const labs = (patient && patient.labs) ? patient.labs : {};
+    const labDefs = [
+      ["S. Creatinine", "creatinine"],
+      ["S. Albumin",    "albumin"],
+      ["WBC",           "wbc"],
+      ["Hb",            "hb"],
+      ["PLT",           "plt"],
+      ["Na+",           "na"],
+      ["K+",            "k"],
+      ["Glucose",       "glucose"],
+      ["CRP",           "crp"]
+    ];
+    // Build filled lab rows (only show if the field has a value)
+    let labRows = "";
+    labDefs.forEach(([label, key]) => {
+      const val = labs[key];
+      if (val != null && String(val).trim() !== "") {
+        labRows += `<div class="ps-lab-row"><span class="ps-lab-label">${label}</span><span class="ps-lab-val">${escapeHtml(String(val))}</span></div>`;
+      }
+    });
+    // Empty fields for BP + O2 (doctor fills manually)
+    const emptyFields = `
+      <div class="ps-lab-row ps-lab-empty">
+        <span class="ps-lab-label">BP (ضغط)</span>
+        <span class="ps-lab-blank"></span>
+      </div>
+      <div class="ps-lab-row ps-lab-empty">
+        <span class="ps-lab-label">O₂ Sat</span>
+        <span class="ps-lab-blank"></span>
+      </div>
+    `;
+    return `
+      <div class="ps-labs-section">
+        ${labRows ? `<div class="ps-labs-title">Lab Results</div>${labRows}` : ""}
+        ${labRows ? "<hr class='ps-labs-sep'/>" : ""}
+        <div class="ps-labs-title">Vitals</div>
+        ${emptyFields}
+      </div>
+    `;
+  }
+
   // -------- Print patient sheet (A4) --------
   // Generates a printable A4 sheet for the patient:
   //   - Top: doctor name + patient name + room + bed + plate + today's date
@@ -2933,7 +2978,14 @@
       // The user said: "without titles, no table — just a big empty
       // box. I'll tell you later what to write there."
       // So we leave it as a big empty bordered box.
-      '.ps-vs-box { width: 100%; height: 100%; min-height: 220mm; }',
+      '.ps-vs-box { width: 100%; min-height: 220mm; }',
+      '.ps-labs-section { font-size: 13px; line-height: 1.5; }',
+      '.ps-labs-title { font-size: 13px; font-weight: 800; margin-bottom: 6px; text-decoration: underline; }',
+      '.ps-lab-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dotted #999; }',
+      '.ps-lab-label { font-weight: 700; }',
+      '.ps-lab-val { font-weight: 800; }',
+      '.ps-lab-empty .ps-lab-blank { flex: 1; border-bottom: 1px solid #000; margin-right: 8px; min-width: 80px; }',
+      '.ps-labs-sep { border: none; border-top: 1px solid #ccc; margin: 8px 0; }',
       // Meds column (visually on the LEFT in RTL = second grid col)
       // The user said: "I want the medications to be written
       // left-to-right" — so we set dir="ltr" on the med lines. This
@@ -2962,7 +3014,7 @@
       '</div>',
       '<div class="ps-body">',
       // First grid column (visually RIGHT in RTL) — vital signs box
-      '  <div class="ps-vs-col"><div class="ps-vs-box"></div></div>',
+      '  <div class="ps-vs-col">' + buildLabsVitalsHtml(patient) + '</div>',
       // Second grid column (visually LEFT in RTL) — medications list
       '  <div class="ps-meds-col">' + medsRows + '</div>',
       '</div>',
@@ -3054,7 +3106,7 @@
             </div>
           </div>
           <div class="ps-body">
-            <div class="ps-vs-col"><div class="ps-vs-box"></div></div>
+            <div class="ps-vs-col">${buildLabsVitalsHtml(patient)}</div>
             <div class="ps-meds-col">${medsRows}</div>
           </div>
         </div>`;
@@ -3089,7 +3141,13 @@
       '.ps-header-cell strong { display: block; font-size: 14px; font-weight: 800; margin-bottom: 2px; }',
       '.ps-body { display: grid; grid-template-columns: 50% 50%; gap: 12px; min-height: 230mm; }',
       '.ps-vs-col { border: 1.5px solid #000; padding: 10px; }',
-      '.ps-vs-box { width: 100%; height: 100%; min-height: 220mm; }',
+      '.ps-labs-section { font-size: 13px; line-height: 1.5; }',
+      '.ps-labs-title { font-size: 13px; font-weight: 800; margin-bottom: 6px; text-decoration: underline; }',
+      '.ps-lab-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dotted #999; }',
+      '.ps-lab-label { font-weight: 700; }',
+      '.ps-lab-val { font-weight: 800; }',
+      '.ps-lab-empty .ps-lab-blank { flex: 1; border-bottom: 1px solid #000; margin-right: 8px; min-width: 80px; }',
+      '.ps-labs-sep { border: none; border-top: 1px solid #ccc; margin: 8px 0; }',
       '.ps-meds-col { border: 1.5px solid #000; padding: 10px 12px; direction: ltr; text-align: left; }',
       '.ps-med-line { font-size: 16px; font-weight: 700; padding: 6px 0; border-bottom: 1px dashed #ccc; }',
       '.ps-med-line:last-child { border-bottom: none; }',
