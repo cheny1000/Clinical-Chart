@@ -1473,7 +1473,7 @@ html[data-theme="dark"] .lab-input { background: var(--bg-card); }
 }
 .abx-row {
   display: grid;
-  grid-template-columns: 1.3fr 0.8fr 1.2fr 0.8fr 0.6fr 0.5fr 1fr;
+  grid-template-columns: 1.3fr 0.8fr 1.2fr 0.8fr 0.6fr 0.5fr;
   gap: 4px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--border);

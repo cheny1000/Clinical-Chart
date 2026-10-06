@@ -2861,31 +2861,28 @@
       ["Glucose",       "glucose"],
       ["CRP",           "crp"]
     ];
-    // Build filled lab rows (only show if the field has a value)
+    // Show ALL lab fields, one below the other. Filled ones show the
+    // value; empty ones show "—" (per user request: show them all,
+    // empty ones stay empty, filled ones show the value).
     let labRows = "";
     labDefs.forEach(([label, key]) => {
       const val = labs[key];
-      if (val != null && String(val).trim() !== "") {
-        labRows += `<div class="ps-lab-row"><span class="ps-lab-label">${label}</span><span class="ps-lab-val">${escapeHtml(String(val))}</span></div>`;
-      }
+      const displayVal = (val != null && String(val).trim() !== "")
+        ? escapeHtml(String(val))
+        : "—";
+      labRows += `<div class="ps-lab-row"><span class="ps-lab-label">${label}</span><span class="ps-lab-val">${displayVal}</span></div>`;
     });
-    // Empty fields for BP + O2 (doctor fills manually)
-    const emptyFields = `
-      <div class="ps-lab-row ps-lab-empty">
-        <span class="ps-lab-label">BP (ضغط)</span>
-        <span class="ps-lab-blank"></span>
-      </div>
-      <div class="ps-lab-row ps-lab-empty">
-        <span class="ps-lab-label">O₂ Sat</span>
-        <span class="ps-lab-blank"></span>
-      </div>
+    // Vitals — BP + O2, empty (no lines, just label + blank)
+    const vitalsRows = `
+      <div class="ps-lab-row"><span class="ps-lab-label">BP</span><span class="ps-lab-val">—</span></div>
+      <div class="ps-lab-row"><span class="ps-lab-label">O₂ Sat</span><span class="ps-lab-val">—</span></div>
     `;
     return `
       <div class="ps-labs-section">
-        ${labRows ? `<div class="ps-labs-title">Lab Results</div>${labRows}` : ""}
-        ${labRows ? "<hr class='ps-labs-sep'/>" : ""}
-        <div class="ps-labs-title">Vitals</div>
-        ${emptyFields}
+        <div class="ps-labs-title">Lab Results</div>
+        ${labRows}
+        <div class="ps-labs-title" style="margin-top:10px;">Vitals</div>
+        ${vitalsRows}
       </div>
     `;
   }
@@ -3005,11 +3002,9 @@
       '.ps-vs-box { width: 100%; min-height: 220mm; }',
       '.ps-labs-section { font-size: 13px; line-height: 1.5; }',
       '.ps-labs-title { font-size: 13px; font-weight: 800; margin-bottom: 6px; text-decoration: underline; }',
-      '.ps-lab-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dotted #999; }',
+      '.ps-lab-row { display: flex; justify-content: space-between; padding: 3px 0; }',
       '.ps-lab-label { font-weight: 700; }',
       '.ps-lab-val { font-weight: 800; }',
-      '.ps-lab-empty .ps-lab-blank { flex: 1; border-bottom: 1px solid #000; margin-right: 8px; min-width: 80px; }',
-      '.ps-labs-sep { border: none; border-top: 1px solid #ccc; margin: 8px 0; }',
       // Meds column (visually on the LEFT in RTL = second grid col)
       // The user said: "I want the medications to be written
       // left-to-right" — so we set dir="ltr" on the med lines. This
@@ -3032,7 +3027,6 @@
       '    <div class="ps-header-cell"><strong>الطبيب المعالج</strong>' + escapeHtml(attendingDoctor) + '</div>',
       '    <div class="ps-header-cell"><strong>المريض</strong>' + escapeHtml(patientName) + '</div>',
       '    <div class="ps-header-cell"><strong>الغرفة</strong>' + escapeHtml(room + ' · ' + bed + plate) + '</div>',
-      '    <div class="ps-header-cell"><strong>التشخيص</strong>' + escapeHtml(diagnosis || "—") + '</div>',
       '    <div class="ps-header-cell"><strong>التاريخ</strong>' + dateStr + '</div>',
       '  </div>',
       '</div>',
@@ -3125,7 +3119,6 @@
               <div class="ps-header-cell"><strong>الطبيب المعالج</strong>${escapeHtml(attendingDoctor)}</div>
               <div class="ps-header-cell"><strong>المريض</strong>${escapeHtml(patientName)}</div>
               <div class="ps-header-cell"><strong>الغرفة</strong>${escapeHtml(room + ' · ' + bed + plate)}</div>
-              <div class="ps-header-cell"><strong>التشخيص</strong>${escapeHtml(diagnosis || "—")}</div>
               <div class="ps-header-cell"><strong>التاريخ</strong>${dateStr}</div>
             </div>
           </div>
@@ -3167,11 +3160,9 @@
       '.ps-vs-col { border: 1.5px solid #000; padding: 10px; }',
       '.ps-labs-section { font-size: 13px; line-height: 1.5; }',
       '.ps-labs-title { font-size: 13px; font-weight: 800; margin-bottom: 6px; text-decoration: underline; }',
-      '.ps-lab-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dotted #999; }',
+      '.ps-lab-row { display: flex; justify-content: space-between; padding: 3px 0; }',
       '.ps-lab-label { font-weight: 700; }',
       '.ps-lab-val { font-weight: 800; }',
-      '.ps-lab-empty .ps-lab-blank { flex: 1; border-bottom: 1px solid #000; margin-right: 8px; min-width: 80px; }',
-      '.ps-labs-sep { border: none; border-top: 1px solid #ccc; margin: 8px 0; }',
       '.ps-meds-col { border: 1.5px solid #000; padding: 10px 12px; direction: ltr; text-align: left; }',
       '.ps-med-line { font-size: 16px; font-weight: 700; padding: 6px 0; border-bottom: 1px dashed #ccc; }',
       '.ps-med-line:last-child { border-bottom: none; }',
@@ -3415,7 +3406,7 @@
       abxTable.innerHTML = `
         <div class="abx-row abx-row-header">
           <span>المريض</span><span>الغرفة</span><span>الدواء</span>
-          <span>الجرعة</span><span>التكرار</span><span>اليوم</span><span>التشخيص</span>
+          <span>الجرعة</span><span>التكرار</span><span>اليوم</span>
         </div>
       ` + abx.map(e => `
         <div class="abx-row">
@@ -3425,7 +3416,6 @@
           <span class="abx-cell-dose">${escapeHtml(e.dose || "—")}</span>
           <span class="abx-cell-freq">${escapeHtml(e.freq || "—")}</span>
           <span class="abx-cell-day">${escapeHtml(e.day || "—")}</span>
-          <span class="abx-cell-diag">${escapeHtml(e.diagnosis || "—")}</span>
         </div>`).join("");
     }
 
@@ -3579,7 +3569,6 @@
             <span>الجرعة</span>
             <span>التكرار</span>
             <span>اليوم</span>
-            <span>التشخيص</span>
           </div>
         ` + abxEntries.map(e => `
           <div class="abx-row">
@@ -3589,7 +3578,6 @@
             <span class="abx-cell-dose">${escapeHtml(e.dose || "—")}</span>
             <span class="abx-cell-freq">${escapeHtml(e.freq || "—")}</span>
             <span class="abx-cell-day">${escapeHtml(e.day || "—")}</span>
-            <span class="abx-cell-diag">${escapeHtml(e.diagnosis || "—")}</span>
           </div>
         `).join("");
       }
