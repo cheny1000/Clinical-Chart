@@ -162,6 +162,10 @@
     const s = loadSession();
     return !!(s && s.role === "pharmacist");
   }
+  function isDoctor() {
+    const s = loadSession();
+    return !!(s && s.role === "doctor");
+  }
 
   // ---------- Login ----------
   // Fetches the user row from Supabase `users` and verifies the
@@ -452,7 +456,7 @@
     SESSION_KEY,
     // session
     loadSession, saveSession, clearSession,
-    isLoggedIn, getCurrentUser, isAdmin, isPharmacist,
+    isLoggedIn, getCurrentUser, isAdmin, isPharmacist, isDoctor,
     // login / logout
     login, loginAs, logout,
     // user management (admin only)

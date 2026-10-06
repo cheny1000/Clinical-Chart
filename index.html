@@ -237,6 +237,25 @@
         </div>
       </section>
 
+      <!-- ===== Doctor view (for doctors only) =====
+           The doctor sees their patients + can write prescriptions.
+           Built mobile-first (phones are the primary device). -->
+      <section class="view view-doctor" id="view-doctor" data-view="doctor" hidden>
+        <button class="back-btn" id="doctor-back-btn" type="button" aria-label="رجوع">
+          <span class="back-arrow">›</span>
+          <span>رجوع</span>
+        </button>
+
+        <div class="section-title">
+          <h2>المرضى</h2>
+          <p>اضغط على مريض لرؤية أدويته الحالية وكتابة وصفة جديدة</p>
+        </div>
+
+        <div class="doctor-patients-list" id="doctor-patients-list">
+          <!-- rendered dynamically by doctor-view.js -->
+        </div>
+      </section>
+
       <!-- ----- Admin view: medication catalog management ----- -->
       <section class="view view-admin" id="view-admin" data-view="admin" hidden>
         <button class="back-btn" id="admin-back-btn" type="button" aria-label="رجوع">
@@ -597,6 +616,7 @@
   <script>document.write('<script src="js/ui.js?v=' + Date.now() + '"><\/script>');</script>
   <script>document.write('<script src="js/chart-image.js?v=' + Date.now() + '"><\/script>');</script>
   <script>document.write('<script src="js/chart-excel.js?v=' + Date.now() + '"><\/script>');</script>
+  <script>document.write('<script src="js/doctor-view.js?v=' + Date.now() + '"><\/script>');</script>
   <script>document.write('<script src="js/pills-form.js?v=' + Date.now() + '"><\/script>');</script>
   <script>document.write('<script src="js/app.js?v=' + Date.now() + '"><\/script>');</script>
 

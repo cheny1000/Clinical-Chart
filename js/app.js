@@ -370,7 +370,19 @@
     applyRoleVisibility();
     showApp();
     refreshAll();
-    UI.showView("home");
+    // Route by role:
+    //   - doctor  → doctor view (patients list with prescription UI)
+    //   - admin / pharmacist → home view (rooms grid)
+    if (Auth && Auth.isDoctor && Auth.isDoctor()) {
+      UI.showView("doctor");
+      // Render the doctor's patient list immediately (uses the same
+      // state.patients the pharmacist sees)
+      if (global.PharmacyDoctorView) {
+        global.PharmacyDoctorView.renderDoctorPatientsList(state);
+      }
+    } else {
+      UI.showView("home");
+    }
     pullCatalogOnBoot();
     initRealtime();
     const user = Auth.getCurrentUser();

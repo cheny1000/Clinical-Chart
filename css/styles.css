@@ -3170,6 +3170,44 @@ html[data-theme="dark"] .med-summary-row-count.custom { background: var(--bg); }
   line-height: 1.4;
 }
 
+/* ---------- Doctor view (for doctors) ---------- */
+.doctor-patients-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+.doctor-patient-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background 120ms ease, transform 120ms ease;
+}
+.doctor-patient-card:active { transform: scale(0.99); background: var(--primary-soft); }
+.doctor-patient-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.doctor-patient-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+.doctor-patient-loc {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.doctor-patient-meta {
+  font-size: 12px;
+  color: var(--primary);
+  font-weight: 700;
+}
+
 /* ---------- Settings view (for non-admin pharmacists) ---------- */
 .settings-list {
   display: flex;
