@@ -261,6 +261,16 @@
       doctorInput.value = (patient && patient.doctor) ? String(patient.doctor) : "";
     }
 
+    // Diagnosis (التشخيص) — same focus-guard logic.
+    // Editable only by doctors + admins. For pharmacists, the input
+    // is disabled (read-only). The access control is done in app.js
+    // openPatient() which toggles the disabled attribute.
+    const diagnosisInput = document.getElementById("patient-diagnosis-input");
+    const isDiagnosisFocused = document.activeElement === diagnosisInput;
+    if (!isDiagnosisFocused) {
+      diagnosisInput.value = (patient && patient.diagnosis) ? String(patient.diagnosis) : "";
+    }
+
     const medsList = document.getElementById("meds-list");
     const emptyMeds = document.getElementById("empty-meds");
     medsList.innerHTML = "";

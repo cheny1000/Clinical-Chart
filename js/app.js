@@ -528,7 +528,9 @@
         state.patients[bedKey] = {
           name:        row.name || "",
           plateNumber: row.plate_number || "",
-          doctor:      row.doctor || "",   // الطبيب المعالج (attending physician)
+          doctor:      row.doctor || "",
+          diagnosis:   row.diagnosis || "",
+          firstMedDate: row.first_med_date || "",
           medications: Array.isArray(meds) ? meds : [],
           updatedAt:   Date.parse(row.updated_at) || Date.now()
         };
@@ -1125,6 +1127,24 @@
     $("patient-doctor-input").addEventListener("blur", () => {
       if (!state.currentBed) return;
       clearTimeout(doctorTimer);
+      persistPatient(state.currentBed.key);
+    });
+
+    // Diagnosis (التشخيص) — free-text field, editable by doctors +
+    // admins only. Pharmacists can see it (display-only). Stored on
+    // the patient record and shown on bed buttons + patient sheets +
+    // the ABX monitoring table.
+    let diagnosisTimer = null;
+    $("patient-diagnosis-input").addEventListener("input", (e) => {
+      if (!state.currentBed) return;
+      const p = ensurePatient(state.currentBed.key);
+      p.diagnosis = e.target.value;
+      clearTimeout(diagnosisTimer);
+      diagnosisTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
+    });
+    $("patient-diagnosis-input").addEventListener("blur", () => {
+      if (!state.currentBed) return;
+      clearTimeout(diagnosisTimer);
       persistPatient(state.currentBed.key);
     });
     $("patient-name-input").addEventListener("blur", () => {
@@ -2743,6 +2763,7 @@
     // The patient's attending physician (الطبيب المعالج) — stored as
     // a free-text field on the patient record (e.g. "أ.د. محمد الجبوري").
     const attendingDoctor = patient.doctor || "—";
+    const diagnosis = patient.diagnosis || "";
     const patientName = patient.name || "—";
     const room = `غرفة ${currentBed.roomId}`;
     const bed = `سرير ${currentBed.bed}`;
@@ -2860,6 +2881,7 @@
       '    <div class="ps-header-cell"><strong>الطبيب المعالج</strong>' + escapeHtml(attendingDoctor) + '</div>',
       '    <div class="ps-header-cell"><strong>المريض</strong>' + escapeHtml(patientName) + '</div>',
       '    <div class="ps-header-cell"><strong>الغرفة</strong>' + escapeHtml(room + ' · ' + bed + plate) + '</div>',
+      '    <div class="ps-header-cell"><strong>التشخيص</strong>' + escapeHtml(diagnosis || "—") + '</div>',
       '    <div class="ps-header-cell"><strong>التاريخ</strong>' + dateStr + '</div>',
       '  </div>',
       '</div>',
@@ -2912,6 +2934,7 @@
     // Build each patient's section as a page div
     const pagesHtml = occPatients.map(({ patient, currentBed }) => {
       const attendingDoctor = patient.doctor || "—";
+      const diagnosis = patient.diagnosis || "";
       const patientName = patient.name || "—";
       const room = `غرفة ${currentBed.roomId}`;
       const bed = `سرير ${currentBed.bed}`;
@@ -2951,6 +2974,7 @@
               <div class="ps-header-cell"><strong>الطبيب المعالج</strong>${escapeHtml(attendingDoctor)}</div>
               <div class="ps-header-cell"><strong>المريض</strong>${escapeHtml(patientName)}</div>
               <div class="ps-header-cell"><strong>الغرفة</strong>${escapeHtml(room + ' · ' + bed + plate)}</div>
+              <div class="ps-header-cell"><strong>التشخيص</strong>${escapeHtml(diagnosis || "—")}</div>
               <div class="ps-header-cell"><strong>التاريخ</strong>${dateStr}</div>
             </div>
           </div>
@@ -3158,8 +3182,36 @@
     const Ward = global.PharmacyWard;
     if (!Ward) return;
 
+    // ---- Day tracking ----
+    // For each patient on a critical med (antibiotic or albumin),
+    // we track the day number (D1 = first day, D2 = second day, etc.)
+    // based on p.firstMedDate — the date the first critical med was
+    // prescribed. If the patient doesn't have firstMedDate yet, we
+    // set it now (today) → D1.
+    //
+    // Day number = floor(days between firstMedDate and today) + 1.
+    // Example: firstMedDate = 2026-10-01, today = 2026-10-03 → D3
+    function computeDayLabel(patient, bedKey) {
+      const hasCriticalMed = (patient.medications || []).some(pm =>
+        pm && (ANTIBIOTIC_IDS.indexOf(pm.id) !== -1 || ALBUMIN_IDS.indexOf(pm.id) !== -1)
+      );
+      if (!hasCriticalMed) return "";
+      if (!patient.firstMedDate) {
+        // First time we see this patient on a critical med → set D1
+        patient.firstMedDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        Storage.upsertPatient(bedKey, patient);
+        // We don't push to Supabase here (render is read-only);
+        // the next persistPatient call will sync it.
+      }
+      const start = new Date(patient.firstMedDate);
+      const now = new Date();
+      const diffMs = now.setHours(0, 0, 0, 0) - new Date(start).setHours(0, 0, 0, 0);
+      const dayNum = Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
+      return "D" + Math.max(1, dayNum);
+    }
+
     // Collect all occupied patients with their antibiotic/albumin meds
-    const abxEntries = [];   // {patient, room, bed, med (pm + catalog)}
+    const abxEntries = [];
     const albEntries = [];
 
     Ward.ROOMS.forEach(room => {
@@ -3167,6 +3219,9 @@
         const key = Ward.bedKey(room.id, bed.number);
         const p = state.patients[key];
         if (!p || !p.name || !p.name.trim()) return;
+
+        // Compute day label once per patient
+        const dayLabel = computeDayLabel(p, key);
 
         (p.medications || []).forEach(pm => {
           if (!pm || !pm.id) return;
@@ -3182,6 +3237,8 @@
               bed: bed.number,
               plate: p.plateNumber || "",
               doctor: p.doctor || "",
+              diagnosis: p.diagnosis || "",
+              day: dayLabel,
               medName, dose, freq, medId: pm.id
             });
           }
@@ -3192,6 +3249,8 @@
               bed: bed.number,
               plate: p.plateNumber || "",
               doctor: p.doctor || "",
+              diagnosis: p.diagnosis || "",
+              day: dayLabel,
               medName, dose, freq, medId: pm.id
             });
           }
@@ -3245,6 +3304,8 @@
             <span>الدواء</span>
             <span>الجرعة</span>
             <span>التكرار</span>
+            <span>اليوم</span>
+            <span>التشخيص</span>
             <span>الطبيب</span>
           </div>
         ` + abxEntries.map(e => `
@@ -3254,6 +3315,8 @@
             <span class="abx-cell-med">${escapeHtml(e.medName)}</span>
             <span class="abx-cell-dose">${escapeHtml(e.dose || "—")}</span>
             <span class="abx-cell-freq">${escapeHtml(e.freq || "—")}</span>
+            <span class="abx-cell-day">${escapeHtml(e.day || "—")}</span>
+            <span class="abx-cell-diag">${escapeHtml(e.diagnosis || "—")}</span>
             <span class="abx-cell-doctor">${escapeHtml(e.doctor || "—")}</span>
           </div>
         `).join("");
@@ -3272,6 +3335,8 @@
             <span>الغرفة</span>
             <span>الجرعة</span>
             <span>التكرار</span>
+            <span>اليوم</span>
+            <span>التشخيص</span>
             <span>الطبيب</span>
           </div>
         ` + albEntries.map(e => `
@@ -3280,6 +3345,8 @@
             <span class="abx-cell-room">غ ${e.room} · س ${e.bed}</span>
             <span class="abx-cell-dose">${escapeHtml(e.dose || "—")}</span>
             <span class="abx-cell-freq">${escapeHtml(e.freq || "—")}</span>
+            <span class="abx-cell-day">${escapeHtml(e.day || "—")}</span>
+            <span class="abx-cell-diag">${escapeHtml(e.diagnosis || "—")}</span>
             <span class="abx-cell-doctor">${escapeHtml(e.doctor || "—")}</span>
           </div>
         `).join("");
@@ -3299,6 +3366,15 @@
       const isDoctor = Auth && Auth.isDoctor && Auth.isDoctor();
       const isAdmin = Auth && Auth.isAdmin && Auth.isAdmin();
       printBtn.hidden = !(isAdmin || isDoctor);
+    }
+    // Diagnosis field: editable by doctors + admins only.
+    // Pharmacists see it (read-only) so they can read the diagnosis
+    // but not modify it.
+    const diagnosisInput = $("patient-diagnosis-input");
+    if (diagnosisInput) {
+      const isDoctor = Auth && Auth.isDoctor && Auth.isDoctor();
+      const isAdmin = Auth && Auth.isAdmin && Auth.isAdmin();
+      diagnosisInput.disabled = !(isAdmin || isDoctor);
     }
   }
 

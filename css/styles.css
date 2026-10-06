@@ -1372,7 +1372,7 @@ html[data-theme="dark"] .patient-doctor-input { background: var(--bg-card); }
 }
 .abx-row {
   display: grid;
-  grid-template-columns: 1.5fr 1fr 1.2fr 1fr 0.8fr 1fr;
+  grid-template-columns: 1.3fr 0.8fr 1.2fr 0.8fr 0.6fr 0.5fr 1fr 0.8fr;
   gap: 4px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--border);
@@ -1389,12 +1389,14 @@ html[data-theme="dark"] .patient-doctor-input { background: var(--bg-card); }
   font-size: 11px;
 }
 .abx-row-header:nth-child(odd) { background: var(--primary); }
-/* Albumin table has fewer columns (no med name — all are albumin) */
+/* Albumin table has fewer columns (no med name) */
 #abx-albumin-table .abx-row {
-  grid-template-columns: 1.5fr 1fr 1fr 0.8fr 1fr;
+  grid-template-columns: 1.3fr 0.8fr 0.8fr 0.6fr 0.5fr 1fr 0.8fr;
 }
 .abx-cell-name { font-weight: 800; color: var(--text); }
 .abx-cell-med { font-weight: 700; color: var(--primary-dark); }
+.abx-cell-day { font-weight: 800; color: #DC2626; }
+.abx-cell-diag { font-weight: 600; color: var(--text-muted); font-style: italic; }
 .abx-empty {
   padding: 24px;
   text-align: center;
