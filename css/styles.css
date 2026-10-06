@@ -1246,6 +1246,89 @@ html[data-theme="dark"] .patient-doctor-input { background: var(--bg-card); }
   background: #FEE2E2;
 }
 
+/* Discharge + Died buttons (in patient view) */
+.patient-action-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: var(--r-md);
+  font-weight: 700;
+  font-size: 14px;
+  border: 1.5px solid;
+  transition: background 160ms ease, transform 120ms ease;
+}
+.patient-action-btn:active { transform: scale(0.99); }
+.discharge-btn {
+  background: #EFF6FF;
+  color: #1E40AF;
+  border-color: #BFDBFE;
+}
+.discharge-btn:active { background: #DBEAFE; }
+.died-btn {
+  background: #F5F3FF;
+  color: #6B21A8;
+  border-color: #DDD6FE;
+}
+.died-btn:active { background: #EDE9FE; }
+
+/* Discharged / Dead patients view */
+.discharged-tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+.discharged-tab {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.discharged-tab.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.discharged-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.discharged-row {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+}
+.discharged-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.discharged-row-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+.discharged-row-date {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.discharged-row-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 /* ---------- Patients list view ---------- */
 .patients-stat {
   display: flex;

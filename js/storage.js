@@ -16,7 +16,9 @@
     MEDICATIONS: "pharma.medications.v1",  // array: default med catalog
     MEDICATIONS_LAST_MODIFIED: "pharma.medications.modified.v1", // ms timestamp
     MEDICATIONS_LAST_SYNCED: "pharma.medications.synced.v1",     // ms timestamp
-    CATALOG_SEED_VERSION: "pharma.catalog.seed.v1"               // last DEFAULT_MEDICATIONS version merged in
+    CATALOG_SEED_VERSION: "pharma.catalog.seed.v1",               // last DEFAULT_MEDICATIONS version merged in
+    DISCHARGED:  "pharma.discharged.v1",   // array: discharged patient records
+    DEAD:        "pharma.dead.v1"          // array: dead patient records
   };
 
   function safeParse(raw, fallback) {
@@ -535,6 +537,35 @@
     };
   }
 
+  // ---- Discharged / Dead patient records ----
+  // Stored as arrays in localStorage. Each record captures the patient's
+  // full data at the time of discharge/death + a timestamp.
+  function loadDischarged() {
+    return safeParse(localStorage.getItem(STORAGE_KEYS.DISCHARGED), []);
+  }
+  function saveDischarged(arr) {
+    try { localStorage.setItem(STORAGE_KEYS.DISCHARGED, JSON.stringify(arr || [])); }
+    catch (e) { /* ignore quota */ }
+  }
+  function addDischarged(record) {
+    const arr = loadDischarged();
+    arr.unshift(record);  // newest first
+    saveDischarged(arr);
+  }
+
+  function loadDead() {
+    return safeParse(localStorage.getItem(STORAGE_KEYS.DEAD), []);
+  }
+  function saveDead(arr) {
+    try { localStorage.setItem(STORAGE_KEYS.DEAD, JSON.stringify(arr || [])); }
+    catch (e) { /* ignore quota */ }
+  }
+  function addDead(record) {
+    const arr = loadDead();
+    arr.unshift(record);
+    saveDead(arr);
+  }
+
   global.PharmacyStorage = {
     // patients
     loadPatients,
@@ -559,6 +590,9 @@
     // auto-add rule support
     REQUIRED_SUPPLIES,
     // bulk
-    loadAll
+    loadAll,
+    // discharged / dead
+    loadDischarged, addDischarged, saveDischarged,
+    loadDead, addDead, saveDead
   };
 })(window);

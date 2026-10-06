@@ -318,6 +318,10 @@
     const allSheetsBtn = $("print-all-sheets-btn");
     if (allSheetsBtn) allSheetsBtn.hidden = !isPrintAllRole;
 
+    // Discharged list button: always visible (all roles)
+    const dischargedListBtn = $("discharged-list-btn");
+    if (dischargedListBtn) dischargedListBtn.hidden = false;
+
     // Dark mode + TV + logout: only visible to admins (non-admins
     // access them via the Settings view instead).
     const darkBtn = $("darkmode-toggle");
@@ -1251,6 +1255,107 @@
           if (!r.ok) console.warn("[Supabase] patient delete push failed:", r.error);
         });
       }
+    });
+
+    // ----- Discharge patient (خروج) -----
+    // Moves the patient to the "discharged" list (preserving their
+    // data: name, plate, doctor, meds, room, bed, timestamp) then
+    // frees the bed. The bed becomes available for a new patient.
+    $("discharge-patient-btn").addEventListener("click", () => {
+      if (!state.currentBed) return;
+      const p = state.patients[state.currentBed.key];
+      if (!p || !p.name || !p.name.trim()) return;
+      if (!confirm(`هل تريد تسجيل خروج المريض "${p.name}"؟\nستُحفظ بياناته في قائمة "خرجوا".`)) return;
+      const bedKey = state.currentBed.key;
+      const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+      const record = {
+        name:        p.name.trim(),
+        plateNumber: p.plateNumber || "",
+        doctor:      p.doctor || "",
+        medications: Array.isArray(p.medications) ? p.medications : [],
+        roomNumber:  state.currentBed.roomId,
+        bedNumber:   state.currentBed.bed,
+        dischargedAt: new Date().toISOString(),
+        dischargedBy: user ? user.username : "—"
+      };
+      Storage.addDischarged(record);
+      // Audit log
+      if (Auth && Auth.auditLog) {
+        Auth.auditLog("patient_discharged",
+          `خروج المريض "${p.name}" من غرفة ${state.currentBed.roomId} سرير ${state.currentBed.bed}`);
+      }
+      // Free the bed
+      Storage.deletePatient(bedKey);
+      Storage.saveLocalDeletion(bedKey);
+      delete state.patients[bedKey];
+      state.currentBed = null;
+      refreshStatsAndRooms();
+      UI.showView("home");
+      if (SBSync && SBSync.pushPatientDelete) {
+        SBSync.pushPatientDelete(bedKey).then(r => {
+          if (!r.ok) console.warn("[Supabase] discharge delete push failed:", r.error);
+        });
+      }
+      flashHint("تم تسجيل خروج المريض — بياناته محفوظة في قائمة «خرجوا»");
+    });
+
+    // ----- Died patient (وفاة) -----
+    // Moves the patient to the "dead" list (preserving their data +
+    // death timestamp) then frees the bed.
+    $("died-patient-btn").addEventListener("click", () => {
+      if (!state.currentBed) return;
+      const p = state.patients[state.currentBed.key];
+      if (!p || !p.name || !p.name.trim()) return;
+      if (!confirm(`هل تريد تسجيل وفاة المريض "${p.name}"؟\nستُحفظ بياناته في قائمة "وفيات".`)) return;
+      const bedKey = state.currentBed.key;
+      const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+      const record = {
+        name:        p.name.trim(),
+        plateNumber: p.plateNumber || "",
+        doctor:      p.doctor || "",
+        medications: Array.isArray(p.medications) ? p.medications : [],
+        roomNumber:  state.currentBed.roomId,
+        bedNumber:   state.currentBed.bed,
+        diedAt:      new Date().toISOString(),
+        recordedBy:  user ? user.username : "—"
+      };
+      Storage.addDead(record);
+      if (Auth && Auth.auditLog) {
+        Auth.auditLog("patient_died",
+          `وفاة المريض "${p.name}" من غرفة ${state.currentBed.roomId} سرير ${state.currentBed.bed}`);
+      }
+      Storage.deletePatient(bedKey);
+      Storage.saveLocalDeletion(bedKey);
+      delete state.patients[bedKey];
+      state.currentBed = null;
+      refreshStatsAndRooms();
+      UI.showView("home");
+      if (SBSync && SBSync.pushPatientDelete) {
+        SBSync.pushPatientDelete(bedKey).then(r => {
+          if (!r.ok) console.warn("[Supabase] died delete push failed:", r.error);
+        });
+      }
+      flashHint("تم تسجيل الوفاة — بيانات المريض محفوظة في قائمة «وفيات»");
+    });
+
+    // ----- Discharged list button (in header) -----
+    $("discharged-list-btn").addEventListener("click", () => {
+      renderDischargedView();
+      UI.showView("discharged");
+    });
+
+    // ----- Discharged view back button -----
+    $("discharged-back-btn").addEventListener("click", () => {
+      UI.showView("home");
+    });
+
+    // ----- Discharged view tabs -----
+    document.querySelectorAll(".discharged-tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".discharged-tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        renderDischargedList(tab.dataset.tab);
+      });
     });
 
     // ----- Bottom navigation -----
@@ -2970,6 +3075,62 @@
   }
 
   // -------- Open a patient --------
+  // -------- Discharged / Dead patients view --------
+  let _dischargedTab = "discharged";
+
+  function renderDischargedView() {
+    const discharged = Storage.loadDischarged();
+    const dead = Storage.loadDead();
+    const dc = $("discharged-count");
+    const dd = $("dead-count");
+    if (dc) dc.textContent = discharged.length;
+    if (dd) dd.textContent = dead.length;
+    // Default to the first tab (discharged)
+    document.querySelectorAll(".discharged-tab").forEach(t => {
+      t.classList.toggle("active", t.dataset.tab === _dischargedTab);
+    });
+    renderDischargedList(_dischargedTab);
+  }
+
+  function renderDischargedList(tab) {
+    _dischargedTab = tab || "discharged";
+    const list = $("discharged-list");
+    if (!list) return;
+    list.innerHTML = "";
+
+    const records = tab === "dead"
+      ? Storage.loadDead()
+      : Storage.loadDischarged();
+
+    if (records.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">⌕</div><p>لا يوجد مرضى في هذه القائمة</p></div>`;
+      return;
+    }
+
+    records.forEach(r => {
+      const date = r.dischargedAt || r.diedAt || "";
+      const dateStr = date
+        ? new Date(date).toLocaleDateString("ar", { year: "numeric", month: "short", day: "numeric" })
+        : "—";
+      const medCount = (r.medications || []).length;
+      const row = document.createElement("div");
+      row.className = "discharged-row";
+      row.innerHTML = `
+        <div class="discharged-row-head">
+          <div class="discharged-row-name">${escapeHtml(r.name || "—")}</div>
+          <div class="discharged-row-date">${dateStr}</div>
+        </div>
+        <div class="discharged-row-meta">
+          <span>غرفة ${r.roomNumber || "—"} · سرير ${r.bedNumber || "—"}</span>
+          ${r.plateNumber ? `<span>· طبلة ${escapeHtml(r.plateNumber)}</span>` : ""}
+          ${r.doctor ? `<span>· ${escapeHtml(r.doctor)}</span>` : ""}
+          ${medCount ? `<span>· ${medCount} دواء</span>` : ""}
+        </div>
+      `;
+      list.appendChild(row);
+    });
+  }
+
   function openPatient({ key, roomId, bed }) {
     state.currentBed = { key, roomId, bed };
     const p = state.patients[key] || null;
