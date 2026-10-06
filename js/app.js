@@ -309,6 +309,8 @@
     if (pillsBtn) pillsBtn.hidden = !isChartRole;
     const excelBtn = $("chart-excel-btn");
     if (excelBtn) excelBtn.hidden = !isChartRole;
+    const bridgeBtn = $("chart-bridge-btn");
+    if (bridgeBtn) bridgeBtn.hidden = !isChartRole;
 
     // Dark mode + TV + logout: only visible to admins (non-admins
     // access them via the Settings view instead).
@@ -1658,6 +1660,32 @@
         } catch (err) {
           console.error("[chart-excel] error:", err);
           flashHint("تعذّر توليد Excel: " + (err.message || err));
+        }
+      }, 50);
+    });
+
+    // ----- Chart Bridge (إرسال البيانات إلى جارت الجارت) -----
+    // Collects occupied patients + their medications from state (same
+    // data the chart-print button uses), builds a TSV table, and opens
+    // the external جارت الجارت URL with the TSV encoded in the hash.
+    // The pharmacist can then paste (Alt+V) if the auto-fill fails.
+    $("chart-bridge-btn").addEventListener("click", async () => {
+      if (!global.PharmacyChartBridge) {
+        flashHint("تعذّر تحميل وحدة جسر الجارت");
+        return;
+      }
+      flashHint("يتم إرسال البيانات إلى جارت الجارت...");
+      setTimeout(async () => {
+        try {
+          const result = await global.PharmacyChartBridge.sendChart(state);
+          if (result && result.ok) {
+            flashHint("تم فتح جارت الجارت بالبيانات — لو لم تُملأ تلقائياً اضغط Alt+V هناك");
+          } else {
+            flashHint("تعذّر الإرسال");
+          }
+        } catch (err) {
+          console.error("[chart-bridge] error:", err);
+          flashHint("تعذّر الإرسال: " + (err.message || err));
         }
       }, 50);
     });
