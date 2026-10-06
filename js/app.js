@@ -2561,7 +2561,11 @@
     //   - Names in ENGLISH (use nameEn || nameTrade)
     //   - Dose BESIDE the name (not below) — same line, same font size,
     //     same weight, same color
-    // We render each med as a single line: "1. Augmentin  1.2 g"
+    //   - Direction: LTR (left-to-right) — the user said "I want the
+    //     medications to be written left-to-right"
+    //   - Frequency as "x N" after the dose (e.g. "Meronem 500 mg x 2"
+    //     for a 1×2 prescription). We strip the "1×" prefix and use
+    //     "x N" form instead.
     const meds = (Array.isArray(patient.medications) ? patient.medications : [])
       .filter(pm => pm && pm.id !== "syringe-5cc");
     let medsRows = "";
@@ -2572,9 +2576,25 @@
         // English-first name (user requested English).
         const name = m.nameEn || m.nameTrade || m.nameAr || m.name || m.id || "—";
         const dose = m.dose || "";
-        // Single line: number + name + dose, all same font/size/color.
-        // Use a small gap (em space) between name and dose.
-        return `<div class="ps-med-line"><span class="ps-med-num">${i + 1}.</span> <span class="ps-med-name">${escapeHtml(name)}</span>${dose ? `&nbsp;&nbsp;&nbsp;${escapeHtml(dose)}` : ""}</div>`;
+        // Parse the frequency "1×N" or "×N" or "N" → extract N as integer
+        // Then format as "x N" (no × symbol, just "x").
+        let freqStr = "";
+        const freq = m.frequency || "";
+        const m1 = freq.match(/×\s*(\d+)/);
+        const m2 = freq.match(/^(\d+)$/);
+        if (m1) freqStr = "x " + m1[1];
+        else if (m2) freqStr = "x " + m2[1];
+        // If freq is non-numeric (e.g. "حسب القياس"), drop it.
+        else if (/^\s*\d+\s*$/.test(freq)) freqStr = "x " + freq.trim();
+        // Build the med line: number + name + dose + freq (all inline)
+        // All using same font/size/color — only the number prefix is bold.
+        // Use non-breaking spaces to keep the parts together.
+        const parts = [
+          escapeHtml(name),
+          dose ? escapeHtml(dose) : "",
+          freqStr ? escapeHtml(freqStr) : ""
+        ].filter(p => p).join("&nbsp;&nbsp;");
+        return `<div class="ps-med-line"><span class="ps-med-num">${i + 1}.</span> <span class="ps-med-name">${parts}</span></div>`;
       }).join("");
     }
 
@@ -2591,14 +2611,20 @@
       '<html lang="ar" dir="rtl">',
       '<head>',
       '<meta charset="UTF-8">',
-      '<title>Patient Sheet — ' + escapeHtml(patientName) + '</title>',
+      // Empty title — avoids the "Patient Sheet — name" footer that
+      // the browser would print on every page. An empty title shows
+      // as an empty string (no footer text).
+      '<title></title>',
       '<link rel="preconnect" href="https://fonts.googleapis.com">',
       '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
       '<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">',
       '<style>',
-      '@page { size: A4 portrait; margin: 12mm; }',
+      // Zero @page margin — prevents the browser from reserving space
+      // for the default header (URL) and footer (date, page count).
+      // We add the page padding inside the body instead.
+      '@page { size: A4 portrait; margin: 0; }',
       '* { margin: 0; padding: 0; box-sizing: border-box; }',
-      'body { font-family: "Tajawal", Arial, sans-serif; color: #000; line-height: 1.4; }',
+      'body { font-family: "Tajawal", Arial, sans-serif; color: #000; line-height: 1.4; padding: 12mm; }',
       // ---- Header (top of page): 4 cells ----
       '.ps-header { border: 2px solid #000; padding: 10px 14px; margin-bottom: 12px; }',
       '.ps-header-row { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }',
@@ -2618,11 +2644,15 @@
       // So we leave it as a big empty bordered box.
       '.ps-vs-box { width: 100%; height: 100%; min-height: 220mm; }',
       // Meds column (visually on the LEFT in RTL = second grid col)
-      '.ps-meds-col { border: 1.5px solid #000; padding: 10px 12px; }',
+      // The user said: "I want the medications to be written
+      // left-to-right" — so we set dir="ltr" on the med lines. This
+      // makes "1. Meronem 500 mg x 2" read left-to-right (number on
+      // the left, name in the middle, dose/freq on the right).
+      '.ps-meds-col { border: 1.5px solid #000; padding: 10px 12px; direction: ltr; text-align: left; }',
       '.ps-med-line { font-size: 13px; font-weight: 700; padding: 4px 0; border-bottom: 1px dashed #ccc; }',
       '.ps-med-line:last-child { border-bottom: none; }',
-      // IMPORTANT: name + dose share the SAME font-size, font-weight,
-      // and color (per user request). No separate styling.
+      // IMPORTANT: name + dose + freq share the SAME font-size,
+      // font-weight, and color (per user request).
       '.ps-med-num { font-weight: 700; }',
       '.ps-med-name { font-weight: 700; }',
       '.ps-empty { text-align: center; padding: 20px; color: #999; font-size: 12px; }',
