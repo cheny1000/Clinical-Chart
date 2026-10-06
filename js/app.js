@@ -1127,6 +1127,20 @@
     // Open sheet (in patient view) — single binding
     $("open-med-sheet").addEventListener("click", openSheetFromPatientView);
 
+    // Print patient sheet (A4) — opens a new window with a printable
+    // patient sheet: doctor name + patient name + room + date at the
+    // top, medications list on the left, vital signs grid on the right.
+    // Designed for doctors to print and put at the patient's bedside.
+    $("print-patient-sheet-btn").addEventListener("click", () => {
+      if (!state.currentBed) return;
+      const p = state.patients[state.currentBed.key] || null;
+      if (!p || !p.name || !p.name.trim()) {
+        flashHint("أضف اسم المريض أولاً");
+        return;
+      }
+      printPatientSheet(p, state.currentBed);
+    });
+
     // Meds list — delete & edit (event delegation)
     $("meds-list").addEventListener("click", (e) => {
       const del = e.target.closest('[data-action="delete-med"]');
@@ -2469,6 +2483,13 @@
       const isDark = document.documentElement.getAttribute("data-theme") === "dark";
       valueEl.textContent = isDark ? "مُفعّل" : "مُعطّل";
     }
+    // Hide the TV display mode row for doctors — doctors don't need
+    // TV monitoring; it's a pharmacist/admin tool for ward monitoring.
+    const tvRow = $("settings-tv-btn");
+    if (tvRow) {
+      const isDoctor = Auth && Auth.isDoctor && Auth.isDoctor();
+      tvRow.hidden = isDoctor;
+    }
     UI.showView("settings");
   }
 
@@ -2504,6 +2525,162 @@
   }
 
   // -------- Sheet helpers --------
+  // -------- Print patient sheet (A4) --------
+  // Generates a printable A4 sheet for the patient:
+  //   - Top: doctor name + patient name + room + bed + plate + today's date
+  //   - Left column (RTL = right): medications list (name + dose + frequency)
+  //   - Right column (RTL = left): empty grid for daily vital signs
+  //     (temperature, pulse, BP, respiration, O2 sat, urine) × 7 days
+  //
+  // Opens a new browser window with self-contained HTML + inline CSS
+  // + the chart content + an auto-print script. This works on all
+  // browsers including iOS Safari (which blocks window.print() in
+  // PWA standalone mode).
+  function printPatientSheet(patient, currentBed) {
+    if (!patient || !currentBed) return;
+    const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+    // Build the doctor's display name with the title (دكتور/دكتورة)
+    // based on the stored gender.
+    let doctorName = "—";
+    if (user && user.displayName) {
+      const cleanName = user.displayName.split("|")[0] || user.displayName;
+      const gender = user.gender || (user.displayName.split("|")[1] || "male");
+      const title = gender === "female" ? "دكتورة" : "دكتور";
+      doctorName = `${title} ${cleanName}`;
+    }
+    const patientName = patient.name || "—";
+    const room = `غرفة ${currentBed.roomId}`;
+    const bed = `سرير ${currentBed.bed}`;
+    const plate = patient.plateNumber ? ` · طبلة ${patient.plateNumber}` : "";
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`;
+
+    // Build medications list HTML (left column in RTL = right side visually)
+    const meds = (Array.isArray(patient.medications) ? patient.medications : [])
+      .filter(pm => pm && pm.id !== "syringe-5cc");
+    let medsRows = "";
+    if (meds.length === 0) {
+      medsRows = `<div class="ps-empty">لا أدوية حالياً</div>`;
+    } else {
+      medsRows = meds.map((m, i) => {
+        const name = m.nameAr || m.nameTrade || m.nameEn || m.name || m.id || "—";
+        const dose = m.dose || "";
+        const freq = m.frequency || "";
+        return `
+          <div class="ps-med-row">
+            <div class="ps-med-num">${i + 1}</div>
+            <div class="ps-med-info">
+              <div class="ps-med-name">${escapeHtml(name)}</div>
+              <div class="ps-med-meta">
+                ${dose ? `<span>${escapeHtml(dose)}</span>` : ""}
+                ${freq ? `<span>·</span><span>${escapeHtml(freq)}</span>` : ""}
+              </div>
+            </div>
+          </div>`;
+      }).join("");
+    }
+
+    // Build vital signs grid (right column in RTL = left side visually)
+    // 7 days × 6 vital signs (temp, pulse, BP, resp, O2, urine)
+    const vsHeaders = ["الحرارة", "النبض", "الضغط", "التنفس", "O₂", "البول"];
+    const vsDays = ["اليوم 1", "اليوم 2", "اليوم 3", "اليوم 4", "اليوم 5", "اليوم 6", "اليوم 7"];
+    let vsRows = "";
+    vsDays.forEach(day => {
+      const cells = vsHeaders.map(() => `<td></td>`).join("");
+      vsRows += `<tr><th>${day}</th>${cells}</tr>`;
+    });
+
+    // Open a new window with self-contained HTML
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      flashHint("تعذّر فتح نافذة الطباعة — اسمح بالنوافذ المنبثقة");
+      return;
+    }
+    const doc = printWindow.document;
+    doc.open();
+    doc.write([
+      '<!DOCTYPE html>',
+      '<html lang="ar" dir="rtl">',
+      '<head>',
+      '<meta charset="UTF-8">',
+      '<title>ورقة المريض — ' + escapeHtml(patientName) + '</title>',
+      '<link rel="preconnect" href="https://fonts.googleapis.com">',
+      '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
+      '<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">',
+      '<style>',
+      '@page { size: A4 portrait; margin: 12mm; }',
+      '* { margin: 0; padding: 0; box-sizing: border-box; }',
+      'body { font-family: "Tajawal", Arial, sans-serif; color: #000; line-height: 1.4; }',
+      '.ps-header { border: 2px solid #000; padding: 10px 14px; margin-bottom: 12px; }',
+      '.ps-header-row { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }',
+      '.ps-header-cell { font-size: 13px; font-weight: 700; line-height: 1.6; }',
+      '.ps-header-cell strong { display: block; font-size: 14px; font-weight: 800; margin-bottom: 2px; }',
+      '.ps-body { display: grid; grid-template-columns: 45% 55%; gap: 12px; }',
+      '.ps-col { border: 1.5px solid #000; padding: 10px; }',
+      '.ps-col-title { font-size: 14px; font-weight: 800; text-align: center; padding-bottom: 6px; border-bottom: 1px solid #000; margin-bottom: 8px; }',
+      '.ps-med-row { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; border-bottom: 1px dashed #ccc; }',
+      '.ps-med-row:last-child { border-bottom: none; }',
+      '.ps-med-num { font-weight: 800; font-size: 13px; min-width: 18px; text-align: center; }',
+      '.ps-med-info { flex: 1; }',
+      '.ps-med-name { font-size: 13px; font-weight: 800; }',
+      '.ps-med-meta { font-size: 11px; color: #444; display: flex; gap: 4px; align-items: center; margin-top: 2px; }',
+      '.ps-empty { text-align: center; padding: 20px; color: #999; font-size: 12px; }',
+      '.ps-vs-table { width: 100%; border-collapse: collapse; }',
+      '.ps-vs-table th, .ps-vs-table td { border: 1px solid #000; padding: 4px; font-size: 10px; font-weight: 700; text-align: center; height: 22px; }',
+      '.ps-vs-table th { background: #f0f0f0; }',
+      '.ps-vs-table th:first-child { min-width: 50px; }',
+      '.ps-vs-table td { width: auto; }',
+      '@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }',
+      '</style>',
+      '</head>',
+      '<body>',
+      '<div class="ps-header">',
+      '  <div class="ps-header-row">',
+      '    <div class="ps-header-cell"><strong>الطبيب</strong>' + escapeHtml(doctorName) + '</div>',
+      '    <div class="ps-header-cell"><strong>المريض</strong>' + escapeHtml(patientName) + '</div>',
+      '    <div class="ps-header-cell"><strong>الغرفة</strong>' + escapeHtml(room + ' · ' + bed + plate) + '</div>',
+      '    <div class="ps-header-cell"><strong>التاريخ</strong>' + dateStr + '</div>',
+      '  </div>',
+      '</div>',
+      '<div class="ps-body">',
+      '  <div class="ps-col">',
+      '    <div class="ps-col-title">الأدوية</div>',
+      '    ' + medsRows,
+      '  </div>',
+      '  <div class="ps-col">',
+      '    <div class="ps-col-title">الفحص اليومي للوظائف الحيوية</div>',
+      '    <table class="ps-vs-table">',
+      '      <thead><tr><th>اليوم</th>' + vsHeaders.map(h => '<th>' + h + '</th>').join('') + '</tr></thead>',
+      '      <tbody>' + vsRows + '</tbody>',
+      '    </table>',
+      '  </div>',
+      '</div>',
+      '<script>',
+      // Wait for fonts to load before printing (800ms safety margin)
+      'window.addEventListener("load", function() {',
+      '  setTimeout(function() {',
+      '    try { window.print(); } catch (e) {}',
+      '    setTimeout(function() { try { window.close(); } catch (e) {} }, 1000);',
+      '  }, 800);',
+      '});',
+      '<\/script>',
+      '</body>',
+      '</html>'
+    ].join('\n'));
+    doc.close();
+  }
+
+  // Helper: escape HTML special chars to prevent XSS in the print window
+  function escapeHtml(text) {
+    if (text == null) return "";
+    return String(text)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   function openSheetFromPatientView() {
     if (!state.currentBed) {
       UI.showView("home");

@@ -1001,6 +1001,11 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   font-size: 17px;
   font-weight: 800;
 }
+.meds-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .add-med-fab {
   display: inline-flex;
   align-items: center;
@@ -1017,6 +1022,13 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 .add-med-fab:active {
   transform: scale(0.97);
   background: var(--primary-dark);
+}
+.patient-print-btn {
+  background: #1E40AF;
+  box-shadow: 0 4px 10px rgba(30, 64, 175, 0.30);
+}
+.patient-print-btn:active {
+  background: #1E3A8A;
 }
 
 .meds-list {
