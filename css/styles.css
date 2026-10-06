@@ -1050,6 +1050,48 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 }
 html[data-theme="dark"] .patient-doctor-input { background: var(--bg-card); }
 
+/* Lab values row — grid of small inputs for lab results */
+.patient-labs-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+.lab-input {
+  width: 100%;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r-sm);
+  padding: 8px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #FAFAFA;
+  color: var(--text-muted);
+  outline: none;
+  text-align: center;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.lab-input:focus {
+  border-style: solid;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(27, 68, 63, 0.10);
+  color: var(--text);
+  background: #fff;
+}
+.lab-input::placeholder { color: var(--text-faint); font-weight: 500; }
+.lab-input:disabled { opacity: 0.6; }
+html[data-theme="dark"] .lab-input { background: var(--bg-card); }
+
+/* ABX save monthly button */
+.abx-save-btn {
+  width: 100%;
+  margin-top: 16px;
+  background: #080;
+  color: #fff;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 136, 0, 0.30);
+}
+.abx-save-btn:active { background: #006400; }
+
 /* meds section */
 .meds-section {
   margin-top: 16px;
@@ -1372,7 +1414,7 @@ html[data-theme="dark"] .patient-doctor-input { background: var(--bg-card); }
 }
 .abx-row {
   display: grid;
-  grid-template-columns: 1.3fr 0.8fr 1.2fr 0.8fr 0.6fr 0.5fr 1fr 0.8fr;
+  grid-template-columns: 1.3fr 0.8fr 1.2fr 0.8fr 0.6fr 0.5fr 1fr;
   gap: 4px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--border);
@@ -1391,7 +1433,7 @@ html[data-theme="dark"] .patient-doctor-input { background: var(--bg-card); }
 .abx-row-header:nth-child(odd) { background: var(--primary); }
 /* Albumin table has fewer columns (no med name) */
 #abx-albumin-table .abx-row {
-  grid-template-columns: 1.3fr 0.8fr 0.8fr 0.6fr 0.5fr 1fr 0.8fr;
+  grid-template-columns: 1.3fr 0.8fr 0.8fr 0.6fr 0.5fr 1fr;
 }
 .abx-cell-name { font-weight: 800; color: var(--text); }
 .abx-cell-med { font-weight: 700; color: var(--primary-dark); }

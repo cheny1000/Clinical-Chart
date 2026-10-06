@@ -271,6 +271,28 @@
       diagnosisInput.value = (patient && patient.diagnosis) ? String(patient.diagnosis) : "";
     }
 
+    // Lab values — 9 fields. Same focus-guard logic for each.
+    const labs = (patient && patient.labs) ? patient.labs : {};
+    const labMap = [
+      ["lab-creatinine", "creatinine"],
+      ["lab-albumin", "albumin"],
+      ["lab-wbc", "wbc"],
+      ["lab-hb", "hb"],
+      ["lab-plt", "plt"],
+      ["lab-na", "na"],
+      ["lab-k", "k"],
+      ["lab-glucose", "glucose"],
+      ["lab-cr", "crp"]
+    ];
+    labMap.forEach(([inputId, labKey]) => {
+      const el = document.getElementById(inputId);
+      if (!el) return;
+      const isFocused = document.activeElement === el;
+      if (!isFocused) {
+        el.value = labs[labKey] ? String(labs[labKey]) : "";
+      }
+    });
+
     const medsList = document.getElementById("meds-list");
     const emptyMeds = document.getElementById("empty-meds");
     medsList.innerHTML = "";

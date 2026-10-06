@@ -531,6 +531,7 @@
           doctor:      row.doctor || "",
           diagnosis:   row.diagnosis || "",
           firstMedDate: row.first_med_date || "",
+          labs:        row.labs ? (typeof row.labs === "string" ? JSON.parse(row.labs) : (row.labs || {})) : {},
           medications: Array.isArray(meds) ? meds : [],
           updatedAt:   Date.parse(row.updated_at) || Date.now()
         };
@@ -1147,6 +1148,34 @@
       clearTimeout(diagnosisTimer);
       persistPatient(state.currentBed.key);
     });
+
+    // Lab values — 9 fields. All stored on the patient record under
+    // p.labs = { creatinine, albumin, wbc, hb, plt, na, k, glucose, crp }.
+    // Editable by doctors + admins only (like diagnosis).
+    const LAB_FIELDS = [
+      "lab-creatinine", "lab-albumin", "lab-wbc", "lab-hb", "lab-plt",
+      "lab-na", "lab-k", "lab-glucose", "lab-cr"
+    ];
+    const LAB_KEYS = [
+      "creatinine", "albumin", "wbc", "hb", "plt",
+      "na", "k", "glucose", "crp"
+    ];
+    let labTimer = null;
+    LAB_FIELDS.forEach((fieldId, i) => {
+      $(fieldId).addEventListener("input", (e) => {
+        if (!state.currentBed) return;
+        const p = ensurePatient(state.currentBed.key);
+        if (!p.labs) p.labs = {};
+        p.labs[LAB_KEYS[i]] = e.target.value;
+        clearTimeout(labTimer);
+        labTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
+      });
+      $(fieldId).addEventListener("blur", () => {
+        if (!state.currentBed) return;
+        clearTimeout(labTimer);
+        persistPatient(state.currentBed.key);
+      });
+    });
     $("patient-name-input").addEventListener("blur", () => {
       if (!state.currentBed) return;
       clearTimeout(nameTimer);
@@ -1385,6 +1414,52 @@
     });
     $("abx-back-btn").addEventListener("click", () => {
       UI.showView("home");
+    });
+
+    // Save monthly ABX snapshot — generates a printable PDF with the
+    // current ABX + albumin tables. The user picks "Save as PDF" in
+    // the print dialog. The filename includes the month name.
+    $("abx-save-monthly-btn").addEventListener("click", () => {
+      const now = new Date();
+      const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const abxTable = $("abx-antibiotics-table");
+      const albTable = $("abx-albumin-table");
+      if (!abxTable || !albTable) return;
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        flashHint("تعذّر فتح نافذة الطباعة — اسمح بالنوافذ المنبثقة");
+        return;
+      }
+      const doc = printWindow.document;
+      doc.open();
+      doc.write([
+        '<!DOCTYPE html>',
+        '<html lang="ar" dir="rtl">',
+        '<head><meta charset="UTF-8"><title></title>',
+        '<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap" rel="stylesheet">',
+        '<style>',
+        '@page { size: A4 portrait; margin: 0; }',
+        '* { margin: 0; padding: 0; box-sizing: border-box; }',
+        'body { font-family: "Tajawal", Arial, sans-serif; color: #000; padding: 12mm; line-height: 1.4; }',
+        'h2 { font-size: 18px; margin-bottom: 4px; }',
+        'h3 { font-size: 14px; margin: 14px 0 6px; }',
+        'table { width: 100%; border-collapse: collapse; font-size: 10px; }',
+        'th, td { border: 1px solid #000; padding: 4px 6px; text-align: right; }',
+        'th { background: #1b443f; color: #fff; font-weight: 800; }',
+        'td { font-weight: 600; }',
+        '.date { font-size: 12px; color: #666; margin-bottom: 8px; }',
+        '</style></head><body>',
+        `<h2>مراقبة الأدوية الحرجة — ${monthStr}</h2>`,
+        `<div class="date">${now.toLocaleDateString("ar", { year: "numeric", month: "long", day: "numeric" })}</div>`,
+        `<h3>المضادات الحيوية</h3>`,
+        abxTable.outerHTML.replace(/background:[^;"]+/g, "").replace(/color:[^;"]+/g, "color:#000"),
+        `<h3>الألبومين</h3>`,
+        albTable.outerHTML.replace(/background:[^;"]+/g, "").replace(/color:[^;"]+/g, "color:#000"),
+        '<script>window.addEventListener("load",function(){setTimeout(function(){try{window.print()}catch(e){}setTimeout(function(){try{window.close()}catch(e){}},1000)},800)})<\/script>',
+        '</body></html>'
+      ].join('\n'));
+      doc.close();
+      flashHint("يتم فتح نافذة الطباعة — اختر Save as PDF");
     });
 
     // ----- Bottom navigation -----
@@ -3306,7 +3381,6 @@
             <span>التكرار</span>
             <span>اليوم</span>
             <span>التشخيص</span>
-            <span>الطبيب</span>
           </div>
         ` + abxEntries.map(e => `
           <div class="abx-row">
@@ -3317,7 +3391,6 @@
             <span class="abx-cell-freq">${escapeHtml(e.freq || "—")}</span>
             <span class="abx-cell-day">${escapeHtml(e.day || "—")}</span>
             <span class="abx-cell-diag">${escapeHtml(e.diagnosis || "—")}</span>
-            <span class="abx-cell-doctor">${escapeHtml(e.doctor || "—")}</span>
           </div>
         `).join("");
       }
@@ -3337,7 +3410,6 @@
             <span>التكرار</span>
             <span>اليوم</span>
             <span>التشخيص</span>
-            <span>الطبيب</span>
           </div>
         ` + albEntries.map(e => `
           <div class="abx-row">
@@ -3347,7 +3419,6 @@
             <span class="abx-cell-freq">${escapeHtml(e.freq || "—")}</span>
             <span class="abx-cell-day">${escapeHtml(e.day || "—")}</span>
             <span class="abx-cell-diag">${escapeHtml(e.diagnosis || "—")}</span>
-            <span class="abx-cell-doctor">${escapeHtml(e.doctor || "—")}</span>
           </div>
         `).join("");
       }
@@ -3376,6 +3447,19 @@
       const isAdmin = Auth && Auth.isAdmin && Auth.isAdmin();
       diagnosisInput.disabled = !(isAdmin || isDoctor);
     }
+    // Lab fields: same access control as diagnosis (doctors + admins)
+    const labFieldIds = [
+      "lab-creatinine", "lab-albumin", "lab-wbc", "lab-hb", "lab-plt",
+      "lab-na", "lab-k", "lab-glucose", "lab-cr"
+    ];
+    labFieldIds.forEach(id => {
+      const el = $(id);
+      if (el) {
+        const isDoctor = Auth && Auth.isDoctor && Auth.isDoctor();
+        const isAdmin = Auth && Auth.isAdmin && Auth.isAdmin();
+        el.disabled = !(isAdmin || isDoctor);
+      }
+    });
   }
 
   // -------- Lightweight toast (no extra DOM) --------

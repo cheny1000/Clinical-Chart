@@ -223,6 +223,17 @@
               spellcheck="false"
             />
           </div>
+          <div class="patient-labs-row">
+            <input type="text" id="lab-creatinine" class="lab-input" placeholder="S. Creatinine" inputmode="decimal" />
+            <input type="text" id="lab-albumin" class="lab-input" placeholder="S. Albumin" inputmode="decimal" />
+            <input type="text" id="lab-wbc" class="lab-input" placeholder="WBC" inputmode="decimal" />
+            <input type="text" id="lab-hb" class="lab-input" placeholder="Hb" inputmode="decimal" />
+            <input type="text" id="lab-plt" class="lab-input" placeholder="PLT" inputmode="decimal" />
+            <input type="text" id="lab-na" class="lab-input" placeholder="Na+" inputmode="decimal" />
+            <input type="text" id="lab-k" class="lab-input" placeholder="K+" inputmode="decimal" />
+            <input type="text" id="lab-glucose" class="lab-input" placeholder="Glucose" inputmode="decimal" />
+            <input type="text" id="lab-cr" class="lab-input" placeholder="CRP" inputmode="decimal" />
+          </div>
         </div>
 
         <div class="meds-section">
@@ -337,6 +348,10 @@
             <!-- rendered dynamically -->
           </div>
         </div>
+
+        <button class="add-med-fab abx-save-btn" id="abx-save-monthly-btn" type="button">
+          <span aria-hidden="true">💾</span> حفظ نسخة شهرية
+        </button>
       </section>
 
       <section class="view view-admin" id="view-admin" data-view="admin" hidden>
