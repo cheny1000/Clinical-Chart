@@ -271,35 +271,44 @@
     $("login-screen").hidden = true;
   }
 
-  // Apply role-based visibility (which buttons appear on the header
-  // for each role). The "always-visible" buttons are: chart, med
-  // summary, pills form, and the gear (settings/admin) button.
+  // Apply role-based visibility — controls which buttons appear on the
+  // header for each role.
   //
-  // For non-admin pharmacists, the following header buttons are now
-  // HIDDEN because they're available from the Settings view (the gear
-  // button → settings view → dark mode + TV + logout):
-  //   - darkmode-toggle (🌙)
-  //   - display-mode-btn (📺)
-  //   - logout-btn (🚪)
-  // These remain visible for admins because admins don't have the
-  // simplified settings view — they have the full admin view.
+  // Role permissions matrix:
+  //   Button               | admin | pharmacist | doctor
+  //   -------------------- | ----- | ---------- | ------
+  //   ⚙ settings/admin     |  ✅   |  ✅        | ✅ (settings view)
+  //   ⚫ chart (print)      |  ✅   |  ✅        | ❌ (doctors don't print)
+  //   🔴 med summary        |  ✅   |  ✅        | ❌
+  //   🟣 pills form        |  ✅   |  ✅        | ❌
+  //   🔵 Excel export       |  ✅   |  ✅        | ❌
+  //   🌙 dark mode         |  ✅   |  ❌ (in settings) | ❌ (in settings)
+  //   📺 TV display        |  ✅   |  ❌ (in settings) | ❌ (in settings)
+  //   🚪 logout (header)   |  ✅   |  ❌ (in settings) | ❌ (in settings)
   function applyRoleVisibility() {
     if (!Auth) return;
     const isAdmin = Auth.isAdmin();
+    const isDoctor = Auth.isDoctor && Auth.isDoctor();
 
-    // Gear button (settings/admin): always visible for both roles
+    // Gear button (settings/admin): always visible for ALL roles.
+    // For admin → opens full admin view (med catalog + users + audit).
+    // For pharmacist/doctor → opens simple settings view (dark mode +
+    // TV + logout).
     const adminBtn = $("open-admin");
     if (adminBtn) adminBtn.hidden = false;
 
-    // Chart buttons: always visible (both roles)
+    // Chart + summary + pills-form + Excel buttons: pharmacist & admin only.
+    // Hidden for doctors (doctors don't do chart printing or supply
+    // distribution — that's the pharmacist's job).
+    const isChartRole = isAdmin || !isDoctor;
     const chartBtn = $("print-chart-btn");
-    if (chartBtn) chartBtn.hidden = false;
+    if (chartBtn) chartBtn.hidden = !isChartRole;
     const summaryBtn = $("med-summary-btn");
-    if (summaryBtn) summaryBtn.hidden = false;
+    if (summaryBtn) summaryBtn.hidden = !isChartRole;
     const pillsBtn = $("print-pills-form-btn");
-    if (pillsBtn) pillsBtn.hidden = false;
+    if (pillsBtn) pillsBtn.hidden = !isChartRole;
     const excelBtn = $("chart-excel-btn");
-    if (excelBtn) excelBtn.hidden = false;
+    if (excelBtn) excelBtn.hidden = !isChartRole;
 
     // Dark mode + TV + logout: only visible to admins (non-admins
     // access them via the Settings view instead).
@@ -370,19 +379,11 @@
     applyRoleVisibility();
     showApp();
     refreshAll();
-    // Route by role:
-    //   - doctor  → doctor view (patients list with prescription UI)
-    //   - admin / pharmacist → home view (rooms grid)
-    if (Auth && Auth.isDoctor && Auth.isDoctor()) {
-      UI.showView("doctor");
-      // Render the doctor's patient list immediately (uses the same
-      // state.patients the pharmacist sees)
-      if (global.PharmacyDoctorView) {
-        global.PharmacyDoctorView.renderDoctorPatientsList(state);
-      }
-    } else {
-      UI.showView("home");
-    }
+    // All roles (admin / pharmacist / doctor) use the SAME app view —
+    // the home view (rooms grid). Role-based permissions (which buttons
+    // are visible / which actions are allowed) are applied in
+    // applyRoleVisibility() and the action handlers.
+    UI.showView("home");
     pullCatalogOnBoot();
     initRealtime();
     const user = Auth.getCurrentUser();
