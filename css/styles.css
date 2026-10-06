@@ -1021,6 +1021,35 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   font-weight: 500;
 }
 
+/* Doctor (الطبيب المعالج) row — same style as the plate row so the
+   two optional fields look consistent underneath the patient name. */
+.patient-doctor-row { display: flex; margin-top: 8px; }
+.patient-doctor-input {
+  flex: 1;
+  width: 100%;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  background: #FAFAFA;
+  color: var(--text-muted);
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.patient-doctor-input:focus {
+  border-style: solid;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(27, 68, 63, 0.10);
+  color: var(--text);
+  background: #fff;
+}
+.patient-doctor-input::placeholder {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+html[data-theme="dark"] .patient-doctor-input { background: var(--bg-card); }
+
 /* meds section */
 .meds-section {
   margin-top: 16px;

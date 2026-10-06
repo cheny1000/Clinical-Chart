@@ -2626,19 +2626,6 @@
   function printPatientSheet(patient, currentBed) {
     if (!patient || !currentBed) return;
     const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
-    // Build the doctor's display name with the title (دكتور/دكتورة)
-    // based on the stored gender. This is the doctor currently logged
-    // into the app (a resident covering the ward) — not the patient's
-    // attending physician (specialist). We show BOTH on the printed
-    // sheet so it's clear who's the resident on duty + who's the
-    // attending specialist.
-    let loggedDoctor = "—";
-    if (user && user.displayName) {
-      const cleanName = user.displayName.split("|")[0] || user.displayName;
-      const gender = user.gender || (user.displayName.split("|")[1] || "male");
-      const title = gender === "female" ? "دكتورة" : "دكتور";
-      loggedDoctor = `${title} ${cleanName}`;
-    }
     // The patient's attending physician (الطبيب المعالج) — stored as
     // a free-text field on the patient record (e.g. "أ.د. محمد الجبوري").
     const attendingDoctor = patient.doctor || "—";
@@ -2743,7 +2730,7 @@
       // makes "1. Meronem 500 mg x 2" read left-to-right (number on
       // the left, name in the middle, dose/freq on the right).
       '.ps-meds-col { border: 1.5px solid #000; padding: 10px 12px; direction: ltr; text-align: left; }',
-      '.ps-med-line { font-size: 13px; font-weight: 700; padding: 4px 0; border-bottom: 1px dashed #ccc; }',
+      '.ps-med-line { font-size: 16px; font-weight: 700; padding: 6px 0; border-bottom: 1px dashed #ccc; }',
       '.ps-med-line:last-child { border-bottom: none; }',
       // IMPORTANT: name + dose + freq share the SAME font-size,
       // font-weight, and color (per user request).
@@ -2756,7 +2743,6 @@
       '<body>',
       '<div class="ps-header">',
       '  <div class="ps-header-row">',
-      '    <div class="ps-header-cell"><strong>الطبيب المقيم</strong>' + escapeHtml(loggedDoctor) + '</div>',
       '    <div class="ps-header-cell"><strong>الطبيب المعالج</strong>' + escapeHtml(attendingDoctor) + '</div>',
       '    <div class="ps-header-cell"><strong>المريض</strong>' + escapeHtml(patientName) + '</div>',
       '    <div class="ps-header-cell"><strong>الغرفة</strong>' + escapeHtml(room + ' · ' + bed + plate) + '</div>',
@@ -2808,13 +2794,6 @@
     if (!occPatients || occPatients.length === 0) return;
 
     const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
-    let loggedDoctor = "—";
-    if (user && user.displayName) {
-      const cleanName = user.displayName.split("|")[0] || user.displayName;
-      const gender = user.gender || (user.displayName.split("|")[1] || "male");
-      const title = gender === "female" ? "دكتورة" : "دكتور";
-      loggedDoctor = `${title} ${cleanName}`;
-    }
 
     // Build each patient's section as a page div
     const pagesHtml = occPatients.map(({ patient, currentBed }) => {
@@ -2855,7 +2834,6 @@
         <div class="ps-page">
           <div class="ps-header">
             <div class="ps-header-row">
-              <div class="ps-header-cell"><strong>الطبيب المقيم</strong>${escapeHtml(loggedDoctor)}</div>
               <div class="ps-header-cell"><strong>الطبيب المعالج</strong>${escapeHtml(attendingDoctor)}</div>
               <div class="ps-header-cell"><strong>المريض</strong>${escapeHtml(patientName)}</div>
               <div class="ps-header-cell"><strong>الغرفة</strong>${escapeHtml(room + ' · ' + bed + plate)}</div>
@@ -2900,7 +2878,7 @@
       '.ps-vs-col { border: 1.5px solid #000; padding: 10px; }',
       '.ps-vs-box { width: 100%; height: 100%; min-height: 220mm; }',
       '.ps-meds-col { border: 1.5px solid #000; padding: 10px 12px; direction: ltr; text-align: left; }',
-      '.ps-med-line { font-size: 13px; font-weight: 700; padding: 4px 0; border-bottom: 1px dashed #ccc; }',
+      '.ps-med-line { font-size: 16px; font-weight: 700; padding: 6px 0; border-bottom: 1px dashed #ccc; }',
       '.ps-med-line:last-child { border-bottom: none; }',
       '.ps-med-num { font-weight: 700; }',
       '.ps-med-name { font-weight: 700; }',
@@ -2997,6 +2975,14 @@
     const p = state.patients[key] || null;
     UI.renderPatientView(p, roomId, bed);
     UI.showView("patient");
+    // Hide the per-patient print button for pharmacists — only
+    // admin + doctor can print individual patient sheets.
+    const printBtn = $("print-patient-sheet-btn");
+    if (printBtn) {
+      const isDoctor = Auth && Auth.isDoctor && Auth.isDoctor();
+      const isAdmin = Auth && Auth.isAdmin && Auth.isAdmin();
+      printBtn.hidden = !(isAdmin || isDoctor);
+    }
   }
 
   // -------- Lightweight toast (no extra DOM) --------
