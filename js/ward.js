@@ -5,37 +5,51 @@
    The physical layout (per user description):
    - One long corridor with 10 rooms on ONE side (left when entering).
    - Entrance is at the top of the map (room 1 is the first room you reach).
-   - Rooms 1-5: each room has 6 beds — when you enter the room, there are
-                   3 beds on the RIGHT and 3 beds on the LEFT.
-                   → bed layout type: "split-3-3"
-   - Rooms 6-10: each room has 4 beds — straight linear arrangement.
-                   → bed layout type: "linear-4"
+   - Rooms 1-5: each room has 6 beds — laid out as a 2×3 grid:
+                   2 beds top row + 2 beds middle row + 2 beds bottom row.
+                   → bed layout type: "grid-2x3"
+   - Rooms 6-10: each room has 4 beds — laid out as a 2×2 grid:
+                   2 beds top row + 2 beds bottom row.
+                   → bed layout type: "grid-2x2"
 
-   We store a `layout` field on each room and a `side` field on each bed
-   so the UI can render the corridor as a true map.
+   We store a `layout` field on each room and a `side` field on each
+   bed (top/middle/bottom) so the UI can render the grid as rows.
    ============================================================ */
 
 (function (global) {
   "use strict";
 
-  // Bed numbering convention for split rooms (1-5):
-  // When you walk into the room:
-  //   - RIGHT side: beds 1, 2, 3  (1 nearest the door)
-  //   - LEFT  side: beds 4, 5, 6  (4 nearest the door)
-  // For linear rooms (6-10): beds 1, 2, 3, 4 in a row.
+  // Bed numbering convention for 6-bed rooms (1-5):
+  //   Top row:    beds 1 (right) + 2 (left)
+  //   Middle row: beds 3 (right) + 4 (left)
+  //   Bottom row: beds 5 (right) + 6 (left)
+  // For 4-bed rooms (6-10):
+  //   Top row:    beds 1 (right) + 2 (left)
+  //   Bottom row: beds 3 (right) + 4 (left)
+  // In RTL, "right" appears on the right side of each row.
   const ROOMS = [];
   for (let r = 1; r <= 10; r++) {
-    const isSplit = r <= 5;
-    const bedCount = isSplit ? 6 : 4;
-    const layout   = isSplit ? "split-3-3" : "linear-4";
+    const isSix = r <= 5;
+    const bedCount = isSix ? 6 : 4;
+    const layout   = isSix ? "grid-2x3" : "grid-2x2";
     const beds = [];
-    if (isSplit) {
-      // Right side: 1, 2, 3 (nearest door → farthest)
-      for (let b = 1; b <= 3; b++) beds.push({ number: b, side: "right" });
-      // Left  side: 4, 5, 6 (nearest door → farthest)
-      for (let b = 4; b <= 6; b++) beds.push({ number: b, side: "left" });
+    if (isSix) {
+      // Top row: 1 (right) + 2 (left)
+      beds.push({ number: 1, side: "top" });
+      beds.push({ number: 2, side: "top" });
+      // Middle row: 3 (right) + 4 (left)
+      beds.push({ number: 3, side: "middle" });
+      beds.push({ number: 4, side: "middle" });
+      // Bottom row: 5 (right) + 6 (left)
+      beds.push({ number: 5, side: "bottom" });
+      beds.push({ number: 6, side: "bottom" });
     } else {
-      for (let b = 1; b <= 4; b++) beds.push({ number: b, side: "row" });
+      // Top row: 1 (right) + 2 (left)
+      beds.push({ number: 1, side: "top" });
+      beds.push({ number: 2, side: "top" });
+      // Bottom row: 3 (right) + 4 (left)
+      beds.push({ number: 3, side: "bottom" });
+      beds.push({ number: 4, side: "bottom" });
     }
     ROOMS.push({ id: r, bedCount, layout, beds });
   }
@@ -53,4 +67,3 @@
     bedKey
   };
 })(window);
-

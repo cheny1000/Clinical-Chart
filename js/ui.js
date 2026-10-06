@@ -144,21 +144,28 @@
         return p && p.name && p.name.trim();
       }).length;
 
-      // Build the beds grid per room layout
+      // Build the beds grid per room layout.
+      // Layout is either "grid-2x3" (rooms 1-5, 6 beds in 3 rows × 2 cols)
+      // or "grid-2x2" (rooms 6-10, 4 beds in 2 rows × 2 cols).
+      // In both layouts, the bed `side` field tells which row (top/
+      // middle/bottom) the bed belongs to. Each row has 2 beds.
       let bedsArea;
-      if (room.layout === "split-3-3") {
-        // 3 beds on right + 3 beds on left (inside the room)
-        const right = room.beds.filter(b => b.side === "right");
-        const left  = room.beds.filter(b => b.side === "left");
-        bedsArea = h("div", { class: "room-beds split-3-3" }, [
-          h("div", { class: "beds-col beds-right" },
-            right.map(b => bedButton(room, b, patientsMap))),
-          h("div", { class: "beds-col beds-left" },
-            left.map(b => bedButton(room, b, patientsMap)))
-        ]);
+      if (room.layout === "grid-2x3" || room.layout === "grid-2x2") {
+        const rows = [];
+        const sides = room.layout === "grid-2x3"
+          ? ["top", "middle", "bottom"]
+          : ["top", "bottom"];
+        sides.forEach(side => {
+          const rowBeds = room.beds.filter(b => b.side === side);
+          rows.push(
+            h("div", { class: "beds-row" },
+              rowBeds.map(b => bedButton(room, b, patientsMap)))
+          );
+        });
+        bedsArea = h("div", { class: "room-beds " + room.layout }, rows);
       } else {
-        // linear-4: 4 beds in a row
-        bedsArea = h("div", { class: "room-beds linear-4" },
+        // Fallback (legacy layouts) — render all beds in one container
+        bedsArea = h("div", { class: "room-beds " + room.layout },
           room.beds.map(b => bedButton(room, b, patientsMap)));
       }
 
