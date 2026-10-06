@@ -313,7 +313,7 @@
     if (!username || !password || !displayName) {
       return { ok: false, error: "أدخل جميع الحقول" };
     }
-    if (role !== "admin" && role !== "pharmacist") {
+    if (role !== "admin" && role !== "pharmacist" && role !== "doctor") {
       role = "pharmacist";
     }
     if (gender !== "male" && gender !== "female") {

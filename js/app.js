@@ -2368,7 +2368,10 @@
     users.forEach(u => {
       const row = document.createElement("div");
       row.className = "admin-user-row" + (u.active === false ? " is-inactive" : "");
-      const roleLabel = u.role === "admin" ? "مسؤول" : "صيدلي";
+      const roleLabel =
+        u.role === "admin" ? "مسؤول" :
+        u.role === "doctor" ? "طبيب" :
+        "صيدلي";
       const created = u.created_at
         ? new Date(u.created_at).toLocaleString("ar", { dateStyle: "short", timeStyle: "short" })
         : "—";

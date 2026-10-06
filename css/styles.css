@@ -3064,6 +3064,10 @@ html[data-theme="dark"] .med-summary-row-count.custom { background: var(--bg); }
   background: #FEF2F2;
   color: #B91C1C;
 }
+.admin-user-role-doctor {
+  background: #F0FDF4;
+  color: #166534;
+}
 .admin-user-role-pharmacist {
   background: #EFF6FF;
   color: #1E40AF;
