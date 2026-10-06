@@ -1329,6 +1329,80 @@ html[data-theme="dark"] .patient-doctor-input { background: var(--bg-card); }
   gap: 4px;
 }
 
+/* ---------- Antibiotic + Albumin monitoring ---------- */
+.abx-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.abx-stat-card {
+  flex: 1;
+  min-width: 100px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  text-align: center;
+}
+.abx-stat-num {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--primary);
+}
+.abx-stat-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-top: 2px;
+}
+.abx-section {
+  margin-top: 16px;
+}
+.abx-section h3 {
+  font-size: 15px;
+  font-weight: 800;
+  margin: 0 0 8px;
+  color: var(--text);
+}
+.abx-table {
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.abx-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1.2fr 1fr 0.8fr 1fr;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  align-items: center;
+}
+.abx-row:last-child { border-bottom: none; }
+.abx-row:nth-child(odd) { background: rgba(0,0,0,0.02); }
+.abx-row-header {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 800;
+  font-size: 11px;
+}
+.abx-row-header:nth-child(odd) { background: var(--primary); }
+/* Albumin table has fewer columns (no med name — all are albumin) */
+#abx-albumin-table .abx-row {
+  grid-template-columns: 1.5fr 1fr 1fr 0.8fr 1fr;
+}
+.abx-cell-name { font-weight: 800; color: var(--text); }
+.abx-cell-med { font-weight: 700; color: var(--primary-dark); }
+.abx-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+html[data-theme="dark"] .abx-row:nth-child(odd) { background: rgba(255,255,255,0.03); }
+
 /* ---------- Patients list view ---------- */
 .patients-stat {
   display: flex;

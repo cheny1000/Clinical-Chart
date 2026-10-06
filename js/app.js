@@ -1358,6 +1358,15 @@
       });
     });
 
+    // ----- Antibiotic + Albumin monitoring -----
+    $("abx-monitor-btn").addEventListener("click", () => {
+      renderAbxMonitor();
+      UI.showView("abx");
+    });
+    $("abx-back-btn").addEventListener("click", () => {
+      UI.showView("home");
+    });
+
     // ----- Bottom navigation -----
     $("bottom-nav").addEventListener("click", (e) => {
       const item = e.target.closest(".nav-item");
@@ -3129,6 +3138,153 @@
       `;
       list.appendChild(row);
     });
+  }
+
+  // -------- Antibiotic + Albumin monitoring --------
+  // Scans all occupied patients for antibiotic + albumin medications
+  // and displays them in two tables. No separate database — reads
+  // directly from state.patients each time the view is opened.
+
+  // Known antibiotic IDs (from the medication catalog)
+  const ANTIBIOTIC_IDS = [
+    "ceftriaxone", "vancomycin", "meropenem", "amoxclav",
+    "amoxycillin-500", "ceftazidime-1g", "ciprofloxacin-200",
+    "flagyl-500", "fucidin"
+  ];
+  // Known albumin IDs
+  const ALBUMIN_IDS = ["human-albumin-20"];
+
+  function renderAbxMonitor() {
+    const Ward = global.PharmacyWard;
+    if (!Ward) return;
+
+    // Collect all occupied patients with their antibiotic/albumin meds
+    const abxEntries = [];   // {patient, room, bed, med (pm + catalog)}
+    const albEntries = [];
+
+    Ward.ROOMS.forEach(room => {
+      room.beds.forEach(bed => {
+        const key = Ward.bedKey(room.id, bed.number);
+        const p = state.patients[key];
+        if (!p || !p.name || !p.name.trim()) return;
+
+        (p.medications || []).forEach(pm => {
+          if (!pm || !pm.id) return;
+          const catalog = (state.medications || []).find(m => m && m.id === pm.id);
+          const medName = catalog ? (catalog.nameEn || catalog.nameTrade) : (pm.nameEn || pm.nameTrade || pm.id);
+          const dose = pm.dose || (catalog ? catalog.defaultDose : "") || "";
+          const freq = pm.frequency || (catalog ? catalog.defaultFrequency : "") || "";
+
+          if (ANTIBIOTIC_IDS.indexOf(pm.id) !== -1) {
+            abxEntries.push({
+              name: p.name.trim(),
+              room: room.id,
+              bed: bed.number,
+              plate: p.plateNumber || "",
+              doctor: p.doctor || "",
+              medName, dose, freq, medId: pm.id
+            });
+          }
+          if (ALBUMIN_IDS.indexOf(pm.id) !== -1) {
+            albEntries.push({
+              name: p.name.trim(),
+              room: room.id,
+              bed: bed.number,
+              plate: p.plateNumber || "",
+              doctor: p.doctor || "",
+              medName, dose, freq, medId: pm.id
+            });
+          }
+        });
+      });
+    });
+
+    // ---- Summary stats ----
+    const statsEl = $("abx-stats");
+    if (statsEl) {
+      const abxPatients = new Set(abxEntries.map(e => e.name + e.room));
+      const albPatients = new Set(albEntries.map(e => e.name + e.room));
+      const totalPatients = Object.values(state.patients || {})
+        .filter(p => p && p.name && p.name.trim()).length;
+      statsEl.innerHTML = `
+        <div class="abx-stat-card">
+          <div class="abx-stat-num">${abxEntries.length}</div>
+          <div class="abx-stat-label">مضاد حيوي (جرعة)</div>
+        </div>
+        <div class="abx-stat-card">
+          <div class="abx-stat-num">${abxPatients.size}</div>
+          <div class="abx-stat-label">مريض على مضاد حيوي</div>
+        </div>
+        <div class="abx-stat-card">
+          <div class="abx-stat-num">${albEntries.length}</div>
+          <div class="abx-stat-label">ألبومين (جرعة)</div>
+        </div>
+        <div class="abx-stat-card">
+          <div class="abx-stat-num">${albPatients.size}</div>
+          <div class="abx-stat-label">مريض على ألبومين</div>
+        </div>
+        <div class="abx-stat-card">
+          <div class="abx-stat-num">${totalPatients}</div>
+          <div class="abx-stat-label">إجمالي المرضى</div>
+        </div>
+      `;
+    }
+
+    // ---- Antibiotics table ----
+    const abxTable = $("abx-antibiotics-table");
+    if (abxTable) {
+      if (abxEntries.length === 0) {
+        abxTable.innerHTML = `<div class="abx-empty">لا يوجد مرضى على مضادات حيوية حالياً</div>`;
+      } else {
+        // Sort by antibiotic name (group same antibiotics together)
+        abxEntries.sort((a, b) => a.medName.localeCompare(b.medName));
+        abxTable.innerHTML = `
+          <div class="abx-row abx-row-header">
+            <span>المريض</span>
+            <span>الغرفة</span>
+            <span>الدواء</span>
+            <span>الجرعة</span>
+            <span>التكرار</span>
+            <span>الطبيب</span>
+          </div>
+        ` + abxEntries.map(e => `
+          <div class="abx-row">
+            <span class="abx-cell-name">${escapeHtml(e.name)}</span>
+            <span class="abx-cell-room">غ ${e.room} · س ${e.bed}</span>
+            <span class="abx-cell-med">${escapeHtml(e.medName)}</span>
+            <span class="abx-cell-dose">${escapeHtml(e.dose || "—")}</span>
+            <span class="abx-cell-freq">${escapeHtml(e.freq || "—")}</span>
+            <span class="abx-cell-doctor">${escapeHtml(e.doctor || "—")}</span>
+          </div>
+        `).join("");
+      }
+    }
+
+    // ---- Albumin table ----
+    const albTable = $("abx-albumin-table");
+    if (albTable) {
+      if (albEntries.length === 0) {
+        albTable.innerHTML = `<div class="abx-empty">لا يوجد مرضى على ألبومين حالياً</div>`;
+      } else {
+        albTable.innerHTML = `
+          <div class="abx-row abx-row-header">
+            <span>المريض</span>
+            <span>الغرفة</span>
+            <span>الجرعة</span>
+            <span>التكرار</span>
+            <span>الطبيب</span>
+          </div>
+        ` + albEntries.map(e => `
+          <div class="abx-row">
+            <span class="abx-cell-name">${escapeHtml(e.name)}</span>
+            <span class="abx-cell-room">غ ${e.room} · س ${e.bed}</span>
+            <span class="abx-cell-dose">${escapeHtml(e.dose || "—")}</span>
+            <span class="abx-cell-freq">${escapeHtml(e.freq || "—")}</span>
+            <span class="abx-cell-doctor">${escapeHtml(e.doctor || "—")}</span>
+          </div>
+        `).join("");
+      }
+    }
   }
 
   function openPatient({ key, roomId, bed }) {

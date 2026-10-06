@@ -118,6 +118,9 @@
           <button class="brand-chart" id="discharged-list-btn" type="button" aria-label="المرضى السابقون" title="قائمة المرضى الذين خرجوا أو توفوا" style="background:#555">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
           </button>
+          <button class="brand-chart" id="abx-monitor-btn" type="button" aria-label="مراقبة المضادات والألبومين" title="مراقبة المضادات الحيوية والألبومين" style="background:#080">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 1.5-1.5-1-2.74-1.5-4.5-1.5A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/><path d="M3.5 7.5l2 2"/><path d="M8.5 7.5l2 2"/><path d="M13.5 7.5l2 2"/></svg>
+          </button>
           <button class="brand-chart" id="med-summary-btn" type="button" aria-label="إحصاء الأدوية" title="عرض إحصاء الأدوية والمستلزمات" style="background:#c33">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           </button>
@@ -293,6 +296,38 @@
           <!-- rendered dynamically -->
         </div>
       </section>
+
+      <!-- ----- Antibiotic + Albumin monitoring view ----- -->
+      <section class="view view-abx" id="view-abx" data-view="abx" hidden>
+        <button class="back-btn" id="abx-back-btn" type="button" aria-label="رجوع">
+          <span class="back-arrow">›</span>
+          <span>رجوع</span>
+        </button>
+
+        <div class="section-title">
+          <h2>مراقبة الأدوية الحرجة</h2>
+          <p>المضادات الحيوية والألبومين للمرضى الحاليين</p>
+        </div>
+
+        <div class="abx-stats" id="abx-stats">
+          <!-- summary cards rendered dynamically -->
+        </div>
+
+        <div class="abx-section">
+          <h3>المضادات الحيوية</h3>
+          <div class="abx-table" id="abx-antibiotics-table">
+            <!-- rendered dynamically -->
+          </div>
+        </div>
+
+        <div class="abx-section">
+          <h3>الألبومين</h3>
+          <div class="abx-table" id="abx-albumin-table">
+            <!-- rendered dynamically -->
+          </div>
+        </div>
+      </section>
+
       <section class="view view-admin" id="view-admin" data-view="admin" hidden>
         <button class="back-btn" id="admin-back-btn" type="button" aria-label="رجوع">
           <span class="back-arrow">›</span>
