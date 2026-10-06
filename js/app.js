@@ -1416,50 +1416,74 @@
       UI.showView("home");
     });
 
-    // Save monthly ABX snapshot — generates a printable PDF with the
-    // current ABX + albumin tables. The user picks "Save as PDF" in
-    // the print dialog. The filename includes the month name.
+    // Save monthly ABX snapshot — saves the current ABX + albumin data
+    // INSIDE the app (localStorage), not as a PDF. Doctors, pharmacists,
+    // and admins can all view the saved snapshots later.
     $("abx-save-monthly-btn").addEventListener("click", () => {
       const now = new Date();
       const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-      const abxTable = $("abx-antibiotics-table");
-      const albTable = $("abx-albumin-table");
-      if (!abxTable || !albTable) return;
-      const printWindow = window.open("", "_blank");
-      if (!printWindow) {
-        flashHint("تعذّر فتح نافذة الطباعة — اسمح بالنوافذ المنبثقة");
-        return;
+      const monthLabel = now.toLocaleDateString("ar", { year: "numeric", month: "long" });
+      const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+
+      // Capture the current ABX entries (reuse the renderAbxMonitor
+      // data by re-scanning patients)
+      const Ward = global.PharmacyWard;
+      const abxEntries = [];
+      const albEntries = [];
+      if (Ward) {
+        Ward.ROOMS.forEach(room => {
+          room.beds.forEach(bed => {
+            const key = Ward.bedKey(room.id, bed.number);
+            const p = state.patients[key];
+            if (!p || !p.name || !p.name.trim()) return;
+            (p.medications || []).forEach(pm => {
+              if (!pm || !pm.id) return;
+              const catalog = (state.medications || []).find(m => m && m.id === pm.id);
+              const medName = catalog ? (catalog.nameEn || catalog.nameTrade) : (pm.nameEn || pm.nameTrade || pm.id);
+              const dose = pm.dose || (catalog ? catalog.defaultDose : "") || "";
+              const freq = pm.frequency || (catalog ? catalog.defaultFrequency : "") || "";
+              // Day label
+              let day = "";
+              if (p.firstMedDate) {
+                const diff = now.setHours(0,0,0,0) - new Date(p.firstMedDate).setHours(0,0,0,0);
+                day = "D" + Math.max(1, Math.floor(diff / 86400000) + 1);
+              }
+              const entry = {
+                name: p.name.trim(),
+                room: room.id,
+                bed: bed.number,
+                plate: p.plateNumber || "",
+                diagnosis: p.diagnosis || "",
+                day: day,
+                medName, dose, freq
+              };
+              if (ANTIBIOTIC_IDS.indexOf(pm.id) !== -1) abxEntries.push(entry);
+              if (ALBUMIN_IDS.indexOf(pm.id) !== -1) albEntries.push(entry);
+            });
+          });
+        });
       }
-      const doc = printWindow.document;
-      doc.open();
-      doc.write([
-        '<!DOCTYPE html>',
-        '<html lang="ar" dir="rtl">',
-        '<head><meta charset="UTF-8"><title></title>',
-        '<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap" rel="stylesheet">',
-        '<style>',
-        '@page { size: A4 portrait; margin: 0; }',
-        '* { margin: 0; padding: 0; box-sizing: border-box; }',
-        'body { font-family: "Tajawal", Arial, sans-serif; color: #000; padding: 12mm; line-height: 1.4; }',
-        'h2 { font-size: 18px; margin-bottom: 4px; }',
-        'h3 { font-size: 14px; margin: 14px 0 6px; }',
-        'table { width: 100%; border-collapse: collapse; font-size: 10px; }',
-        'th, td { border: 1px solid #000; padding: 4px 6px; text-align: right; }',
-        'th { background: #1b443f; color: #fff; font-weight: 800; }',
-        'td { font-weight: 600; }',
-        '.date { font-size: 12px; color: #666; margin-bottom: 8px; }',
-        '</style></head><body>',
-        `<h2>مراقبة الأدوية الحرجة — ${monthStr}</h2>`,
-        `<div class="date">${now.toLocaleDateString("ar", { year: "numeric", month: "long", day: "numeric" })}</div>`,
-        `<h3>المضادات الحيوية</h3>`,
-        abxTable.outerHTML.replace(/background:[^;"]+/g, "").replace(/color:[^;"]+/g, "color:#000"),
-        `<h3>الألبومين</h3>`,
-        albTable.outerHTML.replace(/background:[^;"]+/g, "").replace(/color:[^;"]+/g, "color:#000"),
-        '<script>window.addEventListener("load",function(){setTimeout(function(){try{window.print()}catch(e){}setTimeout(function(){try{window.close()}catch(e){}},1000)},800)})<\/script>',
-        '</body></html>'
-      ].join('\n'));
-      doc.close();
-      flashHint("يتم فتح نافذة الطباعة — اختر Save as PDF");
+      const totalPatients = Object.values(state.patients || {})
+        .filter(p => p && p.name && p.name.trim()).length;
+
+      const snapshot = {
+        monthStr: monthStr,
+        monthLabel: monthLabel,
+        date: now.toISOString(),
+        savedBy: user ? user.username : "—",
+        abxCount: abxEntries.length,
+        albCount: albEntries.length,
+        totalPatients: totalPatients,
+        abxEntries: abxEntries,
+        albEntries: albEntries
+      };
+      Storage.addAbxSnapshot(snapshot);
+      flashHint(`تم حفظ نسخة ${monthLabel} — ${abxEntries.length} مضاد حيوي · ${albEntries.length} ألبومين`);
+    });
+
+    // View saved ABX snapshots
+    $("abx-saved-btn").addEventListener("click", () => {
+      renderAbxSnapshots();
     });
 
     // ----- Bottom navigation -----
@@ -3310,6 +3334,123 @@
   ];
   // Known albumin IDs
   const ALBUMIN_IDS = ["human-albumin-20"];
+
+  // -------- View saved ABX snapshots --------
+  // Shows a list of saved monthly snapshots. Clicking one expands
+  // it to show the antibiotic + albumin tables for that month.
+  let _expandedSnapshot = -1;
+
+  function renderAbxSnapshots() {
+    const abxTable = $("abx-antibiotics-table");
+    const albTable = $("abx-albumin-table");
+    const statsEl = $("abx-stats");
+    if (!abxTable || !albTable) return;
+
+    const snapshots = Storage.loadAbxSnapshots();
+
+    // Show the list of snapshots in the stats area + clear the tables
+    if (statsEl) {
+      if (snapshots.length === 0) {
+        statsEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:14px;">لا توجد نسخ محفوظة بعد — اضغط «حفظ نسخة شهرية» لحفظ الوضع الحالي</div>`;
+      } else {
+        statsEl.innerHTML = snapshots.map((s, i) => `
+          <div class="abx-snapshot-card" data-idx="${i}">
+            <div class="abx-snapshot-head">
+              <div class="abx-snapshot-month">${escapeHtml(s.monthLabel)}</div>
+              <div class="abx-snapshot-meta">${s.abxCount} مضاد · ${s.albCount} ألبومين · ${s.totalPatients} مريض</div>
+            </div>
+            <div class="abx-snapshot-meta2">حفظ: ${new Date(s.date).toLocaleDateString("ar", { dateStyle: "short" })} · بواسطة ${escapeHtml(s.savedBy)}</div>
+            <button class="abx-snapshot-view-btn" data-idx="${i}" type="button">عرض</button>
+            <button class="abx-snapshot-del-btn" data-idx="${i}" type="button">حذف</button>
+          </div>
+        `).join("");
+        // Bind view + delete buttons
+        statsEl.querySelectorAll(".abx-snapshot-view-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const idx = parseInt(btn.dataset.idx, 10);
+            expandAbxSnapshot(idx);
+          });
+        });
+        statsEl.querySelectorAll(".abx-snapshot-del-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const idx = parseInt(btn.dataset.idx, 10);
+            if (!confirm("حذف هذه النسخة؟")) return;
+            Storage.deleteAbxSnapshot(idx);
+            renderAbxSnapshots();
+            flashHint("تم حذف النسخة");
+          });
+        });
+      }
+    }
+
+    // Clear the tables (they'll be filled when a snapshot is expanded)
+    abxTable.innerHTML = "";
+    albTable.innerHTML = "";
+    // Hide section titles when showing snapshots list
+    const abxSection = abxTable.closest(".abx-section");
+    const albSection = albTable.closest(".abx-section");
+    if (snapshots.length === 0) {
+      if (abxSection) abxSection.style.display = "none";
+      if (albSection) albSection.style.display = "none";
+    } else {
+      if (abxSection) abxSection.style.display = "";
+      if (albSection) albSection.style.display = "";
+    }
+  }
+
+  function expandAbxSnapshot(idx) {
+    const snapshots = Storage.loadAbxSnapshots();
+    const s = snapshots[idx];
+    if (!s) return;
+    const abxTable = $("abx-antibiotics-table");
+    const albTable = $("abx-albumin-table");
+    if (!abxTable || !albTable) return;
+
+    // Render antibiotic entries
+    const abx = s.abxEntries || [];
+    if (abx.length === 0) {
+      abxTable.innerHTML = `<div class="abx-empty">لا يوجد مضادات حيوية في هذه النسخة</div>`;
+    } else {
+      abx.sort((a, b) => (a.medName || "").localeCompare(b.medName || ""));
+      abxTable.innerHTML = `
+        <div class="abx-row abx-row-header">
+          <span>المريض</span><span>الغرفة</span><span>الدواء</span>
+          <span>الجرعة</span><span>التكرار</span><span>اليوم</span><span>التشخيص</span>
+        </div>
+      ` + abx.map(e => `
+        <div class="abx-row">
+          <span class="abx-cell-name">${escapeHtml(e.name)}</span>
+          <span class="abx-cell-room">غ ${e.room} · س ${e.bed}</span>
+          <span class="abx-cell-med">${escapeHtml(e.medName)}</span>
+          <span class="abx-cell-dose">${escapeHtml(e.dose || "—")}</span>
+          <span class="abx-cell-freq">${escapeHtml(e.freq || "—")}</span>
+          <span class="abx-cell-day">${escapeHtml(e.day || "—")}</span>
+          <span class="abx-cell-diag">${escapeHtml(e.diagnosis || "—")}</span>
+        </div>`).join("");
+    }
+
+    // Render albumin entries
+    const alb = s.albEntries || [];
+    if (alb.length === 0) {
+      albTable.innerHTML = `<div class="abx-empty">لا يوجد ألبومين في هذه النسخة</div>`;
+    } else {
+      albTable.innerHTML = `
+        <div class="abx-row abx-row-header">
+          <span>المريض</span><span>الغرفة</span>
+          <span>الجرعة</span><span>التكرار</span><span>اليوم</span><span>التشخيص</span>
+        </div>
+      ` + alb.map(e => `
+        <div class="abx-row">
+          <span class="abx-cell-name">${escapeHtml(e.name)}</span>
+          <span class="abx-cell-room">غ ${e.room} · س ${e.bed}</span>
+          <span class="abx-cell-dose">${escapeHtml(e.dose || "—")}</span>
+          <span class="abx-cell-freq">${escapeHtml(e.freq || "—")}</span>
+          <span class="abx-cell-day">${escapeHtml(e.day || "—")}</span>
+          <span class="abx-cell-diag">${escapeHtml(e.diagnosis || "—")}</span>
+        </div>`).join("");
+    }
+    flashHint(`عرض نسخة ${s.monthLabel}`);
+  }
 
   function renderAbxMonitor() {
     const Ward = global.PharmacyWard;

@@ -18,7 +18,8 @@
     MEDICATIONS_LAST_SYNCED: "pharma.medications.synced.v1",     // ms timestamp
     CATALOG_SEED_VERSION: "pharma.catalog.seed.v1",               // last DEFAULT_MEDICATIONS version merged in
     DISCHARGED:  "pharma.discharged.v1",   // array: discharged patient records
-    DEAD:        "pharma.dead.v1"          // array: dead patient records
+    DEAD:        "pharma.dead.v1",          // array: dead patient records
+    ABX_SNAPSHOTS: "pharma.abx-snapshots.v1" // array: monthly ABX snapshots
   };
 
   function safeParse(raw, fallback) {
@@ -566,6 +567,29 @@
     saveDead(arr);
   }
 
+  // ---- ABX monthly snapshots ----
+  // Each snapshot captures: month label, date, antibiotics table data,
+  // albumin table data, total patient count, snapshot by username.
+  function loadAbxSnapshots() {
+    return safeParse(localStorage.getItem(STORAGE_KEYS.ABX_SNAPSHOTS), []);
+  }
+  function saveAbxSnapshots(arr) {
+    try { localStorage.setItem(STORAGE_KEYS.ABX_SNAPSHOTS, JSON.stringify(arr || [])); }
+    catch (e) { /* ignore quota */ }
+  }
+  function addAbxSnapshot(record) {
+    const arr = loadAbxSnapshots();
+    arr.unshift(record);  // newest first
+    saveAbxSnapshots(arr);
+  }
+  function deleteAbxSnapshot(index) {
+    const arr = loadAbxSnapshots();
+    if (index >= 0 && index < arr.length) {
+      arr.splice(index, 1);
+      saveAbxSnapshots(arr);
+    }
+  }
+
   global.PharmacyStorage = {
     // patients
     loadPatients,
@@ -593,6 +617,8 @@
     loadAll,
     // discharged / dead
     loadDischarged, addDischarged, saveDischarged,
-    loadDead, addDead, saveDead
+    loadDead, addDead, saveDead,
+    // ABX snapshots
+    loadAbxSnapshots, addAbxSnapshot, deleteAbxSnapshot
   };
 })(window);

@@ -1092,6 +1092,65 @@ html[data-theme="dark"] .lab-input { background: var(--bg-card); }
 }
 .abx-save-btn:active { background: #006400; }
 
+/* Saved ABX snapshots list */
+.abx-saved-btn {
+  width: 100%;
+  margin-top: 8px;
+  background: #475569;
+  color: #fff;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(71, 85, 105, 0.30);
+}
+.abx-saved-btn:active { background: #334155; }
+.abx-snapshot-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.abx-snapshot-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.abx-snapshot-month {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--primary);
+}
+.abx-snapshot-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.abx-snapshot-meta2 {
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+.abx-snapshot-view-btn, .abx-snapshot-del-btn {
+  margin-top: 8px;
+  padding: 6px 12px;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 700;
+  border: 1.5px solid;
+  cursor: pointer;
+}
+.abx-snapshot-view-btn {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-color: var(--primary);
+  margin-left: 0;
+}
+.abx-snapshot-del-btn {
+  background: #FEF2F2;
+  color: #DC2626;
+  border-color: #FECACA;
+  margin-right: 8px;
+}
+
 /* meds section */
 .meds-section {
   margin-top: 16px;
