@@ -111,7 +111,7 @@
     const page_cx = G.IMG_W / 2;
     const lines = [
       "مستشفى بغداد التعليمي",
-      "الوحدة الباطنية الخامسة",
+      "الصيدلية السريرية",
       "استمارة اعطاء الحبوب"
     ];
     const fontPx = 48;
@@ -146,10 +146,8 @@
   }
 
   function drawFooter(ctx) {
-    // "الطبيب المقيم" at bottom-left of the page (the form is signed
-    // by the doctor/resident, not the pharmacist — this is the
-    // pill-dispensing form given to the patient).
-    const text = "الطبيب المقيم";
+    // "الصيدلي السريري" at bottom-left of the page
+    const text = "الصيدلي السريري";
     const fontPx = 36;
     drawArabicLeft(ctx, text, 200, 2150, fontPx);
   }
