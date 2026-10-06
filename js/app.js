@@ -2555,40 +2555,28 @@
     const now = new Date();
     const dateStr = `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`;
 
-    // Build medications list HTML (left column in RTL = right side visually)
+    // ---- Build medications list HTML ----
+    // User requirements:
+    //   - Medications on the LEFT side of the page (not right)
+    //   - Names in ENGLISH (use nameEn || nameTrade)
+    //   - Dose BESIDE the name (not below) — same line, same font size,
+    //     same weight, same color
+    // We render each med as a single line: "1. Augmentin  1.2 g"
     const meds = (Array.isArray(patient.medications) ? patient.medications : [])
       .filter(pm => pm && pm.id !== "syringe-5cc");
     let medsRows = "";
     if (meds.length === 0) {
-      medsRows = `<div class="ps-empty">لا أدوية حالياً</div>`;
+      medsRows = `<div class="ps-empty">No medications</div>`;
     } else {
       medsRows = meds.map((m, i) => {
-        const name = m.nameAr || m.nameTrade || m.nameEn || m.name || m.id || "—";
+        // English-first name (user requested English).
+        const name = m.nameEn || m.nameTrade || m.nameAr || m.name || m.id || "—";
         const dose = m.dose || "";
-        const freq = m.frequency || "";
-        return `
-          <div class="ps-med-row">
-            <div class="ps-med-num">${i + 1}</div>
-            <div class="ps-med-info">
-              <div class="ps-med-name">${escapeHtml(name)}</div>
-              <div class="ps-med-meta">
-                ${dose ? `<span>${escapeHtml(dose)}</span>` : ""}
-                ${freq ? `<span>·</span><span>${escapeHtml(freq)}</span>` : ""}
-              </div>
-            </div>
-          </div>`;
+        // Single line: number + name + dose, all same font/size/color.
+        // Use a small gap (em space) between name and dose.
+        return `<div class="ps-med-line"><span class="ps-med-num">${i + 1}.</span> <span class="ps-med-name">${escapeHtml(name)}</span>${dose ? `&nbsp;&nbsp;&nbsp;${escapeHtml(dose)}` : ""}</div>`;
       }).join("");
     }
-
-    // Build vital signs grid (right column in RTL = left side visually)
-    // 7 days × 6 vital signs (temp, pulse, BP, resp, O2, urine)
-    const vsHeaders = ["الحرارة", "النبض", "الضغط", "التنفس", "O₂", "البول"];
-    const vsDays = ["اليوم 1", "اليوم 2", "اليوم 3", "اليوم 4", "اليوم 5", "اليوم 6", "اليوم 7"];
-    let vsRows = "";
-    vsDays.forEach(day => {
-      const cells = vsHeaders.map(() => `<td></td>`).join("");
-      vsRows += `<tr><th>${day}</th>${cells}</tr>`;
-    });
 
     // Open a new window with self-contained HTML
     const printWindow = window.open("", "_blank");
@@ -2603,7 +2591,7 @@
       '<html lang="ar" dir="rtl">',
       '<head>',
       '<meta charset="UTF-8">',
-      '<title>ورقة المريض — ' + escapeHtml(patientName) + '</title>',
+      '<title>Patient Sheet — ' + escapeHtml(patientName) + '</title>',
       '<link rel="preconnect" href="https://fonts.googleapis.com">',
       '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
       '<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">',
@@ -2611,25 +2599,33 @@
       '@page { size: A4 portrait; margin: 12mm; }',
       '* { margin: 0; padding: 0; box-sizing: border-box; }',
       'body { font-family: "Tajawal", Arial, sans-serif; color: #000; line-height: 1.4; }',
+      // ---- Header (top of page): 4 cells ----
       '.ps-header { border: 2px solid #000; padding: 10px 14px; margin-bottom: 12px; }',
       '.ps-header-row { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }',
       '.ps-header-cell { font-size: 13px; font-weight: 700; line-height: 1.6; }',
       '.ps-header-cell strong { display: block; font-size: 14px; font-weight: 800; margin-bottom: 2px; }',
-      '.ps-body { display: grid; grid-template-columns: 45% 55%; gap: 12px; }',
-      '.ps-col { border: 1.5px solid #000; padding: 10px; }',
-      '.ps-col-title { font-size: 14px; font-weight: 800; text-align: center; padding-bottom: 6px; border-bottom: 1px solid #000; margin-bottom: 8px; }',
-      '.ps-med-row { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; border-bottom: 1px dashed #ccc; }',
-      '.ps-med-row:last-child { border-bottom: none; }',
-      '.ps-med-num { font-weight: 800; font-size: 13px; min-width: 18px; text-align: center; }',
-      '.ps-med-info { flex: 1; }',
-      '.ps-med-name { font-size: 13px; font-weight: 800; }',
-      '.ps-med-meta { font-size: 11px; color: #444; display: flex; gap: 4px; align-items: center; margin-top: 2px; }',
+      // ---- Body: two columns ----
+      // The user wants medications on the LEFT, vital signs on the RIGHT.
+      // Since the doc is RTL, the FIRST grid column visually appears on
+      // the RIGHT. So to put meds on the LEFT, we put them in the 2nd
+      // grid column (visually = left side).
+      '.ps-body { display: grid; grid-template-columns: 50% 50%; gap: 12px; min-height: 230mm; }',
+      // Vital signs column (visually on the RIGHT in RTL = first grid col)
+      '.ps-vs-col { border: 1.5px solid #000; padding: 10px; }',
+      // No title, no table — just an empty box.
+      // The user said: "without titles, no table — just a big empty
+      // box. I'll tell you later what to write there."
+      // So we leave it as a big empty bordered box.
+      '.ps-vs-box { width: 100%; height: 100%; min-height: 220mm; }',
+      // Meds column (visually on the LEFT in RTL = second grid col)
+      '.ps-meds-col { border: 1.5px solid #000; padding: 10px 12px; }',
+      '.ps-med-line { font-size: 13px; font-weight: 700; padding: 4px 0; border-bottom: 1px dashed #ccc; }',
+      '.ps-med-line:last-child { border-bottom: none; }',
+      // IMPORTANT: name + dose share the SAME font-size, font-weight,
+      // and color (per user request). No separate styling.
+      '.ps-med-num { font-weight: 700; }',
+      '.ps-med-name { font-weight: 700; }',
       '.ps-empty { text-align: center; padding: 20px; color: #999; font-size: 12px; }',
-      '.ps-vs-table { width: 100%; border-collapse: collapse; }',
-      '.ps-vs-table th, .ps-vs-table td { border: 1px solid #000; padding: 4px; font-size: 10px; font-weight: 700; text-align: center; height: 22px; }',
-      '.ps-vs-table th { background: #f0f0f0; }',
-      '.ps-vs-table th:first-child { min-width: 50px; }',
-      '.ps-vs-table td { width: auto; }',
       '@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }',
       '</style>',
       '</head>',
@@ -2643,17 +2639,10 @@
       '  </div>',
       '</div>',
       '<div class="ps-body">',
-      '  <div class="ps-col">',
-      '    <div class="ps-col-title">الأدوية</div>',
-      '    ' + medsRows,
-      '  </div>',
-      '  <div class="ps-col">',
-      '    <div class="ps-col-title">الفحص اليومي للوظائف الحيوية</div>',
-      '    <table class="ps-vs-table">',
-      '      <thead><tr><th>اليوم</th>' + vsHeaders.map(h => '<th>' + h + '</th>').join('') + '</tr></thead>',
-      '      <tbody>' + vsRows + '</tbody>',
-      '    </table>',
-      '  </div>',
+      // First grid column (visually RIGHT in RTL) — vital signs box
+      '  <div class="ps-vs-col"><div class="ps-vs-box"></div></div>',
+      // Second grid column (visually LEFT in RTL) — medications list
+      '  <div class="ps-meds-col">' + medsRows + '</div>',
       '</div>',
       '<script>',
       // Wait for fonts to load before printing (800ms safety margin)
