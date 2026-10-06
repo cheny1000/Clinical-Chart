@@ -3024,9 +3024,9 @@
       '<body>',
       '<div class="ps-header">',
       '  <div class="ps-header-row">',
-      '    <div class="ps-header-cell"><strong>الطبيب المعالج</strong>' + escapeHtml(attendingDoctor) + '</div>',
       '    <div class="ps-header-cell"><strong>المريض</strong>' + escapeHtml(patientName) + '</div>',
-      '    <div class="ps-header-cell"><strong>الغرفة</strong>' + escapeHtml(room + ' · ' + bed + plate) + '</div>',
+      '    <div class="ps-header-cell"><strong>الطبيب المعالج</strong>' + escapeHtml(attendingDoctor) + '</div>',
+      '    <div class="ps-header-cell"><strong>الغرفة</strong>' + escapeHtml(room) + '</div>',
       '    <div class="ps-header-cell"><strong>التاريخ</strong>' + dateStr + '</div>',
       '  </div>',
       '</div>',
@@ -3116,9 +3116,9 @@
         <div class="ps-page">
           <div class="ps-header">
             <div class="ps-header-row">
-              <div class="ps-header-cell"><strong>الطبيب المعالج</strong>${escapeHtml(attendingDoctor)}</div>
               <div class="ps-header-cell"><strong>المريض</strong>${escapeHtml(patientName)}</div>
-              <div class="ps-header-cell"><strong>الغرفة</strong>${escapeHtml(room + ' · ' + bed + plate)}</div>
+              <div class="ps-header-cell"><strong>الطبيب المعالج</strong>${escapeHtml(attendingDoctor)}</div>
+              <div class="ps-header-cell"><strong>الغرفة</strong>${escapeHtml(room)}</div>
               <div class="ps-header-cell"><strong>التاريخ</strong>${dateStr}</div>
             </div>
           </div>
