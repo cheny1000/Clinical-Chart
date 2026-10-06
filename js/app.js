@@ -2870,12 +2870,12 @@
       const displayVal = (val != null && String(val).trim() !== "")
         ? escapeHtml(String(val))
         : "—";
-      labRows += `<div class="ps-lab-row"><span class="ps-lab-label">${label}</span><span class="ps-lab-val">${displayVal}</span></div>`;
+      labRows += `<div class="ps-lab-row"><span class="ps-lab-val">${displayVal}</span><span class="ps-lab-label">${label}</span></div>`;
     });
     // Vitals — BP + O2, empty (no lines, just label + blank)
     const vitalsRows = `
-      <div class="ps-lab-row"><span class="ps-lab-label">BP</span><span class="ps-lab-val">—</span></div>
-      <div class="ps-lab-row"><span class="ps-lab-label">O₂ Sat</span><span class="ps-lab-val">—</span></div>
+      <div class="ps-lab-row"><span class="ps-lab-val">—</span><span class="ps-lab-label">BP</span></div>
+      <div class="ps-lab-row"><span class="ps-lab-val">—</span><span class="ps-lab-label">O₂ Sat</span></div>
     `;
     return `
       <div class="ps-labs-section">
