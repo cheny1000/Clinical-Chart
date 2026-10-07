@@ -30,7 +30,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon-180.png" />
   <link rel="apple-touch-icon" sizes="192x192" href="img/icon-192.png" />
   <link rel="apple-touch-icon" sizes="512x512" href="img/icon-512.png" />
-  <link rel="stylesheet" href="css/styles.css?v=20261008d" />
+  <link rel="stylesheet" href="css/styles.css?v=20261008e" />
   <style>
     /* Pre-paint auth gate: hide the wrong screen before JS loads to
        prevent a flash of unauthenticated content (1-2s where the
@@ -180,6 +180,35 @@
               autocorrect="off"
               spellcheck="false"
             />
+          </div>
+          <div class="patient-demographics-row">
+            <input
+              type="text"
+              id="patient-age-input"
+              class="patient-age-input"
+              placeholder="العمر"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              inputmode="numeric"
+              maxlength="3"
+            />
+            <div class="patient-gender-toggle" role="group" aria-label="الجنس">
+              <button
+                type="button"
+                id="patient-gender-male"
+                class="patient-gender-btn"
+                data-gender="male"
+                aria-pressed="false"
+              >ذكر</button>
+              <button
+                type="button"
+                id="patient-gender-female"
+                class="patient-gender-btn"
+                data-gender="female"
+                aria-pressed="false"
+              >أنثى</button>
+            </div>
           </div>
           <div class="patient-plate-row">
             <input
@@ -763,7 +792,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker
-          .register('sw.js?v=7', { scope: './' })
+          .register('sw.js?v=8', { scope: './' })
           .then(function (reg) { console.log('[SW] registered', reg.scope); })
           .catch(function (err) { console.warn('[SW] registration failed', err); });
       });

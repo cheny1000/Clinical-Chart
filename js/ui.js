@@ -270,6 +270,20 @@
       plateInput.value = (patient && patient.plateNumber) ? String(patient.plateNumber) : "";
     }
 
+    // Age input — same focus-guard logic.
+    const ageInput = document.getElementById("patient-age-input");
+    const isAgeFocused = document.activeElement === ageInput;
+    if (!isAgeFocused) {
+      ageInput.value = (patient && patient.age) ? String(patient.age) : "";
+    }
+
+    // Gender toggle — sync the .is-active class on the two buttons
+    // (male / female). If patient.gender is empty or unknown, both
+    // buttons stay un-highlighted.
+    if (window._syncGenderButtons) {
+      window._syncGenderButtons((patient && patient.gender) ? patient.gender : "");
+    }
+
     // Same logic for doctor (الطبيب المعالج) input — don't reset the
     // value if the input is currently focused (avoids Supabase Realtime
     // echo loop erasing characters while typing fast).
@@ -499,6 +513,20 @@
       const locChildren = [`غرفة ${roomId} · سرير ${bedNum}`];
       if (plateNumber) {
         locChildren.push(h("span", { class: "pr-plate" }, " · طبلة " + plateNumber));
+      }
+      // Append age + gender to the location line if present, so the
+      // patients list shows them at a glance.
+      const ageStr = (p.age && String(p.age).trim()) ? String(p.age).trim() : "";
+      const genderStr = (p.gender === "male")
+        ? "ذكر"
+        : (p.gender === "female")
+          ? "أنثى"
+          : "";
+      const demoParts = [];
+      if (ageStr) demoParts.push("العمر " + ageStr);
+      if (genderStr) demoParts.push(genderStr);
+      if (demoParts.length > 0) {
+        locChildren.push(h("span", { class: "pr-demo" }, " · " + demoParts.join(" · ")));
       }
 
       const rowCls =

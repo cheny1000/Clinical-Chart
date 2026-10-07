@@ -1021,6 +1021,81 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   font-weight: 500;
 }
 
+/* ---------- Demographics row (age + gender) ----------
+   Compact row with the age input on one side and the gender toggle
+   buttons on the other. The toggle uses two segmented buttons. */
+.patient-demographics-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: stretch;
+}
+.patient-age-input {
+  width: 70px;
+  flex-shrink: 0;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  background: #FAFAFA;
+  color: var(--text-muted);
+  outline: none;
+  text-align: center;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.patient-age-input:focus {
+  border-style: solid;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(27, 68, 63, 0.10);
+  color: var(--text);
+  background: #fff;
+}
+.patient-age-input::placeholder {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+.patient-gender-toggle {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r-md);
+  padding: 3px;
+  background: #FAFAFA;
+  transition: border-color 160ms ease;
+}
+.patient-gender-toggle:has(.patient-gender-btn.is-active) {
+  border-style: solid;
+  border-color: var(--primary);
+  background: #fff;
+}
+.patient-gender-btn {
+  flex: 1;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+.patient-gender-btn.is-active {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(27, 68, 63, 0.20);
+}
+.patient-gender-btn:active { transform: scale(0.97); }
+html[data-theme="dark"] .patient-age-input,
+html[data-theme="dark"] .patient-gender-toggle {
+  background: var(--bg-card);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
 /* Doctor (الطبيب المعالج) row — same style as the plate row so the
    two optional fields look consistent underneath the patient name. */
 .patient-doctor-row { display: flex; margin-top: 8px; }
@@ -1694,6 +1769,11 @@ html[data-theme="dark"] .abx-row:nth-child(odd) { background: rgba(255,255,255,0
 }
 /* Plate number — appears at the end of the room/bed line if present */
 .patient-row .pr-plate {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+/* Age + gender — appended after the plate number when filled in */
+.patient-row .pr-demo {
   color: var(--text-muted);
   font-weight: 600;
 }

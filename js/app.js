@@ -533,6 +533,8 @@
           plateNumber: row.plate_number || "",
           doctor:      row.doctor || "",
           diagnosis:   row.diagnosis || "",
+          age:         row.age || "",
+          gender:      row.gender || "",
           firstMedDate: row.first_med_date || "",
           labs:        row.labs ? (typeof row.labs === "string" ? JSON.parse(row.labs) : (row.labs || {})) : {},
           labHistory:  row.lab_history ? (typeof row.lab_history === "string" ? JSON.parse(row.lab_history) : (row.lab_history || [])) : [],
@@ -888,6 +890,15 @@
     if (!("plateNumber" in state.patients[bedKey])) {
       state.patients[bedKey].plateNumber = "";
     }
+    // Backfill age + gender for patients created before these fields
+    // existed. Both are optional but should always be defined as a
+    // string (never undefined) so the UI can render them safely.
+    if (!("age" in state.patients[bedKey])) {
+      state.patients[bedKey].age = "";
+    }
+    if (!("gender" in state.patients[bedKey])) {
+      state.patients[bedKey].gender = "";  // "" | "male" | "female"
+    }
     return state.patients[bedKey];
   }
   function persistPatient(bedKey) {
@@ -1115,6 +1126,71 @@
       clearTimeout(plateTimer);
       persistPatient(state.currentBed.key);
     });
+
+    // Age (العمر) — numeric input. Saved debounced like the name +
+    // plate inputs. Validated to digits-only and capped at 3 chars
+    // (oldest human age possible).
+    let ageTimer = null;
+    $("patient-age-input").addEventListener("input", (e) => {
+      if (!state.currentBed) return;
+      const p = ensurePatient(state.currentBed.key);
+      // Strip non-digits — keeps the field clean even if the user
+      // pastes a value like "45 years".
+      const cleaned = (e.target.value || "").replace(/\D/g, "").slice(0, 3);
+      if (e.target.value !== cleaned) e.target.value = cleaned;
+      p.age = cleaned;
+      clearTimeout(ageTimer);
+      ageTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
+    });
+    $("patient-age-input").addEventListener("blur", () => {
+      if (!state.currentBed) return;
+      clearTimeout(ageTimer);
+      persistPatient(state.currentBed.key);
+    });
+
+    // Gender (الجنس) — segmented toggle with two buttons (ذكر / أنثى).
+    // Clicking a button sets patient.gender to that value; clicking the
+    // already-active button deselects it (sets gender to "" — unknown).
+    // The CSS uses .is-active to render the selected state.
+    const maleBtn = $("patient-gender-male");
+    const femaleBtn = $("patient-gender-female");
+    function setGenderState(p, btn) {
+      const isMale = btn === maleBtn;
+      const value = isMale ? "male" : "female";
+      if (!p) return;
+      if (p.gender === value) {
+        // Toggle off — clicking the active button clears the selection.
+        p.gender = "";
+      } else {
+        p.gender = value;
+      }
+      persistPatient(state.currentBed.key);
+      // Refresh the toggle visuals immediately.
+      syncGenderButtons(p.gender);
+    }
+    function syncGenderButtons(gender) {
+      if (maleBtn) {
+        maleBtn.classList.toggle("is-active", gender === "male");
+        maleBtn.setAttribute("aria-pressed", gender === "male" ? "true" : "false");
+      }
+      if (femaleBtn) {
+        femaleBtn.classList.toggle("is-active", gender === "female");
+        femaleBtn.setAttribute("aria-pressed", gender === "female" ? "true" : "false");
+      }
+    }
+    if (maleBtn) maleBtn.addEventListener("click", () => {
+      if (!state.currentBed) return;
+      const p = ensurePatient(state.currentBed.key);
+      setGenderState(p, maleBtn);
+    });
+    if (femaleBtn) femaleBtn.addEventListener("click", () => {
+      if (!state.currentBed) return;
+      const p = ensurePatient(state.currentBed.key);
+      setGenderState(p, femaleBtn);
+    });
+    // Expose so renderPatientView in ui.js can sync the buttons when
+    // a patient is loaded (the function is called from ui.js).
+    global._syncGenderButtons = syncGenderButtons;
 
     // Doctor (الطبيب المعالج) — free-text field. Each patient has ONE
     // attending physician (the specialist who manages the patient's
@@ -3852,6 +3928,8 @@
           room: room.id,
           bed: bed.number,
           plate: p.plateNumber || "",
+          age: p.age || "",
+          gender: p.gender || "",
           diagnosis: p.diagnosis || "",
           medCount: (p.medications || []).length
         });
@@ -3884,6 +3962,8 @@
           "غرفة " + p.room,
           "سرير " + p.bed,
           p.plate ? "طبلة " + p.plate : "",
+          p.age ? "العمر " + p.age : "",
+          p.gender === "male" ? "ذكر" : (p.gender === "female" ? "أنثى" : ""),
           p.diagnosis ? escapeHtml(p.diagnosis) : "",
           p.medCount + " دواء"
         ].filter(Boolean).join(" · ");

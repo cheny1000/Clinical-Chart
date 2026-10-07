@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS patients (
   bed_number     INT  NOT NULL,
   name           TEXT NOT NULL DEFAULT '',
   plate_number   TEXT NOT NULL DEFAULT '',       -- optional free-text "رقم الطبلة" the pharmacist fills in
+  age            TEXT NOT NULL DEFAULT '',       -- optional patient age (years) — free-text digits only, max 3
+  gender         TEXT NOT NULL DEFAULT '',       -- optional gender: 'male' | 'female' | ''
   medications    JSONB NOT NULL DEFAULT '[]',   -- array of {id,nameTrade,nameAr,nameEn,form,dose,frequency}
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -50,6 +52,18 @@ BEGIN
     WHERE table_name = 'patients' AND column_name = 'plate_number'
   ) THEN
     ALTER TABLE patients ADD COLUMN plate_number TEXT NOT NULL DEFAULT '';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'patients' AND column_name = 'age'
+  ) THEN
+    ALTER TABLE patients ADD COLUMN age TEXT NOT NULL DEFAULT '';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'patients' AND column_name = 'gender'
+  ) THEN
+    ALTER TABLE patients ADD COLUMN gender TEXT NOT NULL DEFAULT '';
   END IF;
 END $$;
 

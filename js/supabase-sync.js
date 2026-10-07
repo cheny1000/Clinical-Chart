@@ -291,6 +291,8 @@
       plate_number: (p && p.plateNumber) ? String(p.plateNumber) : "",
       doctor:       (p && p.doctor) ? String(p.doctor) : "",   // الطبيب المعالج
       diagnosis:    (p && p.diagnosis) ? String(p.diagnosis) : "", // التشخيص
+      age:          (p && p.age) ? String(p.age) : "",            // العمر (سنة)
+      gender:       (p && p.gender) ? String(p.gender) : "",     // الجنس: "male" | "female" | ""
       firstMedDate:  (p && p.firstMedDate) ? String(p.firstMedDate) : "", // تاريخ أول دواء حرج (لتتبع D1, D2...)
       labs:         (p && p.labs) ? JSON.stringify(p.labs) : "", // التحاليل المختبرية
       labHistory:   (p && p.labHistory) ? JSON.stringify(p.labHistory) : "", // سجل التحاليل السابقة
@@ -315,6 +317,8 @@
       plateNumber: row.plate_number || "",
       doctor:      row.doctor || "",   // الطبيب المعالج (attending physician)
       diagnosis:   row.diagnosis || "",   // التشخيص
+      age:         row.age || "",          // العمر (سنة)
+      gender:      row.gender || "",       // الجنس: "male" | "female" | ""
       firstMedDate: row.first_med_date || "", // تاريخ أول دواء حرج
       labs:         row.labs ? (typeof row.labs === "string" ? JSON.parse(row.labs) : row.labs) : {}, // التحاليل
       labHistory:   row.lab_history ? (typeof row.lab_history === "string" ? JSON.parse(row.lab_history) : row.lab_history) : [], // سجل التحاليل
@@ -341,7 +345,26 @@
           const { error: upErr } = await client
             .from("patients")
             .upsert(slice, { onConflict: "bed_key" });
-          if (upErr) return { ok: false, error: upErr.message };
+          if (upErr) {
+            // Some columns may be missing on older Supabase installs
+            // that were created before age/gender columns were added.
+            // If the error mentions a missing column, retry once
+            // without the new columns (strip age + gender).
+            const msg = (upErr.message || "").toLowerCase();
+            if (msg.includes("age") || msg.includes("gender") || msg.includes("column")) {
+              console.warn("[Supabase] retrying upsert without age/gender:", upErr.message);
+              const stripped = slice.map(row => {
+                const { age, gender, ...rest } = row;
+                return rest;
+              });
+              const { error: retryErr } = await client
+                .from("patients")
+                .upsert(stripped, { onConflict: "bed_key" });
+              if (retryErr) return { ok: false, error: retryErr.message };
+            } else {
+              return { ok: false, error: upErr.message };
+            }
+          }
         }
       }
       // No bulk delete — see header comment.
