@@ -1556,6 +1556,9 @@
       } else if (nav === "patients") {
         UI.showView("patients");
         UI.renderPatientsList(state.patients);
+      } else if (nav === "seniors") {
+        renderSeniorsView();
+        UI.showView("seniors");
       }
     });
 
@@ -3809,6 +3812,84 @@
     });
     clearTimeout(hintTimer);
     hintTimer = setTimeout(() => { t.style.opacity = "0"; }, 2200);
+  }
+
+  // -------- Seniors (الأخصائيون) view --------
+  // Groups occupied patients by their attending physician (patient.doctor
+  // field) and displays each physician with their patient list.
+  // Called from the bottom-nav click handler when user taps the
+  // 'seniors' tab. Tab visibility is controlled separately by
+  // applySeniorsNavVisibility() (admin + doctor roles only).
+  function renderSeniorsView() {
+    const list = $("seniors-list");
+    if (!list) return;
+    list.innerHTML = "";
+
+    const Ward = global.PharmacyWard;
+    if (!Ward) return;
+
+    // Group occupied patients by their attending physician
+    const groups = {};  // doctorName -> [patient, patient, ...]
+    Ward.ROOMS.forEach(room => {
+      room.beds.forEach(bed => {
+        const key = Ward.bedKey(room.id, bed.number);
+        const p = state.patients[key];
+        if (!p || !p.name || !p.name.trim()) return;
+        const doctor = (p.doctor && p.doctor.trim())
+          ? p.doctor.trim()
+          : "بدون طبيب معالج";
+        if (!groups[doctor]) groups[doctor] = [];
+        groups[doctor].push({
+          name: p.name.trim(),
+          room: room.id,
+          bed: bed.number,
+          plate: p.plateNumber || "",
+          diagnosis: p.diagnosis || "",
+          medCount: (p.medications || []).length
+        });
+      });
+    });
+
+    const doctorNames = Object.keys(groups).sort();
+
+    // Show empty state only when there are no patients at all OR
+    // the only "doctor" is the placeholder for unassigned patients.
+    if (doctorNames.length === 0
+        || (doctorNames.length === 1 && doctorNames[0] === "بدون طبيب معالج")) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">👤</div><p>لا يوجد أطباء أخصائيون بعد</p><span>عند تحديد الطبيب المعالج للمرضى سيظهر هنا</span></div>`;
+      return;
+    }
+
+    doctorNames.forEach(doctor => {
+      const patients = groups[doctor];
+      const card = document.createElement("div");
+      card.className = "senior-card";
+      let html = `
+        <div class="senior-card-head">
+          <div class="senior-name">${escapeHtml(doctor)}</div>
+          <div class="senior-count">${patients.length} مريض</div>
+        </div>
+        <div class="senior-patients">
+      `;
+      patients.forEach(p => {
+        const meta = [
+          "غرفة " + p.room,
+          "سرير " + p.bed,
+          p.plate ? "طبلة " + p.plate : "",
+          p.diagnosis ? escapeHtml(p.diagnosis) : "",
+          p.medCount + " دواء"
+        ].filter(Boolean).join(" · ");
+        html += `
+          <div class="senior-patient-row">
+            <span class="senior-patient-name">${escapeHtml(p.name)}</span>
+            <span class="senior-patient-meta">${meta}</span>
+          </div>
+        `;
+      });
+      html += `</div>`;
+      card.innerHTML = html;
+      list.appendChild(card);
+    });
   }
 
   // -------- Boot --------
