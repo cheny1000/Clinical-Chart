@@ -342,29 +342,8 @@
         const CHUNK = 100;
         for (let i = 0; i < entries.length; i += CHUNK) {
           const slice = entries.slice(i, i + CHUNK);
-          const { error: upErr } = await client
-            .from("patients")
-            .upsert(slice, { onConflict: "bed_key" });
-          if (upErr) {
-            // Some columns may be missing on older Supabase installs
-            // that were created before age/gender columns were added.
-            // If the error mentions a missing column, retry once
-            // without the new columns (strip age + gender).
-            const msg = (upErr.message || "").toLowerCase();
-            if (msg.includes("age") || msg.includes("gender") || msg.includes("column")) {
-              console.warn("[Supabase] retrying upsert without age/gender:", upErr.message);
-              const stripped = slice.map(row => {
-                const { age, gender, ...rest } = row;
-                return rest;
-              });
-              const { error: retryErr } = await client
-                .from("patients")
-                .upsert(stripped, { onConflict: "bed_key" });
-              if (retryErr) return { ok: false, error: retryErr.message };
-            } else {
-              return { ok: false, error: upErr.message };
-            }
-          }
+          const result = await upsertWithFallback(client, slice);
+          if (!result.ok) return { ok: false, error: result.error };
         }
       }
       // No bulk delete — see header comment.
@@ -372,6 +351,78 @@
     } catch (e) {
       return { ok: false, error: (e && e.message) ? e.message : String(e) };
     }
+  }
+
+  // Upsert with progressive fallback for older Supabase installs
+  // that may be missing newer columns. The 'patients' table has been
+  // extended several times since the original release:
+  //   v1: bed_key, room_id, bed_number, name, plate_number,
+  //       medications, updated_at (the original 7 columns)
+  //   v2: + doctor, diagnosis, first_med_date (legacy 3 extra)
+  //   v3: + labs, lab_history (the lab-tracking extras)
+  //   v4: + age, gender (the demographics extras)
+  //
+  // Old installs that were created before v4 don't have age/gender
+  // columns, and may also be missing labs/lab_history. When the upsert
+  // fails with "Could not find the 'X' column" error, we strip the
+  // named column + retry. This loops until either:
+  //   - The upsert succeeds (with whatever columns ARE present), OR
+  //   - We've stripped every optional column + still fail (real error).
+  //
+  // The CORE columns (bed_key, room_id, bed_number, name, plate_number,
+  // medications, updated_at) are NEVER stripped — those have been there
+  // since v1.
+  const OPTIONAL_COLS = [
+    "age", "gender", "labHistory", "labs",
+    "firstMedDate", "diagnosis", "doctor"
+  ];
+
+  // Strip a single column from a row object (returns a new object
+  // without that key).
+  function stripColumn(row, col) {
+    const { [col]: _removed, ...rest } = row;
+    return rest;
+  }
+
+  // Try upsert → on column-missing error → strip + retry → loop.
+  async function upsertWithFallback(client, slice) {
+    let currentSlice = slice;
+    let strippedCols = new Set();
+    // Max 7 retries (one per optional column).
+    for (let attempt = 0; attempt <= OPTIONAL_COLS.length; attempt++) {
+      const { error: upErr } = await client
+        .from("patients")
+        .upsert(currentSlice, { onConflict: "bed_key" });
+      if (!upErr) {
+        if (strippedCols.size > 0) {
+          console.warn("[Supabase] upsert succeeded after stripping columns:", Array.from(strippedCols).join(", "));
+        }
+        return { ok: true };
+      }
+      // Parse the error message to find the missing column name.
+      // PostgREST returns messages like:
+      //   "Could not find the 'age' column of 'patients' in the schema cache"
+      // We extract the column name from the single-quoted part.
+      const msg = upErr.message || "";
+      const colMatch = msg.match(/Could not find the '([a-zA-Z_]+)' column/);
+      const missingCol = colMatch ? colMatch[1] : null;
+      if (!missingCol || !OPTIONAL_COLS.includes(missingCol)) {
+        // Not a column-missing error we can handle → real error.
+        return { ok: false, error: msg };
+      }
+      // Strip this column from every row in the slice + retry.
+      // Also remember it so we don't try again on the next iteration.
+      if (!strippedCols.has(missingCol)) {
+        console.warn("[Supabase] stripping missing column '" + missingCol + "' and retrying upsert");
+        strippedCols.add(missingCol);
+        currentSlice = currentSlice.map(row => stripColumn(row, missingCol));
+      } else {
+        // Already stripped — this shouldn't happen but break to
+        // avoid infinite loop.
+        return { ok: false, error: msg };
+      }
+    }
+    return { ok: false, error: "Exhausted column-stripping retries" };
   }
 
   // Delete a single bed_key from the cloud (used when the user

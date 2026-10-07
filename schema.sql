@@ -38,12 +38,17 @@ CREATE TABLE IF NOT EXISTS patients (
   plate_number   TEXT NOT NULL DEFAULT '',       -- optional free-text "رقم الطبلة" the pharmacist fills in
   age            TEXT NOT NULL DEFAULT '',       -- optional patient age (years) — free-text digits only, max 3
   gender         TEXT NOT NULL DEFAULT '',       -- optional gender: 'male' | 'female' | ''
+  doctor         TEXT NOT NULL DEFAULT '',       -- optional attending physician (الطبيب المعالج)
+  diagnosis      TEXT NOT NULL DEFAULT '',       -- optional admission diagnosis (التشخيص عند الدخول)
+  first_med_date TEXT NOT NULL DEFAULT '',       -- ISO date string of first critical-med day (for D1/D2 tracking)
+  labs           JSONB NOT NULL DEFAULT '{}',    -- object: { creatinine: "1.2", albumin: "3.5", ... }
+  lab_history    JSONB NOT NULL DEFAULT '[]',    -- array of {date, key, label, value}
   medications    JSONB NOT NULL DEFAULT '[]',   -- array of {id,nameTrade,nameAr,nameEn,form,dose,frequency}
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- For existing installations that already created the patients table
--- without plate_number, add the column (idempotent — wrapped in a
+-- without some of these columns, add them (idempotent — wrapped in a
 -- DO block so re-running this script doesn't error out).
 DO $$
 BEGIN
@@ -64,6 +69,36 @@ BEGIN
     WHERE table_name = 'patients' AND column_name = 'gender'
   ) THEN
     ALTER TABLE patients ADD COLUMN gender TEXT NOT NULL DEFAULT '';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'patients' AND column_name = 'doctor'
+  ) THEN
+    ALTER TABLE patients ADD COLUMN doctor TEXT NOT NULL DEFAULT '';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'patients' AND column_name = 'diagnosis'
+  ) THEN
+    ALTER TABLE patients ADD COLUMN diagnosis TEXT NOT NULL DEFAULT '';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'patients' AND column_name = 'first_med_date'
+  ) THEN
+    ALTER TABLE patients ADD COLUMN first_med_date TEXT NOT NULL DEFAULT '';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'patients' AND column_name = 'labs'
+  ) THEN
+    ALTER TABLE patients ADD COLUMN labs JSONB NOT NULL DEFAULT '{}';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'patients' AND column_name = 'lab_history'
+  ) THEN
+    ALTER TABLE patients ADD COLUMN lab_history JSONB NOT NULL DEFAULT '[]';
   END IF;
 END $$;
 
