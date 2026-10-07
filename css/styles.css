@@ -1182,6 +1182,88 @@ html[data-theme="dark"] .lab-input { background: var(--bg-card); }
 .lab-add-btn:active { transform: scale(0.9); background: var(--primary-dark); }
 .lab-add-btn[hidden] { display: none; }
 
+/* ---------- GFR calculator card ----------
+   Displays the calculated eGFR (CKD-EPI 2021 equation) using the
+   patient's age + gender + S. Creatinine. Color-coded by stage
+   so the user can spot impaired kidney function at a glance. */
+.gfr-card {
+  margin-top: 10px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px 8px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+.gfr-card[hidden] { display: none; }
+.gfr-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.gfr-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+.gfr-stage {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  background: var(--primary-soft);
+  color: var(--primary);
+  white-space: nowrap;
+}
+.gfr-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.gfr-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+}
+.gfr-unit {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.gfr-formula {
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 4px;
+  font-weight: 600;
+  font-style: italic;
+}
+
+/* GFR stages color coding (per KDIGO classification) */
+.gfr-card.stage-g1 .gfr-stage { background: #DCFCE7; color: #15803D; }   /* ≥90 Normal */
+.gfr-card.stage-g1 .gfr-value { color: #15803D; }
+.gfr-card.stage-g2 .gfr-stage { background: #ECFDF5; color: #047857; }    /* 60-89 Mildly decreased */
+.gfr-card.stage-g2 .gfr-value { color: #047857; }
+.gfr-card.stage-g3a .gfr-stage { background: #FEF9C3; color: #A16207; }   /* 45-59 Mild-moderate */
+.gfr-card.stage-g3a .gfr-value { color: #A16207; }
+.gfr-card.stage-g3b .gfr-stage { background: #FED7AA; color: #C2410C; }   /* 30-44 Moderate-severe */
+.gfr-card.stage-g3b .gfr-value { color: #C2410C; }
+.gfr-card.stage-g4 .gfr-stage { background: #FEE2E2; color: #B91C1C; }    /* 15-29 Severe */
+.gfr-card.stage-g4 .gfr-value { color: #B91C1C; }
+.gfr-card.stage-g5 .gfr-stage { background: #FECACA; color: #991B1B; }    /* <15 Kidney failure */
+.gfr-card.stage-g5 .gfr-value { color: #991B1B; }
+
+html[data-theme="dark"] .gfr-card { background: var(--bg-card); border-color: var(--border); }
+html[data-theme="dark"] .gfr-card.stage-g1 .gfr-stage { background: rgba(22, 163, 74, 0.2); color: #4ADE80; }
+html[data-theme="dark"] .gfr-card.stage-g2 .gfr-stage { background: rgba(5, 150, 105, 0.2); color: #34D399; }
+html[data-theme="dark"] .gfr-card.stage-g3a .gfr-stage { background: rgba(202, 138, 4, 0.2); color: #FACC15; }
+html[data-theme="dark"] .gfr-card.stage-g3b .gfr-stage { background: rgba(194, 65, 12, 0.2); color: #FB923C; }
+html[data-theme="dark"] .gfr-card.stage-g4 .gfr-stage { background: rgba(185, 28, 28, 0.2); color: #F87171; }
+html[data-theme="dark"] .gfr-card.stage-g5 .gfr-stage { background: rgba(153, 27, 27, 0.2); color: #EF4444; }
+
 /* Lab history (previous entries) */
 .patient-labs-history {
   margin-top: 10px;

@@ -30,7 +30,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon-180.png" />
   <link rel="apple-touch-icon" sizes="192x192" href="img/icon-192.png" />
   <link rel="apple-touch-icon" sizes="512x512" href="img/icon-512.png" />
-  <link rel="stylesheet" href="css/styles.css?v=20261008e" />
+  <link rel="stylesheet" href="css/styles.css?v=20261008f" />
   <style>
     /* Pre-paint auth gate: hide the wrong screen before JS loads to
        prevent a flash of unauthenticated content (1-2s where the
@@ -246,6 +246,22 @@
           </div>
           <div class="patient-labs-row" id="patient-labs-row">
             <!-- Lab inputs rendered dynamically by ui.js renderPatientView -->
+          </div>
+          <!-- GFR (Glomerular Filtration Rate) calculator
+               Auto-computed from age + gender + S. Creatinine using
+               the CKD-EPI 2021 equation. Updates live as the user
+               types in any of those three fields. Hidden when any of
+               the three values is missing or invalid. -->
+          <div class="gfr-card" id="gfr-card" hidden>
+            <div class="gfr-card-head">
+              <span class="gfr-label">eGFR</span>
+              <span class="gfr-stage" id="gfr-stage"></span>
+            </div>
+            <div class="gfr-value-row">
+              <span class="gfr-value" id="gfr-value">—</span>
+              <span class="gfr-unit">mL/min/1.73m²</span>
+            </div>
+            <div class="gfr-formula" id="gfr-formula">CKD-EPI 2021</div>
           </div>
           <div class="patient-labs-history" id="patient-labs-history">
             <!-- Previous lab entries rendered dynamically -->
@@ -792,7 +808,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker
-          .register('sw.js?v=8', { scope: './' })
+          .register('sw.js?v=9', { scope: './' })
           .then(function (reg) { console.log('[SW] registered', reg.scope); })
           .catch(function (err) { console.warn('[SW] registration failed', err); });
       });

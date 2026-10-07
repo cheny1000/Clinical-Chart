@@ -284,6 +284,13 @@
       window._syncGenderButtons((patient && patient.gender) ? patient.gender : "");
     }
 
+    // GFR card — recompute using the loaded patient's age + gender +
+    // S. Creatinine. The card hides itself if any of the three is
+    // missing or invalid (handled inside _renderGFRCard).
+    if (window._renderGFRCard) {
+      window._renderGFRCard();
+    }
+
     // Same logic for doctor (الطبيب المعالج) input — don't reset the
     // value if the input is currently focused (avoids Supabase Realtime
     // echo loop erasing characters while typing fast).

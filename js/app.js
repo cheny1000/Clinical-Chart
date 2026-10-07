@@ -920,6 +920,105 @@
     }
   }
 
+  // -------- GFR (eGFR) calculator --------
+  // Computes the estimated Glomerular Filtration Rate using the
+  // CKD-EPI 2021 refit equation (the latest version, which dropped
+  // the race coefficient). Returns null when any input is missing
+  // or invalid so the UI can hide the card.
+  //
+  // Formula (CKD-EPI 2021):
+  //   eGFR = 142 × min(Scr/κ, 1)^α × max(Scr/κ, 1)^-1.200 × 0.9938^age × (1.012 if female)
+  //   where:
+  //     Scr  = serum creatinine in mg/dL
+  //     κ    = 0.7 (female) or 0.9 (male)
+  //     α    = -0.241 (female) or -0.302 (male)
+  //
+  // Returns:
+  //   { gfr: <number rounded to 1 decimal>, stage: <G1..G5>, stageLabel: <string> }
+  //   or null if age/gender/creatinine missing/invalid.
+  function calculateGFR(patient) {
+    if (!patient) return null;
+    const ageRaw = String(patient.age || "").trim();
+    const gender = patient.gender || "";
+    const scrRaw = patient.labs && patient.labs.creatinine
+      ? String(patient.labs.creatinine).trim()
+      : "";
+    if (!ageRaw || !scrRaw || !gender) return null;
+    const age = parseFloat(ageRaw);
+    const scr = parseFloat(scrRaw);
+    if (!isFinite(age) || age <= 0 || age > 120) return null;
+    if (!isFinite(scr) || scr <= 0) return null;
+    if (gender !== "male" && gender !== "female") return null;
+
+    // CKD-EPI 2021 coefficients by gender
+    const k = (gender === "female") ? 0.7 : 0.9;
+    const a = (gender === "female") ? -0.241 : -0.302;
+    const ratio = scr / k;
+    const minTerm = Math.min(ratio, 1);
+    const maxTerm = Math.max(ratio, 1);
+    let eGFR = 142
+      * Math.pow(minTerm, a)
+      * Math.pow(maxTerm, -1.200)
+      * Math.pow(0.9938, age);
+    if (gender === "female") {
+      eGFR = eGFR * 1.012;
+    }
+    // Clamp to a sane range; values above ~250 are rare and
+    // usually indicate a data-entry error.
+    eGFR = Math.max(0, Math.min(250, eGFR));
+
+    // KDIGO classification (G1-G5) — used for color coding + stage label.
+    let stage, stageLabel;
+    if (eGFR >= 90)      { stage = "g1";  stageLabel = "G1 طبيعي"; }
+    else if (eGFR >= 60) { stage = "g2";  stageLabel = "G2 انخفاض طفيف"; }
+    else if (eGFR >= 45) { stage = "g3a"; stageLabel = "G3a انخفاض متوسط-بسيط"; }
+    else if (eGFR >= 30) { stage = "g3b"; stageLabel = "G3b انخفاض متوسط-شديد"; }
+    else if (eGFR >= 15) { stage = "g4";  stageLabel = "G4 شديد"; }
+    else                 { stage = "g5";  stageLabel = "G5 فشل كلوي"; }
+
+    return {
+      gfr: Math.round(eGFR * 10) / 10,
+      stage: stage,
+      stageLabel: stageLabel
+    };
+  }
+
+  // Renders the GFR card based on the current patient (if any).
+  // Hides the card when the calculation can't be performed.
+  function renderGFRCard() {
+    const card = document.getElementById("gfr-card");
+    const valueEl = document.getElementById("gfr-value");
+    const stageEl = document.getElementById("gfr-stage");
+    const formulaEl = document.getElementById("gfr-formula");
+    if (!card) return;
+
+    let result = null;
+    if (state.currentBed) {
+      const p = state.patients[state.currentBed.key];
+      result = calculateGFR(p);
+    }
+    if (!result) {
+      card.hidden = true;
+      // Clean up any stage classes so the card starts fresh next time
+      ["g1","g2","g3a","g3b","g4","g5"].forEach(s => card.classList.remove("stage-" + s));
+      if (valueEl) valueEl.textContent = "—";
+      if (stageEl) stageEl.textContent = "";
+      return;
+    }
+    card.hidden = false;
+    if (valueEl) valueEl.textContent = String(result.gfr);
+    if (stageEl) stageEl.textContent = result.stageLabel;
+    if (formulaEl) formulaEl.textContent = "CKD-EPI 2021";
+    // Apply stage color class (remove all, then add the right one)
+    ["g1","g2","g3a","g3b","g4","g5"].forEach(s => card.classList.remove("stage-" + s));
+    card.classList.add("stage-" + result.stage);
+  }
+
+  // Expose so other event handlers in this IIFE can trigger a recompute.
+  // (Also exposed to ui.js renderPatientView so the card refreshes when
+  // a patient is loaded/switched.)
+  global._renderGFRCard = renderGFRCard;
+
   // -------- Drug interaction alerts --------
   const DRUG_INTERACTIONS = [
     { matchA: ["ciprofloxacin", "cipro", "سيبروف"], matchB: ["vancomycin", "فانكو"], severity: "warning", msg: "Ciprofloxacin + Vancomycin: زيادة خطر اعتلال الكلى" },
@@ -1140,12 +1239,18 @@
       if (e.target.value !== cleaned) e.target.value = cleaned;
       p.age = cleaned;
       clearTimeout(ageTimer);
-      ageTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
+      ageTimer = setTimeout(() => {
+        persistPatient(state.currentBed.key);
+        renderGFRCard();
+      }, 400);
+      // Recompute GFR immediately for instant visual feedback
+      renderGFRCard();
     });
     $("patient-age-input").addEventListener("blur", () => {
       if (!state.currentBed) return;
       clearTimeout(ageTimer);
       persistPatient(state.currentBed.key);
+      renderGFRCard();
     });
 
     // Gender (الجنس) — segmented toggle with two buttons (ذكر / أنثى).
@@ -1167,6 +1272,8 @@
       persistPatient(state.currentBed.key);
       // Refresh the toggle visuals immediately.
       syncGenderButtons(p.gender);
+      // Recompute GFR (gender is one of the three required inputs).
+      renderGFRCard();
     }
     function syncGenderButtons(gender) {
       if (maleBtn) {
@@ -1273,6 +1380,11 @@
       const p2 = state.patients[state.currentBed.key] || null;
       UI.renderPatientView(p2, state.currentBed.roomId, state.currentBed.bed);
       flashHint(`تمت أرشفة ${label} — أدخل القيمة الجديدة`);
+      // If we archived creatinine, refresh GFR (the current value
+      // is now empty, so the card will hide itself automatically).
+      if (key === "creatinine") {
+        renderGFRCard();
+      }
     });
 
     // Delegated input handler for lab fields
@@ -1293,6 +1405,11 @@
       p.labs[key] = target.value;
       clearTimeout(labTimer);
       labTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
+      // If the changed lab is S. Creatinine, refresh the GFR card
+      // (creatinine is one of the three required inputs).
+      if (key === "creatinine") {
+        renderGFRCard();
+      }
     });
     $("patient-name-input").addEventListener("blur", () => {
       if (!state.currentBed) return;
