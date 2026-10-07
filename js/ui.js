@@ -291,6 +291,14 @@
       window._renderGFRCard();
     }
 
+    // Previous admission banner — if this patient's name matches a
+    // previously discharged patient, show their last final diagnosis
+    // so the doctor can see prior history at a glance. Handled by
+    // app.js (which has access to Storage + Auth + state).
+    if (window._renderPreviousAdmissionBanner) {
+      window._renderPreviousAdmissionBanner(patient);
+    }
+
     // Same logic for doctor (الطبيب المعالج) input — don't reset the
     // value if the input is currently focused (avoids Supabase Realtime
     // echo loop erasing characters while typing fast).

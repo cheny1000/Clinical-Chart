@@ -1019,6 +1019,64 @@
   // a patient is loaded/switched.)
   global._renderGFRCard = renderGFRCard;
 
+  // -------- Previous admission banner --------
+  // When the patient view is opened, we look up the discharged list for
+  // a record whose name matches this patient's name (case-insensitive,
+  // trimmed). If found, we render a small yellow banner inside the
+  // patient header showing the most recent final diagnosis + date so
+  // the doctor can see prior history at a glance.
+  //
+  // Matching uses name only (not plate number) because plate numbers
+  // are optional and patients may forget them between admissions. We
+  // sort discharged records by dischargedAt desc so the banner shows
+  // the LATEST final diagnosis if the patient has been admitted multiple
+  // times before.
+  function renderPreviousAdmissionBanner(patient) {
+    // Always remove any previously inserted banner first.
+    const patientHeader = document.querySelector(".patient-header");
+    if (patientHeader) {
+      const existing = patientHeader.querySelector(".previous-admission-banner");
+      if (existing) existing.remove();
+    }
+    if (!patient || !patient.name || !patient.name.trim()) return;
+    const name = patient.name.trim().toLowerCase();
+    const discharged = Storage.loadDischarged();
+    if (!Array.isArray(discharged) || discharged.length === 0) return;
+    // Find all discharged records with the same name (case-insensitive)
+    const matches = discharged.filter(r =>
+      r && r.name && r.name.trim().toLowerCase() === name
+    );
+    if (matches.length === 0) return;
+    // discharged is stored newest-first (unshift), so the first match
+    // is the latest discharge. But to be safe, sort by dischargedAt.
+    matches.sort((a, b) => {
+      const aT = a.dischargedAt ? new Date(a.dischargedAt).getTime() : 0;
+      const bT = b.dischargedAt ? new Date(b.dischargedAt).getTime() : 0;
+      return bT - aT;
+    });
+    const latest = matches[0];
+    const finalDx = (latest.finalDiagnosis && String(latest.finalDiagnosis).trim())
+      ? String(latest.finalDiagnosis).trim()
+      : "";
+    if (!finalDx) return;  // no final diagnosis recorded — skip banner
+    const dateStr = latest.dischargedAt
+      ? new Date(latest.dischargedAt).toLocaleDateString("ar", { year: "numeric", month: "short", day: "numeric" })
+      : "";
+
+    // Clone the template + fill it in
+    const template = document.getElementById("previous-admission-template");
+    if (!template || !template.content) return;
+    const banner = template.content.cloneNode(true);
+    const valueEl = banner.querySelector(".previous-admission-value");
+    const dateEl = banner.querySelector(".previous-admission-date");
+    if (valueEl) valueEl.textContent = finalDx;
+    if (dateEl) dateEl.textContent = dateStr ? `· تاريخ الخروج: ${dateStr}` : "";
+    if (patientHeader) {
+      patientHeader.appendChild(banner);
+    }
+  }
+  global._renderPreviousAdmissionBanner = renderPreviousAdmissionBanner;
+
   // -------- Drug interaction alerts --------
   const DRUG_INTERACTIONS = [
     { matchA: ["ciprofloxacin", "cipro", "سيبروف"], matchB: ["vancomycin", "فانكو"], severity: "warning", msg: "Ciprofloxacin + Vancomycin: زيادة خطر اعتلال الكلى" },
@@ -1207,6 +1265,10 @@
       p.name = e.target.value;
       clearTimeout(nameTimer);
       nameTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
+      // Live-update the previous-admission banner as the user types a
+      // name. This way if they're entering a returning patient, the
+      // banner appears immediately (without waiting for blur).
+      renderPreviousAdmissionBanner(p);
     });
 
     // Plate number input (optional) — save debounced like the name.
@@ -1550,31 +1612,105 @@
     });
 
     // ----- Discharge patient (خروج) -----
-    // Moves the patient to the "discharged" list (preserving their
-    // data: name, plate, doctor, meds, room, bed, timestamp) then
-    // frees the bed. The bed becomes available for a new patient.
-    $("discharge-patient-btn").addEventListener("click", () => {
+    // Opens a modal that REQUIRES the user to enter a final diagnosis
+    // before the patient can be discharged. The final diagnosis is
+    // stored on the discharged record (Storage.addDischarged) so it
+    // can be retrieved if the patient is readmitted later.
+    //
+    // Old behavior used a plain confirm() dialog. We now use a custom
+    // modal because:
+    //   1. The final diagnosis is required (can't skip)
+    //   2. We want to show the patient's existing diagnosis (if any)
+    //      as a reference so the doctor can compare / copy it
+    //   3. A modal gives more space for the textarea input
+    let _dischargePending = null;  // holds {bedKey, patient, record}
+    function openDischargeModal() {
       if (!state.currentBed) return;
       const p = state.patients[state.currentBed.key];
       if (!p || !p.name || !p.name.trim()) return;
-      if (!confirm(`هل تريد تسجيل خروج المريض "${p.name}"؟\nستُحفظ بياناته في قائمة "خرجوا".`)) return;
-      const bedKey = state.currentBed.key;
+
+      _dischargePending = {
+        bedKey: state.currentBed.key,
+        patient: p,
+        roomId: state.currentBed.roomId,
+        bed: state.currentBed.bed
+      };
+
+      // Show the modal
+      const overlay = $("discharge-overlay");
+      const modal = $("discharge-modal");
+      if (overlay) overlay.hidden = false;
+      if (modal) modal.hidden = false;
+
+      // Fill in the patient name + diagnosis-at-admission reference
+      const nameEl = $("discharge-patient-name");
+      if (nameEl) nameEl.textContent = p.name.trim();
+
+      const prevEl = $("discharge-previous-diagnosis");
+      const prevValEl = $("discharge-previous-value");
+      if (p.diagnosis && String(p.diagnosis).trim()) {
+        if (prevValEl) prevValEl.textContent = String(p.diagnosis);
+        if (prevEl) prevEl.hidden = false;
+      } else {
+        if (prevEl) prevEl.hidden = true;
+      }
+
+      // Clear the textarea + error
+      const inputEl = $("discharge-final-diagnosis");
+      if (inputEl) {
+        inputEl.value = "";
+        // Pre-fill with the admission diagnosis as a starting point
+        // so the doctor can just append "resolved" or similar.
+        // The user can clear it if they want.
+        if (p.diagnosis && String(p.diagnosis).trim()) {
+          inputEl.value = String(p.diagnosis);
+          inputEl.select();
+        }
+        setTimeout(() => inputEl && inputEl.focus(), 50);
+      }
+      const errEl = $("discharge-error");
+      if (errEl) errEl.hidden = true;
+    }
+
+    function closeDischargeModal() {
+      const overlay = $("discharge-overlay");
+      const modal = $("discharge-modal");
+      if (overlay) overlay.hidden = true;
+      if (modal) modal.hidden = true;
+      _dischargePending = null;
+    }
+
+    function confirmDischarge() {
+      if (!_dischargePending) return;
+      const inputEl = $("discharge-final-diagnosis");
+      const errEl = $("discharge-error");
+      const finalDiagnosis = (inputEl && inputEl.value || "").trim();
+      if (!finalDiagnosis) {
+        if (errEl) errEl.hidden = false;
+        if (inputEl) inputEl.focus();
+        return;
+      }
+      const { bedKey, patient: p, roomId, bed } = _dischargePending;
       const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
       const record = {
-        name:        p.name.trim(),
-        plateNumber: p.plateNumber || "",
-        doctor:      p.doctor || "",
-        medications: Array.isArray(p.medications) ? p.medications : [],
-        roomNumber:  state.currentBed.roomId,
-        bedNumber:   state.currentBed.bed,
-        dischargedAt: new Date().toISOString(),
-        dischargedBy: user ? user.username : "—"
+        name:            p.name.trim(),
+        plateNumber:     p.plateNumber || "",
+        doctor:          p.doctor || "",
+        age:             p.age || "",
+        gender:          p.gender || "",
+        diagnosis:       p.diagnosis || "",           // diagnosis at admission
+        finalDiagnosis:  finalDiagnosis,             // diagnosis at discharge (NEW — required)
+        medications:     Array.isArray(p.medications) ? p.medications : [],
+        roomNumber:      roomId,
+        bedNumber:       bed,
+        dischargedAt:    new Date().toISOString(),
+        dischargedBy:    user ? user.username : "—"
       };
       Storage.addDischarged(record);
       // Audit log
       if (Auth && Auth.auditLog) {
         Auth.auditLog("patient_discharged",
-          `خروج المريض "${p.name}" من غرفة ${state.currentBed.roomId} سرير ${state.currentBed.bed}`);
+          `خروج المريض "${p.name}" من غرفة ${roomId} سرير ${bed} — تشخيص نهائي: ${finalDiagnosis}`);
       }
       // Free the bed
       Storage.deletePatient(bedKey);
@@ -1590,8 +1726,24 @@
       }
       flashHint("تم تسجيل خروج المريض — بياناته محفوظة في قائمة «خرجوا»");
       pushNotification("patient_discharged",
-        `خروج المريض: ${p.name.trim()} — غرفة ${state.currentBed.roomId}`,
-        p.name.trim(), `غرفة ${state.currentBed.roomId}`);
+        `خروج المريض: ${p.name.trim()} — غرفة ${roomId}`,
+        p.name.trim(), `غرفة ${roomId}`);
+      closeDischargeModal();
+    }
+
+    // Discharge button → open modal (instead of confirm)
+    $("discharge-patient-btn").addEventListener("click", openDischargeModal);
+    // Modal close buttons
+    $("discharge-close").addEventListener("click", closeDischargeModal);
+    $("discharge-cancel").addEventListener("click", closeDischargeModal);
+    $("discharge-overlay").addEventListener("click", closeDischargeModal);
+    $("discharge-confirm").addEventListener("click", confirmDischarge);
+    // Allow Enter (without Shift) inside the textarea to confirm
+    $("discharge-final-diagnosis").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        confirmDischarge();
+      }
     });
 
     // ----- Died patient (وفاة) -----
@@ -3628,8 +3780,16 @@
         ? new Date(date).toLocaleDateString("ar", { year: "numeric", month: "short", day: "numeric" })
         : "—";
       const medCount = (r.medications || []).length;
+      // Show the final diagnosis if present (discharged patients only —
+      // dead patients have no final diagnosis field).
+      const finalDx = (r.finalDiagnosis && String(r.finalDiagnosis).trim())
+        ? String(r.finalDiagnosis).trim()
+        : "";
+      const admissionDx = (r.diagnosis && String(r.diagnosis).trim())
+        ? String(r.diagnosis).trim()
+        : "";
       const row = document.createElement("div");
-      row.className = "discharged-row";
+      row.className = "discharged-row" + (finalDx ? " has-final-dx" : "");
       row.innerHTML = `
         <div class="discharged-row-head">
           <div class="discharged-row-name">${escapeHtml(r.name || "—")}</div>
@@ -3641,6 +3801,8 @@
           ${r.doctor ? `<span>· ${escapeHtml(r.doctor)}</span>` : ""}
           ${medCount ? `<span>· ${medCount} دواء</span>` : ""}
         </div>
+        ${finalDx ? `<div class="discharged-row-final-dx"><span class="dx-label">التشخيص النهائي:</span> <span class="dx-value">${escapeHtml(finalDx)}</span></div>` : ""}
+        ${(!finalDx && admissionDx) ? `<div class="discharged-row-dx"><span class="dx-label">التشخيص:</span> <span class="dx-value">${escapeHtml(admissionDx)}</span></div>` : ""}
       `;
       list.appendChild(row);
     });

@@ -30,7 +30,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon-180.png" />
   <link rel="apple-touch-icon" sizes="192x192" href="img/icon-192.png" />
   <link rel="apple-touch-icon" sizes="512x512" href="img/icon-512.png" />
-  <link rel="stylesheet" href="css/styles.css?v=20261008f" />
+  <link rel="stylesheet" href="css/styles.css?v=20261008g" />
   <style>
     /* Pre-paint auth gate: hide the wrong screen before JS loads to
        prevent a flash of unauthenticated content (1-2s where the
@@ -768,6 +768,63 @@
     </div>
   </div>
 
+  <!-- ===== Discharge Final Diagnosis Modal ===== -->
+  <!-- Shown when the user clicks the discharge button. The user MUST
+       enter a final diagnosis before the patient can be discharged.
+       The diagnosis is stored in the discharged record so it can be
+       retrieved if the patient is readmitted later. -->
+  <div class="discharge-overlay" id="discharge-overlay" hidden></div>
+  <div class="discharge-modal" id="discharge-modal" hidden role="dialog" aria-label="تسجيل خروج المريض">
+    <div class="discharge-card">
+      <div class="discharge-head">
+        <h3>تسجيل خروج المريض</h3>
+        <button type="button" class="discharge-close" id="discharge-close" aria-label="إغلاق">✕</button>
+      </div>
+      <div class="discharge-body">
+        <p class="discharge-patient-name" id="discharge-patient-name"></p>
+        <p class="discharge-hint">
+          أدخل التشخيص النهائي للمريض. هذا الحقل إجباري وسيُحفظ في سجل الخروج
+          لمرجعية المستقبل عند عودة المريض للمستشفى.
+        </p>
+        <textarea
+          id="discharge-final-diagnosis"
+          class="discharge-diagnosis-input"
+          placeholder="التشخيص النهائي (مثلاً: pneumonia resolved, sepsis resolved, ...)"
+          rows="3"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+        ></textarea>
+        <!-- If the patient had a diagnosis recorded during admission,
+             show it as a reference so the user can compare. -->
+        <div class="discharge-previous-diagnosis" id="discharge-previous-diagnosis" hidden>
+          <span class="discharge-previous-label">التشخيص عند الدخول:</span>
+          <span class="discharge-previous-value" id="discharge-previous-value"></span>
+        </div>
+        <p class="discharge-error" id="discharge-error" hidden>الرجاء إدخال التشخيص النهائي قبل الخروج</p>
+      </div>
+      <div class="discharge-footer">
+        <button type="button" class="discharge-cancel" id="discharge-cancel">إلغاء</button>
+        <button type="button" class="discharge-confirm" id="discharge-confirm">تأكيد الخروج</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Previous Final Diagnosis Hint (in patient view) ===== -->
+  <!-- When a new patient is added with a name that matches a previously
+       discharged patient, this small inline banner shows their last
+       recorded final diagnosis so the doctor can see it at a glance. -->
+  <!-- This banner is moved into the patient-header DOM dynamically by
+       app.js when a matching discharged record is found. Kept here as
+       a hidden template that app.js clones + fills in. -->
+  <template id="previous-admission-template">
+    <div class="previous-admission-banner">
+      <span class="previous-admission-label">📌 آخر تشخيص نهائي مسجل عند خروج سابق:</span>
+      <span class="previous-admission-value"></span>
+      <span class="previous-admission-date"></span>
+    </div>
+  </template>
+
   <!-- ===== Display Mode (TV / large screen, view-only) ===== -->
   <div class="display-mode" id="display-mode" hidden>
     <div class="display-mode-head">
@@ -808,7 +865,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker
-          .register('sw.js?v=9', { scope: './' })
+          .register('sw.js?v=10', { scope: './' })
           .then(function (reg) { console.log('[SW] registered', reg.scope); })
           .catch(function (err) { console.warn('[SW] registration failed', err); });
       });

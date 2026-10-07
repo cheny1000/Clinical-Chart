@@ -1707,6 +1707,45 @@ html[data-theme="dark"] .gfr-card.stage-g5 .gfr-stage { background: rgba(153, 27
   flex-wrap: wrap;
   gap: 4px;
 }
+/* Final diagnosis row — shown when a discharged patient has a final
+   diagnosis recorded. Highlighted with a green left border + soft
+   green background to distinguish from the admission diagnosis. */
+.discharged-row.has-final-dx {
+  border-left: 3px solid #15803D;
+  background: linear-gradient(90deg, #F0FDF4 0%, var(--surface) 12%);
+}
+.discharged-row-final-dx,
+.discharged-row-dx {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: var(--primary-soft);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.5;
+  word-break: break-word;
+}
+.discharged-row-final-dx {
+  background: #DCFCE7;
+  color: #14532D;
+}
+.discharged-row-final-dx .dx-label,
+.discharged-row-dx .dx-label {
+  font-weight: 800;
+  margin-left: 4px;
+}
+.discharged-row-final-dx .dx-value {
+  font-weight: 600;
+}
+html[data-theme="dark"] .discharged-row.has-final-dx {
+  background: linear-gradient(90deg, rgba(22, 163, 74, 0.10) 0%, var(--bg-card) 12%);
+  border-left-color: #22C55E;
+}
+html[data-theme="dark"] .discharged-row-final-dx {
+  background: rgba(22, 163, 74, 0.18);
+  color: #BBF7D0;
+}
 
 /* ---------- Antibiotic + Albumin monitoring ---------- */
 .abx-stats {
@@ -3564,6 +3603,210 @@ html[data-theme="dark"] .med-summary-body { background: var(--bg-card); }
 html[data-theme="dark"] .med-summary-footer { background: var(--bg); color: var(--text-muted); }
 html[data-theme="dark"] .med-summary-row { border-color: var(--border); }
 html[data-theme="dark"] .med-summary-row-count.custom { background: var(--bg); }
+
+/* ---------- Discharge Modal (final diagnosis required) ----------
+   Modal that appears when the user clicks the discharge button.
+   Requires the user to enter a final diagnosis before confirming
+   the discharge. The diagnosis is stored on the discharged record
+   and shown when the patient is readmitted later. */
+.discharge-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  z-index: 100;
+  animation: fadeIn 200ms ease-out;
+}
+.discharge-overlay[hidden] { display: none !important; }
+.discharge-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 101;
+  padding: 16px;
+}
+.discharge-modal[hidden] { display: none !important; }
+.discharge-card {
+  background: #fff;
+  border-radius: var(--r-xl);
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.30);
+  animation: supplySlideUp 250ms ease-out;
+}
+.discharge-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--primary);
+  color: #fff;
+  padding: 14px 18px;
+  flex-shrink: 0;
+}
+.discharge-head h3 { margin: 0; font-size: 16px; font-weight: 800; }
+.discharge-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-full);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.discharge-close:hover { background: rgba(255, 255, 255, 0.15); }
+.discharge-body {
+  padding: 18px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+.discharge-patient-name {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+.discharge-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.discharge-diagnosis-input {
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  background: #fff;
+  outline: none;
+  resize: vertical;
+  min-height: 80px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.discharge-diagnosis-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(27, 68, 63, 0.10);
+}
+.discharge-diagnosis-input::placeholder {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+.discharge-previous-diagnosis {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--primary-soft);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+}
+.discharge-previous-diagnosis[hidden] { display: none !important; }
+.discharge-previous-label {
+  display: block;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.discharge-previous-value {
+  display: block;
+  color: var(--text);
+  font-weight: 600;
+}
+.discharge-error {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  background: #FEF2F2;
+  color: var(--danger);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 700;
+}
+.discharge-error[hidden] { display: none !important; }
+.discharge-footer {
+  display: flex;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.discharge-cancel,
+.discharge-confirm {
+  flex: 1;
+  padding: 12px;
+  border-radius: var(--r-md);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 160ms ease, transform 120ms ease;
+}
+.discharge-cancel {
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1.5px solid var(--border);
+}
+.discharge-cancel:hover { background: var(--bg); }
+.discharge-cancel:active { transform: scale(0.98); }
+.discharge-confirm {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+}
+.discharge-confirm:hover { background: var(--primary-dark, #143d38); }
+.discharge-confirm:active { transform: scale(0.98); }
+html[data-theme="dark"] .discharge-card { background: var(--bg-card); }
+html[data-theme="dark"] .discharge-diagnosis-input { background: var(--bg); border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .discharge-cancel { background: var(--bg); border-color: var(--border); color: var(--text-muted); }
+
+/* ---------- Previous admission banner (in patient header) ----------
+   Small inline banner that appears when the patient name matches a
+   previously discharged patient. Shows the last recorded final
+   diagnosis so the doctor knows about prior admissions at a glance. */
+.previous-admission-banner {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, #FEF3C7 0%, #FEF9C3 100%);
+  border: 1px solid #FDE68A;
+  border-radius: var(--r-md);
+  font-size: 12px;
+  color: #92400E;
+  line-height: 1.5;
+}
+.previous-admission-label {
+  display: block;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+.previous-admission-value {
+  display: block;
+  font-weight: 700;
+  color: #78350F;
+  word-break: break-word;
+}
+.previous-admission-date {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: #92400E;
+  opacity: 0.7;
+}
+html[data-theme="dark"] .previous-admission-banner {
+  background: rgba(146, 64, 14, 0.15);
+  border-color: rgba(146, 64, 14, 0.3);
+  color: #FCD34D;
+}
+html[data-theme="dark"] .previous-admission-value { color: #FBBF24; }
+html[data-theme="dark"] .previous-admission-date { color: #FCD34D; }
 
 /* ---------- User Management + Audit Log (admin only) ---------- */
 .admin-users-section,
