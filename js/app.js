@@ -532,6 +532,7 @@
           diagnosis:   row.diagnosis || "",
           firstMedDate: row.first_med_date || "",
           labs:        row.labs ? (typeof row.labs === "string" ? JSON.parse(row.labs) : (row.labs || {})) : {},
+          labHistory:  row.lab_history ? (typeof row.lab_history === "string" ? JSON.parse(row.lab_history) : (row.lab_history || [])) : [],
           medications: Array.isArray(meds) ? meds : [],
           updatedAt:   Date.parse(row.updated_at) || Date.now()
         };
@@ -1149,32 +1150,70 @@
       persistPatient(state.currentBed.key);
     });
 
-    // Lab values — 9 fields. All stored on the patient record under
-    // p.labs = { creatinine, albumin, wbc, hb, plt, na, k, glucose, crp }.
-    // Editable by doctors + admins only (like diagnosis).
-    const LAB_FIELDS = [
-      "lab-creatinine", "lab-albumin", "lab-wbc", "lab-hb", "lab-plt",
-      "lab-na", "lab-k", "lab-glucose", "lab-cr"
-    ];
-    const LAB_KEYS = [
-      "creatinine", "albumin", "wbc", "hb", "plt",
-      "na", "k", "glucose", "crp"
-    ];
+    // Lab values — 9 fields. Each field has an input + a "+" button.
+    // The input stores the current (latest) value in p.labs[key].
+    // The "+" button archives the current value into p.labHistory
+    // (array of {date, key, label, value}) and clears the input for
+    // a new entry. Editable by doctors + admins only (like diagnosis).
+    const LAB_KEYS = ["creatinine","albumin","wbc","hb","plt","na","k","glucose","crp"];
+    const LAB_LABELS = {
+      creatinine:"S. Creatinine", albumin:"S. Albumin", wbc:"WBC",
+      hb:"Hb", plt:"PLT", na:"Na+", k:"K+", glucose:"Glucose", crp:"CRP"
+    };
     let labTimer = null;
-    LAB_FIELDS.forEach((fieldId, i) => {
-      $(fieldId).addEventListener("input", (e) => {
-        if (!state.currentBed) return;
-        const p = ensurePatient(state.currentBed.key);
-        if (!p.labs) p.labs = {};
-        p.labs[LAB_KEYS[i]] = e.target.value;
-        clearTimeout(labTimer);
-        labTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
-      });
-      $(fieldId).addEventListener("blur", () => {
-        if (!state.currentBed) return;
-        clearTimeout(labTimer);
-        persistPatient(state.currentBed.key);
-      });
+
+    // Delegated click handler for "+" buttons
+    document.addEventListener("click", (e) => {
+      const addBtn = e.target.closest(".lab-add-btn");
+      if (!addBtn || !state.currentBed) return;
+      const key = addBtn.dataset.labKey;
+      const label = addBtn.dataset.labLabel;
+      const p = ensurePatient(state.currentBed.key);
+      if (!p) return;
+      // Archive the current value (if not empty)
+      const currentVal = p.labs && p.labs[key] ? String(p.labs[key]).trim() : "";
+      if (currentVal) {
+        if (!p.labHistory) p.labHistory = [];
+        p.labHistory.push({
+          date: new Date().toISOString().slice(0, 10),
+          key: key,
+          label: label,
+          value: currentVal
+        });
+      }
+      // Clear the current value (new entry starts fresh)
+      if (!p.labs) p.labs = {};
+      p.labs[key] = "";
+      // Clear the input visually
+      const inputId = "lab-" + (key === "crp" ? "cr" : key);
+      const inputEl = $(inputId);
+      if (inputEl) inputEl.value = "";
+      clearTimeout(labTimer);
+      persistPatient(state.currentBed.key);
+      // Re-render to show updated history
+      const p2 = state.patients[state.currentBed.key] || null;
+      UI.renderPatientView(p2, state.currentBed.roomId, state.currentBed.bed);
+      flashHint(`تمت أرشفة ${label} — أدخل القيمة الجديدة`);
+    });
+
+    // Delegated input handler for lab fields
+    document.addEventListener("input", (e) => {
+      const target = e.target;
+      if (!target || !target.classList || !target.classList.contains("lab-input")) return;
+      if (!state.currentBed) return;
+      // Extract lab key from the input id (lab-creatinine → creatinine)
+      const idMatch = (target.id || "").match(/^lab-(.+)$/);
+      if (!idMatch) return;
+      const idPart = idMatch[1];
+      // Reverse map: cr → crp
+      const keyMap = { cr: "crp", creatinine:"creatinine", albumin:"albumin",
+        wbc:"wbc", hb:"hb", plt:"plt", na:"na", k:"k", glucose:"glucose" };
+      const key = keyMap[idPart] || idPart;
+      const p = ensurePatient(state.currentBed.key);
+      if (!p.labs) p.labs = {};
+      p.labs[key] = target.value;
+      clearTimeout(labTimer);
+      labTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
     });
     $("patient-name-input").addEventListener("blur", () => {
       if (!state.currentBed) return;
@@ -2850,6 +2889,7 @@
   // BP (ضغط) and O2 (أوكسجين) for the doctor to fill manually.
   function buildLabsVitalsHtml(patient) {
     const labs = (patient && patient.labs) ? patient.labs : {};
+    const labHistory = (patient && patient.labHistory) ? patient.labHistory : [];
     const labDefs = [
       ["S. Creatinine", "creatinine"],
       ["S. Albumin",    "albumin"],
@@ -2861,9 +2901,7 @@
       ["Glucose",       "glucose"],
       ["CRP",           "crp"]
     ];
-    // Show ALL lab fields, one below the other. Filled ones show the
-    // value; empty ones show "—" (per user request: show them all,
-    // empty ones stay empty, filled ones show the value).
+    // Show ALL current lab fields, one below the other.
     let labRows = "";
     labDefs.forEach(([label, key]) => {
       const val = labs[key];
@@ -2872,7 +2910,27 @@
         : "—";
       labRows += `<div class="ps-lab-row"><span class="ps-lab-val">${displayVal}</span><span class="ps-lab-label">${label}</span></div>`;
     });
-    // Vitals — BP + O2, empty (no lines, just label + blank)
+
+    // Show lab history (previous entries grouped by date)
+    let historyRows = "";
+    if (labHistory.length > 0) {
+      // Group by date
+      const byDate = {};
+      labHistory.forEach(h => {
+        const d = h.date || "—";
+        if (!byDate[d]) byDate[d] = [];
+        byDate[d].push(h);
+      });
+      const sortedDates = Object.keys(byDate).sort().reverse();
+      sortedDates.forEach(date => {
+        const entries = byDate[date];
+        const dateStr = formatDateShortForPrint(date);
+        const parts = entries.map(e => `${e.label}: ${e.value}`).join("  ·  ");
+        historyRows += `<div class="ps-lab-row ps-lab-history"><span class="ps-lab-val">${escapeHtml(parts)}</span><span class="ps-lab-label">${escapeHtml(dateStr)}</span></div>`;
+      });
+    }
+
+    // Vitals — BP + O2, empty
     const vitalsRows = `
       <div class="ps-lab-row"><span class="ps-lab-val">—</span><span class="ps-lab-label">BP</span></div>
       <div class="ps-lab-row"><span class="ps-lab-val">—</span><span class="ps-lab-label">O₂ Sat</span></div>
@@ -2881,10 +2939,18 @@
       <div class="ps-labs-section">
         <div class="ps-labs-title">Lab Results</div>
         ${labRows}
+        ${historyRows ? `<div class="ps-labs-title" style="margin-top:10px;">Previous Results</div>${historyRows}` : ""}
         <div class="ps-labs-title" style="margin-top:10px;">Vitals</div>
         ${vitalsRows}
       </div>
     `;
+  }
+
+  function formatDateShortForPrint(dateStr) {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+    } catch (e) { return dateStr; }
   }
 
   // -------- Print patient sheet (A4) --------
@@ -3635,17 +3701,15 @@
       diagnosisInput.disabled = !(isAdmin || isDoctor);
     }
     // Lab fields: same access control as diagnosis (doctors + admins)
-    const labFieldIds = [
-      "lab-creatinine", "lab-albumin", "lab-wbc", "lab-hb", "lab-plt",
-      "lab-na", "lab-k", "lab-glucose", "lab-cr"
-    ];
-    labFieldIds.forEach(id => {
-      const el = $(id);
-      if (el) {
-        const isDoctor = Auth && Auth.isDoctor && Auth.isDoctor();
-        const isAdmin = Auth && Auth.isAdmin && Auth.isAdmin();
-        el.disabled = !(isAdmin || isDoctor);
-      }
+    document.querySelectorAll(".lab-input").forEach(el => {
+      const isDoctor = Auth && Auth.isDoctor && Auth.isDoctor();
+      const isAdmin = Auth && Auth.isAdmin && Auth.isAdmin();
+      el.disabled = !(isAdmin || isDoctor);
+    });
+    document.querySelectorAll(".lab-add-btn").forEach(btn => {
+      const isDoctor = Auth && Auth.isDoctor && Auth.isDoctor();
+      const isAdmin = Auth && Auth.isAdmin && Auth.isAdmin();
+      btn.hidden = !(isAdmin || isDoctor);
     });
   }
 

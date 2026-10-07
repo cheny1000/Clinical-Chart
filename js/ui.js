@@ -226,6 +226,24 @@
     ]);
   }
 
+  // Helper: convert lab key to input ID (creatinine → lab-creatinine)
+  function labFieldIdFromKey(key) {
+    const map = {
+      creatinine: "creatinine", albumin: "albumin", wbc: "wbc",
+      hb: "hb", plt: "plt", na: "na", k: "k",
+      glucose: "glucose", crp: "cr"
+    };
+    return map[key] || key;
+  }
+
+  // Helper: format ISO date string to short Arabic date
+  function formatDateShort(dateStr) {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("ar", { day: "numeric", month: "short" });
+    } catch (e) { return dateStr; }
+  }
+
   // ---------- Patient view ----------
   function renderPatientView(patient, roomId, bedNumber) {
     document.getElementById("loc-room").textContent = "غرفة " + roomId;
@@ -271,27 +289,92 @@
       diagnosisInput.value = (patient && patient.diagnosis) ? String(patient.diagnosis) : "";
     }
 
-    // Lab values — 9 fields. Same focus-guard logic for each.
+    // Lab values — rendered dynamically as a grid of lab inputs with
+    // '+' buttons for adding new entries. Each lab field stores its
+    // current value in p.labs[key] (the latest), and all previous
+    // values are stored in p.labHistory (array of {date, key, value}).
+    // When a '+' button is pressed, the current value is archived with
+    // today's date into labHistory, and the input is cleared for the
+    // new value.
+    const labsContainer = document.getElementById("patient-labs-row");
+    const labsHistoryEl = document.getElementById("patient-labs-history");
     const labs = (patient && patient.labs) ? patient.labs : {};
-    const labMap = [
-      ["lab-creatinine", "creatinine"],
-      ["lab-albumin", "albumin"],
-      ["lab-wbc", "wbc"],
-      ["lab-hb", "hb"],
-      ["lab-plt", "plt"],
-      ["lab-na", "na"],
-      ["lab-k", "k"],
-      ["lab-glucose", "glucose"],
-      ["lab-cr", "crp"]
+    const labHistory = (patient && patient.labHistory) ? patient.labHistory : [];
+    const labDefs = [
+      ["S. Creatinine", "creatinine"],
+      ["S. Albumin",    "albumin"],
+      ["WBC",           "wbc"],
+      ["Hb",            "hb"],
+      ["PLT",           "plt"],
+      ["Na+",           "na"],
+      ["K+",            "k"],
+      ["Glucose",       "glucose"],
+      ["CRP",           "crp"]
     ];
-    labMap.forEach(([inputId, labKey]) => {
-      const el = document.getElementById(inputId);
-      if (!el) return;
-      const isFocused = document.activeElement === el;
-      if (!isFocused) {
-        el.value = labs[labKey] ? String(labs[labKey]) : "";
+
+    if (labsContainer) {
+      labsContainer.innerHTML = "";
+      labsContainer.style.display = "grid";
+      labsContainer.style.gridTemplateColumns = "repeat(auto-fill, minmax(80px, 1fr))";
+      labsContainer.style.gap = "6px";
+      labsContainer.style.marginTop = "8px";
+
+      labDefs.forEach(([label, key], i) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "lab-cell";
+        const input = document.createElement("input");
+        input.type = "text";
+        input.id = "lab-" + labFieldIdFromKey(key);
+        input.className = "lab-input";
+        input.placeholder = label;
+        input.inputMode = "decimal";
+        const isFocused = document.activeElement === input;
+        if (!isFocused) {
+          input.value = labs[key] ? String(labs[key]) : "";
+        }
+        // Access control (disabled state set later by app.js openPatient)
+        wrapper.appendChild(input);
+
+        // '+' button to archive current value + start new
+        const addBtn = document.createElement("button");
+        addBtn.className = "lab-add-btn";
+        addBtn.type = "button";
+        addBtn.innerHTML = "+";
+        addBtn.title = "أرشفة القيمة الحالية وإضافة تحليل جديد";
+        addBtn.dataset.labKey = key;
+        addBtn.dataset.labLabel = label;
+        wrapper.appendChild(addBtn);
+        labsContainer.appendChild(wrapper);
+      });
+    }
+
+    // Render lab history (previous entries, newest first)
+    if (labsHistoryEl) {
+      labsHistoryEl.innerHTML = "";
+      if (labHistory.length > 0) {
+        const title = document.createElement("div");
+        title.className = "lab-history-title";
+        title.textContent = "التحاليل السابقة";
+        labsHistoryEl.appendChild(title);
+
+        // Group by date
+        const byDate = {};
+        labHistory.forEach(h => {
+          const d = h.date || "—";
+          if (!byDate[d]) byDate[d] = [];
+          byDate[d].push(h);
+        });
+        Object.keys(byDate).sort().reverse().forEach(date => {
+          const row = document.createElement("div");
+          row.className = "lab-history-row";
+          const entries = byDate[date];
+          const dateStr = formatDateShort(date);
+          const parts = entries.map(e => `${e.label}: ${e.value}`).join(" · ");
+          row.innerHTML = `<span class="lab-history-date">${dateStr}</span> <span class="lab-history-vals">${parts}</span>`;
+          labsHistoryEl.appendChild(row);
+        });
       }
-    });
+    }
 
     const medsList = document.getElementById("meds-list");
     const emptyMeds = document.getElementById("empty-meds");

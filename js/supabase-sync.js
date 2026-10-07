@@ -293,6 +293,7 @@
       diagnosis:    (p && p.diagnosis) ? String(p.diagnosis) : "", // التشخيص
       firstMedDate:  (p && p.firstMedDate) ? String(p.firstMedDate) : "", // تاريخ أول دواء حرج (لتتبع D1, D2...)
       labs:         (p && p.labs) ? JSON.stringify(p.labs) : "", // التحاليل المختبرية
+      labHistory:   (p && p.labHistory) ? JSON.stringify(p.labHistory) : "", // سجل التحاليل السابقة
       medications:  JSON.stringify((p && p.medications) || []),
       // Use the local updatedAt if present (ms → ISO); otherwise now.
       updated_at:   new Date(_toMs(p && p.updatedAt) || Date.now()).toISOString()
@@ -316,6 +317,7 @@
       diagnosis:   row.diagnosis || "",   // التشخيص
       firstMedDate: row.first_med_date || "", // تاريخ أول دواء حرج
       labs:         row.labs ? (typeof row.labs === "string" ? JSON.parse(row.labs) : row.labs) : {}, // التحاليل
+      labHistory:   row.lab_history ? (typeof row.lab_history === "string" ? JSON.parse(row.lab_history) : row.lab_history) : [], // سجل التحاليل
       medications: Array.isArray(meds) ? meds : [],
       updatedAt:   _toMs(row.updated_at)
     };
