@@ -55,8 +55,73 @@
       UI.showView("home");
       pullCatalogOnBoot();
       initRealtime();
+      // Start periodic polling as a backup for Realtime. Realtime
+      // should deliver changes within 100-500ms, but it can fail
+      // silently (channel timeouts, network blips, mobile sleep).
+      // The poller pulls every 30s + refreshes local state — so
+      // even if Realtime drops, the user sees fresh data within
+      // 30s. This is the safety net that catches the doctor-to-
+      // pharmacist sync when Realtime is unreliable.
+      startPolling();
     } else {
       showLogin();
+    }
+  }
+
+  // -------- Periodic polling fallback --------
+  // Pulls patients + catalog from Supabase every POLL_INTERVAL_MS
+  // (30s). This is the safety net for when Realtime fails to deliver
+  // a change (which happens more often than expected on mobile +
+  // flaky networks + when the Supabase project goes to sleep).
+  //
+  // The poller is cheap: pullPatients only fetches the deltas (via
+  // the merge function that compares updatedAt), so it doesn't
+  // transfer the full table every time.
+  //
+  // The poller is also triggered immediately when the page becomes
+  // visible again (after the user switches back to the app tab).
+  const POLL_INTERVAL_MS = 30000;
+  let _pollTimer = null;
+  function startPolling() {
+    stopPolling();
+    _pollTimer = setInterval(pollOnce, POLL_INTERVAL_MS);
+    // Also poll when the tab becomes visible again (user switches
+    // back to the app). This catches changes that arrived while
+    // the tab was hidden (mobile browsers throttle/suspend timers
+    // in background tabs, so the interval might have been paused).
+    document.addEventListener("visibilitychange", onVisibilityChange);
+  }
+  function stopPolling() {
+    if (_pollTimer) {
+      clearInterval(_pollTimer);
+      _pollTimer = null;
+    }
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+  }
+  function onVisibilityChange() {
+    if (!document.hidden) {
+      // Tab became visible — poll immediately for fresh data.
+      pollOnce();
+    }
+  }
+  async function pollOnce() {
+    if (!SB || !SBSync || !SB.isConfigured()) return;
+    try {
+      // Pull patients — this merges with local state + triggers UI
+      // refresh if any patients changed.
+      const pres = await SBSync.pullPatients();
+      if (pres && pres.ok) {
+        state.patients = Storage.loadPatients();
+        refreshStatsAndRooms();
+        // If the patient view is open, refresh it so the user sees
+        // the updated data immediately.
+        if (state.currentBed) {
+          const p = state.patients[state.currentBed.key] || null;
+          UI.renderPatientView(p, state.currentBed.roomId, state.currentBed.bed);
+        }
+      }
+    } catch (e) {
+      console.warn("[Poll] pull failed:", e);
     }
   }
 
@@ -2829,6 +2894,11 @@
         try { realtimeChannel.unsubscribe(); } catch (e) { /* ignore */ }
         realtimeChannel = null;
       }
+      // Stop the polling fallback too — prevents the poller from
+      // continuing to pull after logout (which would still work
+      // since the anon key is used, but wastes bandwidth + battery
+      // on the login screen).
+      stopPolling();
       if (typeof Auth !== "undefined" && Auth && typeof Auth.logout === "function") {
         Auth.logout();
         applyRoleVisibility();
