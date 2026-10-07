@@ -4180,3 +4180,76 @@ html[data-theme="dark"] .settings-row-danger {
     font-size: 10px;
   }
 }
+
+/* ============================================================
+   Seniors (الأخصائيون) view
+   ============================================================
+   Added 2026-10-08 — groups occupied patients by their attending
+   physician (patient.doctor field) and displays each physician
+   with their patient list. Doctors + admins only (pharmacists
+   don't see this tab).
+   Placed at the END of the file to avoid any risk of orphan
+   braces corrupting earlier rules.
+   ============================================================ */
+.seniors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+.senior-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.senior-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--primary);
+  color: #fff;
+}
+.senior-name {
+  font-size: 15px;
+  font-weight: 800;
+}
+.senior-count {
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 3px 10px;
+  border-radius: var(--r-full);
+}
+.senior-patients {
+  padding: 8px 16px;
+}
+.senior-patient-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.senior-patient-row:last-child {
+  border-bottom: none;
+}
+.senior-patient-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+.senior-patient-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+html[data-theme="dark"] .senior-card {
+  background: #1E293B;
+  border-color: #334155;
+}
+html[data-theme="dark"] .senior-patient-row {
+  border-bottom-color: #334155;
+}
