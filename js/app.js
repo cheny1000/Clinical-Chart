@@ -307,10 +307,6 @@
     if (summaryBtn) summaryBtn.hidden = !isChartRole;
     const pillsBtn = $("print-pills-form-btn");
     if (pillsBtn) pillsBtn.hidden = !isChartRole;
-    const excelBtn = $("chart-excel-btn");
-    if (excelBtn) excelBtn.hidden = !isChartRole;
-    const bridgeBtn = $("chart-bridge-btn");
-    if (bridgeBtn) bridgeBtn.hidden = !isChartRole;
 
     // Print ALL patient sheets button: admin + doctor only.
     // The pharmacist prints individual sheets from the patient view.
@@ -2267,6 +2263,30 @@
     $("settings-back-btn").addEventListener("click", () => {
       state.currentBed = null;
       UI.showView("home");
+    });
+
+    // Settings: ABX monitoring
+    $("settings-abx-btn").addEventListener("click", () => {
+      renderAbxMonitor();
+      UI.showView("abx");
+    });
+
+    // Settings: chart bridge
+    $("settings-bridge-btn").addEventListener("click", async () => {
+      if (!global.PharmacyChartBridge) {
+        flashHint("تعذّر تحميل وحدة جسر الجارت");
+        return;
+      }
+      UI.showView("home");
+      flashHint("يتم إرسال البيانات إلى جارت الجارت...");
+      setTimeout(async () => {
+        try {
+          await global.PharmacyChartBridge.sendChart(state);
+          flashHint("تم فتح جارت الجارت بالبيانات");
+        } catch (err) {
+          flashHint("تعذّر الإرسال: " + (err.message || err));
+        }
+      }, 50);
     });
 
     // Settings: dark mode toggle button
