@@ -314,9 +314,7 @@
     const allSheetsBtn = $("print-all-sheets-btn");
     if (allSheetsBtn) allSheetsBtn.hidden = !isPrintAllRole;
 
-    // Discharged list button: always visible (all roles)
-    const dischargedListBtn = $("discharged-list-btn");
-    if (dischargedListBtn) dischargedListBtn.hidden = false;
+    // Discharged list now in settings — no header button needed
 
     // Dark mode + TV + logout: only visible to admins (non-admins
     // access them via the Settings view instead).
@@ -1437,8 +1435,8 @@
         p.name.trim(), `غرفة ${state.currentBed.roomId}`);
     });
 
-    // ----- Discharged list button (in header) -----
-    $("discharged-list-btn").addEventListener("click", () => {
+    // ----- Discharged list (now in settings) -----
+    $("settings-discharged-btn").addEventListener("click", () => {
       renderDischargedView();
       UI.showView("discharged");
     });
