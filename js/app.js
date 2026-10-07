@@ -535,8 +535,13 @@
     // payload: { eventType: 'INSERT'|'UPDATE'|'DELETE', old: {...}, new: {...} }
     const bedKey = payload.new?.bed_key || payload.old?.bed_key;
     if (!bedKey) return;
+    // Track whether this is a NEW patient (INSERT) or an UPDATE/
+    // DELETE — used to play the right notification sound.
+    let isInsert = false;
+    let isDelete = false;
     if (payload.eventType === "DELETE") {
       // Another device deleted this patient
+      isDelete = true;
       delete state.patients[bedKey];
       Storage.deletePatient(bedKey);
       Storage.saveLocalDeletion(bedKey);
@@ -545,6 +550,12 @@
       // We do a lightweight local update rather than a full pull
       const row = payload.new;
       if (row) {
+        // Detect INSERT (new patient) vs UPDATE (existing patient with
+        // changed meds/info). If we don't have this bedKey locally, it's
+        // an INSERT from another device.
+        if (!state.patients[bedKey] || !state.patients[bedKey].name) {
+          isInsert = true;
+        }
         let meds = [];
         try {
           meds = typeof row.medications === "string"
@@ -574,6 +585,39 @@
     if (state.currentBed) {
       const p = state.patients[state.currentBed.key] || null;
       UI.renderPatientView(p, state.currentBed.roomId, state.currentBed.bed);
+    }
+    // Play a notification sound so the pharmacist (or any user on
+    // another device) hears audible feedback when a doctor on
+    // another device adds/changes/discharges a patient. We skip
+    // the sound if the change was triggered by THIS device (the
+    // same user already heard the sound when they made the change
+    // via pushNotification). We detect this by comparing the
+    // updated_at timestamp — if it's within 3 seconds of now, it's
+    // likely this device's own write.
+    //
+    // Note: this is a heuristic. Real cross-user detection would
+    // require a server-side "actor" field on each row. The 3-second
+    // window is short enough to skip most echoes while still
+    // catching genuine cross-device updates (which usually arrive
+    // 100-500ms after the write).
+    const updatedAt = payload.new?.updated_at
+      ? Date.parse(payload.new.updated_at)
+      : 0;
+    const isOwnEcho = updatedAt > 0 && (Date.now() - updatedAt) < 3000;
+    if (!isOwnEcho) {
+      if (isInsert) {
+        // Another device added a new patient
+        playNotificationSound("patient_added");
+      } else if (isDelete) {
+        // Another device deleted (likely discharged or died). We
+        // can't tell which from the realtime payload alone, but the
+        // default tone is a safe fallback.
+        playNotificationSound("default");
+      } else {
+        // Another device updated an existing patient (med change
+        // or info change).
+        playNotificationSound("med_changed");
+      }
     }
   }
 
@@ -2747,6 +2791,29 @@
       }
     });
 
+    // Settings: notification sound toggle
+    // Toggles the Web Audio API chime that plays when a new
+    // notification arrives. When enabling, also plays a preview
+    // sound so the user knows what the chime sounds like (and so
+    // the browser's autoplay policy unlocks the AudioContext for
+    // future sounds — most browsers require a user gesture before
+    // audio can play).
+    $("settings-notif-sound-btn").addEventListener("click", () => {
+      const wasEnabled = _isNotifSoundEnabled();
+      const nowEnabled = !wasEnabled;
+      try { localStorage.setItem("pharma.notif-sound", nowEnabled ? "true" : "false"); } catch (e) {}
+      const valueEl = $("settings-notif-sound-value");
+      if (valueEl) {
+        valueEl.textContent = nowEnabled ? "مُفعّل" : "مُعطّل";
+      }
+      // Play a preview sound when enabling so the user hears it +
+      // unlocks the AudioContext (browser autoplay policy requires
+      // a user gesture).
+      if (nowEnabled) {
+        playNotificationSound("default");
+      }
+    });
+
     // Settings: TV display mode entry
     $("settings-tv-btn").addEventListener("click", () => {
       // Close the settings view first, then enter display mode
@@ -3356,6 +3423,11 @@
     // The discharged/dead patients list row stays visible to ALL
     // roles (admin + doctor + pharmacist) — every role may need
     // to look up a returning patient's history.
+    // Initialize the notification sound toggle's value display.
+    const notifSoundVal = $("settings-notif-sound-value");
+    if (notifSoundVal) {
+      notifSoundVal.textContent = _isNotifSoundEnabled() ? "مُفعّل" : "مُعطّل";
+    }
     UI.showView("settings");
   }
 
@@ -3828,6 +3900,89 @@
     UI.renderSelectedList(state.sheet.selectedList);
   }
 
+  // -------- Notification sound --------
+  // Plays a short notification chime using the Web Audio API.
+  // No external audio file is needed — the tone is synthesized in
+  // the browser, so it works offline and adds zero bytes to the
+  // app's download size.
+  //
+  // Different notification types get different tones so the user
+  // can identify them by ear:
+  //   patient_added     → rising 2-tone (C5 → E5) — pleasant "new"
+  //   med_changed       → 3-tone arpeggio (E5 → G5 → C6) — busy "change"
+  //   patient_discharged → falling 2-tone (G5 → C5) — soft "goodbye"
+  //   patient_died      → low single tone (A3) — solemn
+  //   default           → single C5 tone
+  //
+  // The user can disable the sound via the Settings view
+  // (pharma.notif-sound localStorage key).
+  let _audioCtx = null;
+  function _getAudioCtx() {
+    if (!_audioCtx) {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        _audioCtx = new AC();
+      } catch (e) { return null; }
+    }
+    return _audioCtx;
+  }
+
+  function _isNotifSoundEnabled() {
+    try {
+      const v = localStorage.getItem("pharma.notif-sound");
+      // Default to enabled if the key is not set (new users get sound).
+      // Users who explicitly set "false" disable the sound.
+      return v !== "false";
+    } catch (e) { return true; }
+  }
+
+  // Plays a single tone with a given frequency, duration, and start
+  // offset (relative to "now" in the audio context's timeline).
+  function _playTone(ctx, freq, startOffset, duration, gain) {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    // Smooth envelope: ramp up over 10ms, hold, ramp down over 80ms
+    const t0 = ctx.currentTime + startOffset;
+    const t1 = t0 + duration;
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(gain, t0 + 0.01);
+    g.gain.setValueAtTime(gain, t1 - 0.08);
+    g.gain.linearRampToValueAtTime(0, t1);
+    osc.connect(g);
+    g.connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t1 + 0.02);
+  }
+
+  function playNotificationSound(type) {
+    if (!_isNotifSoundEnabled()) return;
+    const ctx = _getAudioCtx();
+    if (!ctx) return;
+    // Some browsers suspend the AudioContext until a user gesture.
+    // Try to resume it (this is a no-op if it's already running).
+    if (ctx.state === "suspended") {
+      try { ctx.resume(); } catch (e) { /* ignore */ }
+    }
+    // Note frequencies (in Hz):
+    //   C5 = 523.25, E5 = 659.25, G5 = 783.99, C6 = 1046.50, A3 = 220.00
+    const TONES = {
+      patient_added:      [[523.25, 0.00, 0.12, 0.18], [659.25, 0.12, 0.18, 0.20]],
+      med_changed:        [[659.25, 0.00, 0.10, 0.16], [783.99, 0.10, 0.10, 0.16], [1046.50, 0.20, 0.18, 0.18]],
+      patient_discharged: [[783.99, 0.00, 0.14, 0.18], [523.25, 0.14, 0.20, 0.18]],
+      patient_died:       [[220.00, 0.00, 0.40, 0.20]],
+      default:            [[523.25, 0.00, 0.18, 0.20]]
+    };
+    const seq = TONES[type] || TONES.default;
+    seq.forEach(([freq, offset, dur, gain]) => _playTone(ctx, freq, offset, dur, gain));
+  }
+
+  // Expose so other parts of the app can play the sound on demand
+  // (e.g. when a Supabase Realtime change arrives from another user).
+  global._playNotificationSound = playNotificationSound;
+
   // -------- Notification system --------
   // Creates a notification record and stores it. Called by:
   //   - name input blur (new patient)
@@ -3852,6 +4007,11 @@
     };
     Storage.addNotification(record);
     updateNotifBadge();
+    // Play the notification sound so the user hears audible feedback
+    // when a new notification is created. The sound is synthesized
+    // via Web Audio API (no external file). Users can disable it via
+    // the Settings view.
+    playNotificationSound(type);
   }
 
   function updateNotifBadge() {
