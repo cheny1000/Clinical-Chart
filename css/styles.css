@@ -1213,16 +1213,6 @@ html[data-theme="dark"] .lab-input { background: var(--bg-card); }
   margin-top: 4px;
 }
 
-
-  width: 100%;
-  margin-top: 16px;
-  background: #080;
-  color: #fff;
-  justify-content: center;
-  box-shadow: 0 4px 10px rgba(0, 136, 0, 0.30);
-}
-.abx-save-btn:active { background: #006400; }
-
 /* Saved ABX snapshots list */
 .abx-saved-btn {
   width: 100%;

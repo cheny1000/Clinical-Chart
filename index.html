@@ -30,7 +30,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon-180.png" />
   <link rel="apple-touch-icon" sizes="192x192" href="img/icon-192.png" />
   <link rel="apple-touch-icon" sizes="512x512" href="img/icon-512.png" />
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/styles.css?v=20261008b" />
   <style>
     /* Pre-paint auth gate: hide the wrong screen before JS loads to
        prevent a flash of unauthenticated content (1-2s where the
@@ -743,7 +743,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker
-          .register('sw.js?v=3', { scope: './' })
+          .register('sw.js?v=5', { scope: './' })
           .then(function (reg) { console.log('[SW] registered', reg.scope); })
           .catch(function (err) { console.warn('[SW] registration failed', err); });
       });
