@@ -3644,11 +3644,40 @@ html[data-theme="dark"] .admin-discharged-section {
   flex-direction: column;
   gap: 2px;
 }
+/* Send-to-chart-bridge buttons inside the med-summary footer.
+   These appear when the med-summary is opened via the new
+   "distribute-send-btn" workflow (review supplies + meds, then send). */
+.med-summary-footer .med-summary-send-btn,
+.med-summary-footer .med-summary-cancel-btn {
+  padding: 12px;
+  border: none;
+  border-radius: var(--r-md);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 160ms ease, transform 120ms ease;
+}
+.med-summary-footer .med-summary-send-btn {
+  background: var(--primary);
+  color: #fff;
+  margin-bottom: 6px;
+}
+.med-summary-footer .med-summary-send-btn:hover { background: var(--primary-dark, #143d38); }
+.med-summary-footer .med-summary-send-btn:active { transform: scale(0.98); }
+.med-summary-footer .med-summary-cancel-btn {
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1.5px solid var(--border);
+}
+.med-summary-footer .med-summary-cancel-btn:hover { background: var(--bg); }
+.med-summary-footer .med-summary-cancel-btn:active { transform: scale(0.98); }
 html[data-theme="dark"] .med-summary-card,
 html[data-theme="dark"] .med-summary-body { background: var(--bg-card); }
 html[data-theme="dark"] .med-summary-footer { background: var(--bg); color: var(--text-muted); }
 html[data-theme="dark"] .med-summary-row { border-color: var(--border); }
 html[data-theme="dark"] .med-summary-row-count.custom { background: var(--bg); }
+html[data-theme="dark"] .med-summary-footer .med-summary-cancel-btn { background: var(--bg); border-color: var(--border); color: var(--text-muted); }
 
 /* ---------- Discharge Modal (final diagnosis required) ----------
    Modal that appears when the user clicks the discharge button.

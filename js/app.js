@@ -326,6 +326,10 @@
     if (summaryBtn) summaryBtn.hidden = !isChartRole;
     const pillsBtn = $("print-pills-form-btn");
     if (pillsBtn) pillsBtn.hidden = !isChartRole;
+    // Distribute + Send button: pharmacist + admin only (same access
+    // as the chart / summary / pills buttons). Hidden for doctors.
+    const distributeSendBtn = $("distribute-send-btn");
+    if (distributeSendBtn) distributeSendBtn.hidden = !isChartRole;
 
     // Print ALL patient sheets button: admin + doctor only.
     // The pharmacist prints individual sheets from the patient view.
@@ -2105,20 +2109,10 @@
     // modal where the user enters the total quantity for each supply.
     // On "submit", the supplies are distributed across patients and
     // the chart is built + printed.
-    $("print-chart-btn").addEventListener("click", () => {
-      if (!state.medications || state.medications.length === 0) {
-        flashHint("لا توجد أدوية في الكتالوج");
-        return;
-      }
-      // Count occupied patients
-      const occCount = Object.values(state.patients || {})
-        .filter(p => p && p.name && p.name.trim()).length;
-      if (occCount === 0) {
-        flashHint("لا يوجد مرضى مشغولون لطباعة التشارت");
-        return;
-      }
-      openSupplyOrderModal(occCount);
-    });
+    // NOTE: The actual handler is defined later in this file (after
+    // the supply-order-submit handler) because it shares the modal
+    // with the new "distribute-send-btn" workflow. The handler there
+    // sets the modal title + submit button label + opens the modal.
 
     // ----- Print All Patient Sheets (طباعة كل أوراق المرضى) -----
     // Generates a multi-page PDF containing one patient sheet per
@@ -2429,7 +2423,21 @@
     $("supply-order-overlay").addEventListener("click", closeSupplyOrderModal);
 
     // Submit: read quantities, distribute across patients, build chart, print
-    $("supply-order-submit").addEventListener("click", () => {
+    // The supply-order modal is reused by BOTH:
+    //   - The original "print-chart-btn" button (generates the chart
+    //     image as a PNG)
+    //   - The new "distribute-send-btn" button (sends patient + supply
+    //     data to جارت الجارت)
+    // We use the supply-order-submit button's text to decide which
+    // action to take after the modal closes:
+    //   - default text  → generate chart image
+    //   - 'توزيع وإرسال' → send to جارت الجارت
+    let _supplyOrderMode = "chart";  // "chart" or "send"
+
+    // Reusable: collects quantities from the supply-order modal,
+    // validates them, builds the supply distribution map, and closes
+    // the modal. Returns the distribution map (or null on error).
+    function collectAndDistributeSupplies() {
       // Collect the quantities from the modal inputs
       const quantities = {};
       document.querySelectorAll("#supply-order-list input[data-supply-id]").forEach(inp => {
@@ -2451,7 +2459,7 @@
       const patientCount = occupiedKeys.length;
       if (patientCount === 0) {
         flashHint("لا يوجد مرضى مشغولون");
-        return;
+        return null;
       }
 
       // Build the supply distribution map: supplyId → { bedKey: freq }
@@ -2528,39 +2536,153 @@
       });
 
       closeSupplyOrderModal();
-
       // Save this distribution as the "last" — used by the med-summary
       // button (red button) to display the same supplies without
       // requiring the user to re-distribute via the supply-order modal.
       _lastSupplyDistribution = supplyDistribution;
+      return supplyDistribution;
+    }
 
-      // ---- Generate chart as a downloadable image overlay on the
-      //      reference chart template (img/chart-reference.png).
-      //      This replaces the HTML chart path completely — no print
-      //      dialog, no headers/footers, no A4 sizing. The output is
-      //      a PNG (one per page, max 35 patients per page) the user
-      //      can save, share, or print from any app.
-      flashHint("يتم توليد صورة الجارت... انتظر قليلاً");
-      const wrapState = {
-        patients: state.patients,
-        meds: state.medications,
-        supplyDistribution: supplyDistribution
-      };
-      setTimeout(async () => {
-        try {
-          const pages = await global.PharmacyChartImage.generateChartImage(wrapState);
-          if (pages && pages.length > 0) {
-            flashHint(`تم توليد ${pages.length} صفحة جارت — تحقق من التنزيلات`);
-            // The med summary modal no longer pops up automatically
-            // after chart generation. The user opens it explicitly
-            // via the red med-summary button (which uses the saved
-            // _lastSupplyDistribution set above).
-          }
-        } catch (err) {
-          console.error("[chart-image] error:", err);
-          flashHint("تعذّر توليد صورة الجارت: " + (err.message || err));
+    $("supply-order-submit").addEventListener("click", () => {
+      const supplyDistribution = collectAndDistributeSupplies();
+      if (!supplyDistribution) return;
+
+      // Branch based on which button opened the modal:
+      if (_supplyOrderMode === "send") {
+        // ----- Distribute + Send mode (new "distribute-send-btn") -----
+        // Show the med-summary modal first so the user can review the
+        // final tally (meds + distributed supplies) before sending.
+        // The user then clicks "إرسال إلى جارت الجارت" inside that
+        // modal to actually send the data.
+        showMedSummaryList(supplyDistribution);
+        // Replace the med-summary footer with a "send to جارت الجارت"
+        // button so the user can review the summary, then click to send.
+        const footer = $("med-summary-footer");
+        if (footer) {
+          footer.innerHTML = "";
+          const sendBtn = document.createElement("button");
+          sendBtn.type = "button";
+          sendBtn.className = "med-summary-send-btn";
+          sendBtn.textContent = "📤 إرسال إلى جارت الجارت";
+          sendBtn.addEventListener("click", async () => {
+            if (!global.PharmacyChartBridge) {
+              flashHint("تعذّر تحميل وحدة جسر الجارت");
+              return;
+            }
+            flashHint("يتم إرسال البيانات إلى جارت الجارت...");
+            try {
+              await global.PharmacyChartBridge.sendChart(state, supplyDistribution);
+              flashHint("تم فتح جارت الجارت بالبيانات");
+              closeMedSummary();
+            } catch (err) {
+              flashHint("تعذّر الإرسال: " + (err.message || err));
+            }
+          });
+          footer.appendChild(sendBtn);
+          // Also add a "skip / close" button so the user can review
+          // without sending.
+          const closeBtn = document.createElement("button");
+          closeBtn.type = "button";
+          closeBtn.className = "med-summary-cancel-btn";
+          closeBtn.textContent = "إغلاق بدون إرسال";
+          closeBtn.addEventListener("click", closeMedSummary);
+          footer.appendChild(closeBtn);
         }
-      }, 50);
+      } else {
+        // ----- Chart mode (original "print-chart-btn") -----
+        // Generate chart as a downloadable image overlay on the
+        // reference chart template (img/chart-reference.png).
+        flashHint("يتم توليد صورة الجارت... انتظر قليلاً");
+        const wrapState = {
+          patients: state.patients,
+          meds: state.medications,
+          supplyDistribution: supplyDistribution
+        };
+        setTimeout(async () => {
+          try {
+            const pages = await global.PharmacyChartImage.generateChartImage(wrapState);
+            if (pages && pages.length > 0) {
+              flashHint(`تم توليد ${pages.length} صفحة جارت — تحقق من التنزيلات`);
+            }
+          } catch (err) {
+            console.error("[chart-image] error:", err);
+            flashHint("تعذّر توليد صورة الجارت: " + (err.message || err));
+          }
+        }, 50);
+      }
+    });
+
+    // ----- Distribute + Send button (توزيع المستلزمات + إرسال) -----
+    // Combines the supply-order modal + med-summary review + chart
+    // bridge into ONE workflow:
+    //   1. Open the supply-order modal (same modal the chart button
+    //      uses, but with a different submit-button label)
+    //   2. On submit: distribute the supplies across patients + save
+    //      the distribution
+    //   3. Show the med-summary modal so the user can review the
+    //      tally (meds + supplies) before sending
+    //   4. The footer of the med-summary modal has "إرسال إلى جارت
+    //      الجارت" + "إغلاق بدون إرسال" buttons.
+    //   5. When the user clicks "إرسال", call
+    //      PharmacyChartBridge.sendChart(state, supplyDistribution)
+    //      which now accepts the supply distribution as a 2nd arg
+    //      and injects the supplies into each patient's med list.
+    $("distribute-send-btn").addEventListener("click", () => {
+      if (!state.medications || state.medications.length === 0) {
+        flashHint("لا توجد أدوية في الكتالوج");
+        return;
+      }
+      // Count occupied patients
+      const occCount = Object.values(state.patients || {})
+        .filter(p => p && p.name && p.name.trim()).length;
+      if (occCount === 0) {
+        flashHint("لا يوجد مرضى مشغولون");
+        return;
+      }
+      // Set the mode so the supply-order submit handler knows to
+      // take the "send" branch instead of the "chart" branch.
+      _supplyOrderMode = "send";
+      // Update the submit button label so the user knows what
+      // happens after they enter the supply quantities.
+      const submitBtn = $("supply-order-submit");
+      if (submitBtn) {
+        submitBtn.textContent = "متابعة → مراجعة البيانات";
+      }
+      // Update the modal title so the user knows this is a
+      // distribute+send workflow, not a chart-generation workflow.
+      // (The title lives inside the modal's <h3> header.)
+      const modalTitle = document.querySelector("#supply-order-modal .supply-order-head h3");
+      if (modalTitle) {
+        modalTitle.textContent = "توزيع المستلزمات ثم إرسال إلى جارت الجارت";
+      }
+      openSupplyOrderModal(occCount);
+    });
+
+    // The print-chart-btn still works as before (chart mode):
+    $("print-chart-btn").addEventListener("click", () => {
+      if (!state.medications || state.medications.length === 0) {
+        flashHint("لا توجد أدوية في الكتالوج");
+        return;
+      }
+      // Count occupied patients
+      const occCount = Object.values(state.patients || {})
+        .filter(p => p && p.name && p.name.trim()).length;
+      if (occCount === 0) {
+        flashHint("لا يوجد مرضى مشغولون لطباعة التشارت");
+        return;
+      }
+      // Reset the submit button label + modal title in case the user
+      // previously opened it via the distribute-send button.
+      _supplyOrderMode = "chart";
+      const submitBtn = $("supply-order-submit");
+      if (submitBtn) {
+        submitBtn.textContent = "توزيع واطبع التشارت";
+      }
+      const modalTitle = document.querySelector("#supply-order-modal .supply-order-head h3");
+      if (modalTitle) {
+        modalTitle.textContent = "قائمة طلب المستلزمات";
+      }
+      openSupplyOrderModal(occCount);
     });
 
     // (Sync button removed — Realtime handles live updates, and
@@ -3218,9 +3340,14 @@
     // Hide TV display mode row for doctors (not needed)
     const tvRow = $("settings-tv-btn");
     if (tvRow) tvRow.hidden = isDoctor;
-    // Hide chart bridge row for doctors (that's a pharmacist task)
+    // Hide the chart bridge row for ALL roles — its functionality is
+    // now integrated into the new "distribute-send-btn" in the header
+    // (which combines supply distribution + med-summary review +
+    // chart-bridge send into one workflow). Admins + pharmacists
+    // use that header button; doctors don't see it (it's a
+    // pharmacist task).
     const bridgeRow = $("settings-bridge-btn");
-    if (bridgeRow) bridgeRow.hidden = isDoctor;
+    if (bridgeRow) bridgeRow.hidden = true;
     // Hide ABX + Albumin monitoring row for doctors. That monitoring
     // is a pharmacist task — doctors don't need to see antibiotic
     // usage reports. Admins + pharmacists still see it.
