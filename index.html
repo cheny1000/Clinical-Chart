@@ -280,6 +280,20 @@
         </div>
       </section>
 
+      <!-- ----- Seniors (الأخصائيون) view ----- -->
+      <!-- Groups occupied patients by their attending physician.
+           Visible to admin + doctor roles only. JS hides the nav
+           tab for pharmacists via applySeniorsNavVisibility(). -->
+      <section class="view view-seniors" id="view-seniors" data-view="seniors" hidden>
+        <div class="section-title">
+          <h2>الأخصائيون ومرضاهم</h2>
+          <p>كل طبيب أخصائي ومرضاه في الردهة</p>
+        </div>
+        <div class="seniors-list" id="seniors-list">
+          <!-- rendered dynamically by renderSeniorsView() in app.js -->
+        </div>
+      </section>
+
       <!-- ----- Discharged / Dead patients view ----- -->
       <section class="view view-discharged" id="view-discharged" data-view="discharged" hidden>
         <button class="back-btn" id="discharged-back-btn" type="button" aria-label="رجوع">
@@ -614,6 +628,12 @@
       <button class="nav-item" data-nav="patients" type="button">
         <span class="nav-icon">▤</span>
         <span class="nav-label">المرضى</span>
+      </button>
+      <!-- Seniors tab: doctors + admins only. Hidden for pharmacists
+           via applySeniorsNavVisibility() in app.js. -->
+      <button class="nav-item" data-nav="seniors" type="button" style="display:none">
+        <span class="nav-icon">👤</span>
+        <span class="nav-label">الأخصائيون</span>
       </button>
     </nav>
 
