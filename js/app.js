@@ -2829,13 +2829,13 @@
       const isDark = document.documentElement.getAttribute("data-theme") === "dark";
       valueEl.textContent = isDark ? "مُفعّل" : "مُعطّل";
     }
-    // Hide the TV display mode row for doctors — doctors don't need
-    // TV monitoring; it's a pharmacist/admin tool for ward monitoring.
+    const isDoctor = Auth && Auth.isDoctor && Auth.isDoctor();
+    // Hide TV display mode row for doctors (not needed)
     const tvRow = $("settings-tv-btn");
-    if (tvRow) {
-      const isDoctor = Auth && Auth.isDoctor && Auth.isDoctor();
-      tvRow.hidden = isDoctor;
-    }
+    if (tvRow) tvRow.hidden = isDoctor;
+    // Hide chart bridge row for doctors (that's a pharmacist task)
+    const bridgeRow = $("settings-bridge-btn");
+    if (bridgeRow) bridgeRow.hidden = isDoctor;
     UI.showView("settings");
   }
 
