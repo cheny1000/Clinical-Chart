@@ -1457,11 +1457,7 @@
       });
     });
 
-    // ----- Antibiotic + Albumin monitoring -----
-    $("abx-monitor-btn").addEventListener("click", () => {
-      renderAbxMonitor();
-      UI.showView("abx");
-    });
+    // ----- ABX back button (abx-monitor-btn now in settings) -----
     $("abx-back-btn").addEventListener("click", () => {
       UI.showView("home");
     });
@@ -1988,68 +1984,6 @@
     // the patient-prescribed meds (no supplies).
     $("med-summary-btn").addEventListener("click", () => {
       showMedSummaryList(_lastSupplyDistribution);
-    });
-
-    // ----- Chart Excel Export (تصدير الجارت كـ Excel) -----
-    // Generates a .xlsx file with one row per occupied patient and one
-    // column per prescribed medication + supply. Uses the LAST supply
-    // distribution saved from chart generation so the Excel matches
-    // the last chart produced.
-    $("chart-excel-btn").addEventListener("click", async () => {
-      if (!global.PharmacyChartExcel) {
-        flashHint("تعذّر تحميل وحدة تصدير Excel");
-        return;
-      }
-      flashHint("يتم توليد ملف Excel... انتظر قليلاً");
-      // Defer so flashHint renders first
-      setTimeout(async () => {
-        try {
-          const wrapState = {
-            patients: state.patients,
-            medications: state.medications,
-            supplyDistribution: _lastSupplyDistribution
-          };
-          const result = await global.PharmacyChartExcel.generateChartExcel(wrapState);
-          if (result && result.error) {
-            flashHint(result.error);
-            return;
-          }
-          if (result && result.ok) {
-            flashHint(`تم تنزيل ${result.filename} — ${result.count} مريض × ${result.medCount} دواء`);
-          } else {
-            flashHint("لم يتم توليد الملف");
-          }
-        } catch (err) {
-          console.error("[chart-excel] error:", err);
-          flashHint("تعذّر توليد Excel: " + (err.message || err));
-        }
-      }, 50);
-    });
-
-    // ----- Chart Bridge (إرسال البيانات إلى جارت الجارت) -----
-    // Collects occupied patients + their medications from state (same
-    // data the chart-print button uses), builds a TSV table, and opens
-    // the external جارت الجارت URL with the TSV encoded in the hash.
-    // The pharmacist can then paste (Alt+V) if the auto-fill fails.
-    $("chart-bridge-btn").addEventListener("click", async () => {
-      if (!global.PharmacyChartBridge) {
-        flashHint("تعذّر تحميل وحدة جسر الجارت");
-        return;
-      }
-      flashHint("يتم إرسال البيانات إلى جارت الجارت...");
-      setTimeout(async () => {
-        try {
-          const result = await global.PharmacyChartBridge.sendChart(state);
-          if (result && result.ok) {
-            flashHint("تم فتح جارت الجارت بالبيانات — لو لم تُملأ تلقائياً اضغط Alt+V هناك");
-          } else {
-            flashHint("تعذّر الإرسال");
-          }
-        } catch (err) {
-          console.error("[chart-bridge] error:", err);
-          flashHint("تعذّر الإرسال: " + (err.message || err));
-        }
-      }, 50);
     });
 
     // ----- Display Mode (TV / large screen) -----
