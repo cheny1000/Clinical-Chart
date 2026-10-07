@@ -1793,6 +1793,16 @@
       renderDischargedView();
       UI.showView("discharged");
     });
+    // Admin also has a 'view discharged' button in the admin view
+    // (admins don't see the settings view because the gear routes
+    // them to openAdminView instead).
+    const adminDischargedBtn = $("admin-discharged-btn");
+    if (adminDischargedBtn) {
+      adminDischargedBtn.addEventListener("click", () => {
+        renderDischargedView();
+        UI.showView("discharged");
+      });
+    }
 
     // ----- Discharged view back button -----
     $("discharged-back-btn").addEventListener("click", () => {
@@ -3192,6 +3202,14 @@
     // Hide chart bridge row for doctors (that's a pharmacist task)
     const bridgeRow = $("settings-bridge-btn");
     if (bridgeRow) bridgeRow.hidden = isDoctor;
+    // Hide ABX + Albumin monitoring row for doctors. That monitoring
+    // is a pharmacist task — doctors don't need to see antibiotic
+    // usage reports. Admins + pharmacists still see it.
+    const abxRow = $("settings-abx-btn");
+    if (abxRow) abxRow.hidden = isDoctor;
+    // The discharged/dead patients list row stays visible to ALL
+    // roles (admin + doctor + pharmacist) — every role may need
+    // to look up a returning patient's history.
     UI.showView("settings");
   }
 

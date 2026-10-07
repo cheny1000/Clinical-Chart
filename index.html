@@ -30,7 +30,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon-180.png" />
   <link rel="apple-touch-icon" sizes="192x192" href="img/icon-192.png" />
   <link rel="apple-touch-icon" sizes="512x512" href="img/icon-512.png" />
-  <link rel="stylesheet" href="css/styles.css?v=20261008g" />
+  <link rel="stylesheet" href="css/styles.css?v=20261008h" />
   <style>
     /* Pre-paint auth gate: hide the wrong screen before JS loads to
        prevent a flash of unauthenticated content (1-2s where the
@@ -565,6 +565,24 @@
           </button>
         </div>
 
+        <!-- ===== Discharged / Dead patients (admin access) ===== -->
+        <!-- Same link as in the pharmacist settings view — gives the
+             admin a quick way to look up a returning patient's
+             previous final diagnosis. Visible to admins only here
+             (the gear routes admins to this view, not the settings
+             view). -->
+        <div class="admin-discharged-section">
+          <h4>سجلات الخروج والوفيات</h4>
+          <p class="admin-discharged-hint">
+            استعرض المرضى الذين خرجوا أو توفوا للبحث عن تاريخهم السابق.
+            يحفظ النظام التشخيص النهائي لكل مريض عند الخروج ويظهره
+            تلقائياً عند عودة المريض.
+          </p>
+          <button class="btn-discharged" id="admin-discharged-btn" type="button">
+            <span aria-hidden="true">👤</span> عرض المرضى السابقين (خروج / وفيات)
+          </button>
+        </div>
+
         <!-- ===== User Management (admin only) ===== -->
         <div class="admin-users-section" id="admin-users-section">
           <h4>إدارة المستخدمين</h4>
@@ -865,7 +883,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker
-          .register('sw.js?v=10', { scope: './' })
+          .register('sw.js?v=11', { scope: './' })
           .then(function (reg) { console.log('[SW] registered', reg.scope); })
           .catch(function (err) { console.warn('[SW] registration failed', err); });
       });

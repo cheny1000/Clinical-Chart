@@ -3136,6 +3136,52 @@ html[data-theme="dark"] .abx-row:nth-child(odd) { background: rgba(255,255,255,0
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+/* Discharged/dead patients section in admin view */
+.admin-discharged-section {
+  margin-top: 18px;
+  background: var(--primary-soft);
+  border: 1.5px solid var(--primary);
+  border-radius: var(--r-lg);
+  padding: 14px;
+}
+.admin-discharged-section h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.admin-discharged-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.btn-discharged {
+  width: 100%;
+  padding: 12px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-md);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 160ms ease, transform 120ms ease;
+}
+.btn-discharged:hover { background: var(--primary-dark, #143d38); }
+.btn-discharged:active { transform: scale(0.99); }
+html[data-theme="dark"] .admin-discharged-section {
+  background: rgba(27, 68, 63, 0.18);
+  border-color: var(--primary);
+}
 .admin-danger-zone button {
   width: 100%;
   padding: 12px;
