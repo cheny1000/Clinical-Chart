@@ -324,6 +324,14 @@
     if (displayBtn) displayBtn.hidden = !isAdmin;
     const logoutBtn = $("logout-btn");
     if (logoutBtn) logoutBtn.hidden = !isAdmin;
+
+    // Seniors tab: doctors + admins only (hidden for pharmacists).
+    // The tab button is initially display:none in HTML, so we need
+    // to explicitly clear that for authorized roles.
+    const seniorsTab = document.querySelector('.nav-item[data-nav="seniors"]');
+    if (seniorsTab) {
+      seniorsTab.style.display = (isAdmin || isDoctor) ? "" : "none";
+    }
   }
 
   // Bind login form + quick buttons + logout
