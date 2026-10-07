@@ -30,7 +30,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon-180.png?v=20261008" />
   <link rel="apple-touch-icon" sizes="192x192" href="img/icon-192.png?v=20261008" />
   <link rel="apple-touch-icon" sizes="512x512" href="img/icon-512.png?v=20261008" />
-  <link rel="stylesheet" href="css/styles.css?v=20261008h" />
+  <link rel="stylesheet" href="css/styles.css?v=20261008i" />
   <style>
     /* Pre-paint auth gate: hide the wrong screen before JS loads to
        prevent a flash of unauthenticated content (1-2s where the
@@ -41,19 +41,90 @@
     /* While we're still deciding (no class set yet — extremely rare
        race), hide the app to be safe. */
     html:not(.is-authed):not(.is-unauthed) #app { display: none !important; }
+
+    /* ----- Pre-paint role-visibility gate (anti-FOUC) -----
+       The header buttons that are role-specific (chart, summary,
+       pills-form, all-sheets, darkmode, display, logout) are visible
+       by default in the HTML. The JS applyRoleVisibility() then hides
+       the inappropriate ones — but only AFTER JS loads, which means
+       the user sees a brief flash of ALL buttons before the wrong
+       ones disappear (1-2 frames of 'admin buttons' for doctors/
+       pharmacists).
+
+       Fix: hide ALL role-specific buttons by default with CSS, then
+       show them when the appropriate role class is on <html>. The
+       pre-paint script in <head> adds role-admin / role-doctor /
+       role-pharmacist synchronously, so the right buttons are
+       visible from the very first frame — no flash.
+
+       Note: applyRoleVisibility() (JS) still runs as a fallback +
+       to handle live role changes (e.g. login). The CSS rules use
+       !important to win over the .hidden attribute's display:none
+       and over the inline styles on some buttons. */
+    #print-chart-btn,
+    #print-all-sheets-btn,
+    #med-summary-btn,
+    #print-pills-form-btn,
+    #darkmode-toggle,
+    #display-mode-btn,
+    #logout-btn {
+      display: none !important;
+    }
+    /* Admin sees everything */
+    html.role-admin #print-chart-btn,
+    html.role-admin #print-all-sheets-btn,
+    html.role-admin #med-summary-btn,
+    html.role-admin #print-pills-form-btn,
+    html.role-admin #darkmode-toggle,
+    html.role-admin #display-mode-btn,
+    html.role-admin #logout-btn {
+      display: inline-flex !important;
+    }
+    /* Doctor sees only the print-all-sheets button (for printing
+       all patient sheets). The chart / summary / pills-form are
+       pharmacist-only, and darkmode / display / logout are admin-only
+       (doctors access them via the settings view). */
+    html.role-doctor #print-all-sheets-btn {
+      display: inline-flex !important;
+    }
+    /* Pharmacist sees the chart / summary / pills-form buttons.
+       The print-all-sheets is admin+doctor only. Darkmode / display
+       / logout are admin-only (pharmacists access them via settings). */
+    html.role-pharmacist #print-chart-btn,
+    html.role-pharmacist #med-summary-btn,
+    html.role-pharmacist #print-pills-form-btn {
+      display: inline-flex !important;
+    }
   </style>
   <script>
     // Synchronous pre-paint auth check.
     // Must run in <head> before any visible content is painted so the
     // correct screen is visible from the very first frame.
+    //
+    // Also adds a role class (role-admin / role-doctor / role-pharmacist)
+    // to <html> so the role-visibility CSS gate above can show the
+    // correct header buttons from the very first frame — preventing
+    // the brief 'admin buttons flash' that doctors + pharmacists were
+    // seeing before applyRoleVisibility() JS ran.
     try {
       var raw = localStorage.getItem('pharma.session.v1');
       var isAuthed = false;
+      var role = "";
       if (raw) {
         var s = JSON.parse(raw);
-        isAuthed = !!(s && s.username && s.role);
+        if (s && s.username && s.role) {
+          isAuthed = true;
+          role = String(s.role).toLowerCase();
+        }
       }
-      document.documentElement.classList.add(isAuthed ? 'is-authed' : 'is-unauthed');
+      var root = document.documentElement;
+      root.classList.add(isAuthed ? 'is-authed' : 'is-unauthed');
+      if (isAuthed && role) {
+        // Sanitize: only allow known role values to avoid CSS injection
+        if (role === 'admin' || role === 'doctor' || role === 'pharmacist') {
+          root.classList.add('role-' + role);
+        }
+      }
     } catch (e) {
       document.documentElement.classList.add('is-unauthed');
     }
@@ -883,7 +954,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker
-          .register('sw.js?v=12', { scope: './' })
+          .register('sw.js?v=13', { scope: './' })
           .then(function (reg) { console.log('[SW] registered', reg.scope); })
           .catch(function (err) { console.warn('[SW] registration failed', err); });
       });

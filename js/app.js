@@ -290,6 +290,21 @@
     const isAdmin = Auth.isAdmin();
     const isDoctor = Auth.isDoctor && Auth.isDoctor();
 
+    // Update the role class on <html> so the pre-paint CSS gate
+    // shows the correct header buttons. The pre-paint script in
+    // <head> sets this class synchronously on page load, but we
+    // re-apply it here so live role changes (login / logout /
+    // switching user) also update the buttons.
+    const root = document.documentElement;
+    root.classList.remove('role-admin', 'role-doctor', 'role-pharmacist');
+    if (isAdmin) {
+      root.classList.add('role-admin');
+    } else if (isDoctor) {
+      root.classList.add('role-doctor');
+    } else {
+      root.classList.add('role-pharmacist');
+    }
+
     // Gear button (settings/admin): always visible for ALL roles.
     // For admin → opens full admin view (med catalog + users + audit).
     // For pharmacist/doctor → opens simple settings view (dark mode +
@@ -300,6 +315,10 @@
     // Chart + summary + pills-form + Excel buttons: pharmacist & admin only.
     // Hidden for doctors (doctors don't do chart printing or supply
     // distribution — that's the pharmacist's job).
+    // NOTE: The CSS pre-paint gate handles the visual display via the
+    // role class. We still set the `hidden` attribute here for
+    // accessibility (screen readers honor `hidden`) and to ensure
+    // the buttons aren't clickable when they shouldn't be.
     const isChartRole = isAdmin || !isDoctor;
     const chartBtn = $("print-chart-btn");
     if (chartBtn) chartBtn.hidden = !isChartRole;
