@@ -1144,6 +1144,85 @@ html[data-theme="dark"] .lab-input { background: var(--bg-card); }
 }
 .abx-save-btn:active { background: #006400; }
 
+/* ---------- Notifications ---------- */
+.notif-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #DC2626;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 4px;
+  box-shadow: 0 0 0 2px #fff;
+}
+.notif-badge[hidden] { display: none !important; }
+.notif-actions {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+.notif-mark-all, .notif-clear {
+  padding: 8px 14px;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 700;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.notif-mark-all { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+.notif-clear { background: #FEF2F2; color: #DC2626; border-color: #FECACA; }
+.notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.notif-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+}
+.notif-row.notif-unread {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.notif-icon { font-size: 20px; flex-shrink: 0; }
+.notif-content { flex: 1; min-width: 0; }
+.notif-message { font-size: 13px; font-weight: 700; color: var(--text); }
+.notif-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.notif-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #DC2626;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+
+  width: 100%;
+  margin-top: 16px;
+  background: #080;
+  color: #fff;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 136, 0, 0.30);
+}
+.abx-save-btn:active { background: #006400; }
+
 /* Saved ABX snapshots list */
 .abx-saved-btn {
   width: 100%;

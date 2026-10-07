@@ -19,7 +19,8 @@
     CATALOG_SEED_VERSION: "pharma.catalog.seed.v1",               // last DEFAULT_MEDICATIONS version merged in
     DISCHARGED:  "pharma.discharged.v1",   // array: discharged patient records
     DEAD:        "pharma.dead.v1",          // array: dead patient records
-    ABX_SNAPSHOTS: "pharma.abx-snapshots.v1" // array: monthly ABX snapshots
+    ABX_SNAPSHOTS: "pharma.abx-snapshots.v1", // array: monthly ABX snapshots
+    NOTIFICATIONS: "pharma.notifications.v1"   // array: pharmacist notifications
   };
 
   function safeParse(raw, fallback) {
@@ -590,6 +591,41 @@
     }
   }
 
+  // ---- Notifications (for pharmacist) ----
+  // Each notification: { type, message, patientName, room, date, read, byUser }
+  function loadNotifications() {
+    return safeParse(localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS), []);
+  }
+  function saveNotifications(arr) {
+    try { localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(arr || [])); }
+    catch (e) { /* ignore quota */ }
+  }
+  function addNotification(record) {
+    const arr = loadNotifications();
+    arr.unshift(record);  // newest first
+    // Keep max 100 notifications to avoid localStorage bloat
+    if (arr.length > 100) arr.length = 100;
+    saveNotifications(arr);
+  }
+  function markNotificationRead(index) {
+    const arr = loadNotifications();
+    if (index >= 0 && index < arr.length) {
+      arr[index].read = true;
+      saveNotifications(arr);
+    }
+  }
+  function markAllNotificationsRead() {
+    const arr = loadNotifications();
+    arr.forEach(n => n.read = true);
+    saveNotifications(arr);
+  }
+  function clearNotifications() {
+    saveNotifications([]);
+  }
+  function getUnreadCount() {
+    return loadNotifications().filter(n => !n.read).length;
+  }
+
   global.PharmacyStorage = {
     // patients
     loadPatients,
@@ -619,6 +655,9 @@
     loadDischarged, addDischarged, saveDischarged,
     loadDead, addDead, saveDead,
     // ABX snapshots
-    loadAbxSnapshots, addAbxSnapshot, deleteAbxSnapshot
+    loadAbxSnapshots, addAbxSnapshot, deleteAbxSnapshot,
+    // notifications
+    loadNotifications, addNotification, markNotificationRead,
+    markAllNotificationsRead, clearNotifications, getUnreadCount
   };
 })(window);

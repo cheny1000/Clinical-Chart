@@ -398,6 +398,7 @@
     UI.showView("home");
     pullCatalogOnBoot();
     initRealtime();
+    updateNotifBadge();
     const user = Auth.getCurrentUser();
     // Personalized welcome: "أهلاً دكتور [name]" or "أهلاً دكتورة [name]"
     // depending on the user's gender (stored in the session).
@@ -1225,8 +1226,6 @@
         Storage.deletePatient(bedKey);
         Storage.saveLocalDeletion(bedKey);
         delete state.patients[bedKey];
-        // Propagate the collapse to the cloud so it doesn't come back
-        // on the next pull (which would otherwise merge it back in).
         if (SBSync && SBSync.pushPatientDelete) {
           SBSync.pushPatientDelete(bedKey).then(r => {
             if (!r.ok) console.warn("[Supabase] auto-collapse delete failed:", r.error);
@@ -1234,6 +1233,13 @@
         }
       } else {
         persistPatient(state.currentBed.key);
+        // Notify pharmacist if a doctor just named/added a new patient
+        if (p && p.name && p.name.trim()) {
+          const roomStr = `غرفة ${state.currentBed.roomId}`;
+          pushNotification("patient_added",
+            `إضافة مريض: ${p.name.trim()} — ${roomStr}`,
+            p.name.trim(), roomStr);
+        }
       }
       refreshStatsAndRooms();
     });
@@ -1282,6 +1288,9 @@
       // we don't need to recompute anything when a med is deleted.
       persistPatient(state.currentBed.key);
       refreshPatientViewOnly();
+      pushNotification("med_changed",
+        `حذف دواء "${removedName}" من ${p.name || "(بدون اسم)"} — غرفة ${state.currentBed.roomId}`,
+        p.name || "", `غرفة ${state.currentBed.roomId}`);
     });
     $("meds-list").addEventListener("input", (e) => {
       const t = e.target;
@@ -1385,6 +1394,9 @@
         });
       }
       flashHint("تم تسجيل خروج المريض — بياناته محفوظة في قائمة «خرجوا»");
+      pushNotification("patient_discharged",
+        `خروج المريض: ${p.name.trim()} — غرفة ${state.currentBed.roomId}`,
+        p.name.trim(), `غرفة ${state.currentBed.roomId}`);
     });
 
     // ----- Died patient (وفاة) -----
@@ -1424,6 +1436,9 @@
         });
       }
       flashHint("تم تسجيل الوفاة — بيانات المريض محفوظة في قائمة «وفيات»");
+      pushNotification("patient_died",
+        `وفاة المريض: ${p.name.trim()} — غرفة ${state.currentBed.roomId}`,
+        p.name.trim(), `غرفة ${state.currentBed.roomId}`);
     });
 
     // ----- Discharged list button (in header) -----
@@ -1523,6 +1538,28 @@
     // View saved ABX snapshots
     $("abx-saved-btn").addEventListener("click", () => {
       renderAbxSnapshots();
+    });
+
+    // ----- Notifications -----
+    $("notifications-btn").addEventListener("click", () => {
+      renderNotifications();
+      UI.showView("notifications");
+    });
+    $("notifications-back-btn").addEventListener("click", () => {
+      UI.showView("home");
+    });
+    $("notif-mark-all-btn").addEventListener("click", () => {
+      Storage.markAllNotificationsRead();
+      renderNotifications();
+      updateNotifBadge();
+      flashHint("تم تعليم الكل كمقروء");
+    });
+    $("notif-clear-btn").addEventListener("click", () => {
+      if (!confirm("مسح كل الإشعارات؟")) return;
+      Storage.clearNotifications();
+      renderNotifications();
+      updateNotifBadge();
+      flashHint("تم مسح الإشعارات");
     });
 
     // ----- Bottom navigation -----
@@ -1667,6 +1704,11 @@
       persistPatient(state.currentBed.key);
       closeSheet();
       flashHint("تمت إضافة " + userAddedCount + " علاج");
+      // Notify pharmacist of new prescription by doctor
+      const medNames = state.sheet.selectedList.map(s => s.nameTrade || s.nameAr || s.id).join("، ");
+      pushNotification("med_changed",
+        `إضافة ${userAddedCount} دواء (${medNames}) لـ ${p.name || "(بدون اسم)"} — غرفة ${state.currentBed.roomId}`,
+        p.name || "", `غرفة ${state.currentBed.roomId}`);
       // Check for drug interactions after adding the new meds
       const alerts = checkDrugInteractions(p.medications);
       if (alerts.length > 0) showInteractionAlerts(alerts);
@@ -3319,6 +3361,83 @@
     $("sheet-selected").hidden = count === 0;
     $("sheet-add").disabled = count === 0;
     UI.renderSelectedList(state.sheet.selectedList);
+  }
+
+  // -------- Notification system --------
+  // Creates a notification record and stores it. Called by:
+  //   - name input blur (new patient)
+  //   - med add/delete (prescription change)
+  //   - discharge button
+  //   - died button
+  // Only triggers if the current user is a doctor (pharmacists don't
+  // generate notifications for themselves).
+  function pushNotification(type, message, patientName, room) {
+    const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+    const isDoctor = Auth && Auth.isDoctor && Auth.isDoctor();
+    // Only doctors generate notifications (pharmacists + admins don't)
+    if (!isDoctor) return;
+    const record = {
+      type: type,             // 'patient_added' | 'med_changed' | 'patient_discharged' | 'patient_died'
+      message: message,
+      patientName: patientName || "",
+      room: room || "",
+      date: new Date().toISOString(),
+      read: false,
+      byUser: user ? user.username : "—"
+    };
+    Storage.addNotification(record);
+    updateNotifBadge();
+  }
+
+  function updateNotifBadge() {
+    const badge = $("notif-badge");
+    if (!badge) return;
+    const count = Storage.getUnreadCount();
+    if (count > 0) {
+      badge.textContent = count > 99 ? "99+" : String(count);
+      badge.hidden = false;
+    } else {
+      badge.hidden = true;
+    }
+  }
+
+  function renderNotifications() {
+    const list = $("notif-list");
+    if (!list) return;
+    list.innerHTML = "";
+    const notifications = Storage.loadNotifications();
+    if (notifications.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">🔔</div><p>لا توجد إشعارات</p></div>`;
+      return;
+    }
+    const typeIcons = {
+      patient_added: "➕",
+      med_changed: "💊",
+      patient_discharged: "🚪",
+      patient_died: "⚠️"
+    };
+    notifications.forEach((n, i) => {
+      const icon = typeIcons[n.type] || "🔔";
+      const dateStr = new Date(n.date).toLocaleString("ar", {
+        dateStyle: "short", timeStyle: "short"
+      });
+      const row = document.createElement("div");
+      row.className = "notif-row" + (n.read ? "" : " notif-unread");
+      row.innerHTML = `
+        <div class="notif-icon">${icon}</div>
+        <div class="notif-content">
+          <div class="notif-message">${escapeHtml(n.message)}</div>
+          <div class="notif-meta">${dateStr} · بواسطة ${escapeHtml(n.byUser)}</div>
+        </div>
+        ${!n.read ? '<div class="notif-dot"></div>' : ''}
+      `;
+      row.addEventListener("click", () => {
+        Storage.markNotificationRead(i);
+        renderNotifications();
+        updateNotifBadge();
+      });
+      list.appendChild(row);
+    });
   }
 
   // -------- Open a patient --------
