@@ -1554,13 +1554,6 @@
       updateNotifBadge();
       flashHint("تم تعليم الكل كمقروء");
     });
-    $("notif-clear-btn").addEventListener("click", () => {
-      if (!confirm("مسح كل الإشعارات؟")) return;
-      Storage.clearNotifications();
-      renderNotifications();
-      updateNotifBadge();
-      flashHint("تم مسح الإشعارات");
-    });
 
     // ----- Bottom navigation -----
     $("bottom-nav").addEventListener("click", (e) => {
