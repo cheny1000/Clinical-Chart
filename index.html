@@ -22,14 +22,14 @@
     rel="stylesheet"
   />
   <!-- PWA manifest + icons -->
-  <link rel="manifest" href="manifest.json?v=4" />
-  <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png?v=20261008" />
-  <link rel="icon" type="image/png" sizes="192x192" href="img/icon-192.png?v=20261008" />
-  <link rel="icon" type="image/png" sizes="512x512" href="img/icon-512.png?v=20261008" />
-  <link rel="apple-touch-icon" href="img/apple-touch-icon-180.png?v=20261008" />
-  <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon-180.png?v=20261008" />
-  <link rel="apple-touch-icon" sizes="192x192" href="img/icon-192.png?v=20261008" />
-  <link rel="apple-touch-icon" sizes="512x512" href="img/icon-512.png?v=20261008" />
+  <link rel="manifest" href="manifest.json?v=5" />
+  <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png?v=20261008b" />
+  <link rel="icon" type="image/png" sizes="192x192" href="img/icon-192.png?v=20261008b" />
+  <link rel="icon" type="image/png" sizes="512x512" href="img/icon-512.png?v=20261008b" />
+  <link rel="apple-touch-icon" href="img/apple-touch-icon-180.png?v=20261008b" />
+  <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon-180.png?v=20261008b" />
+  <link rel="apple-touch-icon" sizes="192x192" href="img/icon-192.png?v=20261008b" />
+  <link rel="apple-touch-icon" sizes="512x512" href="img/icon-512.png?v=20261008b" />
   <link rel="stylesheet" href="css/styles.css?v=20261008k" />
   <style>
     /* Pre-paint auth gate: hide the wrong screen before JS loads to
@@ -140,7 +140,7 @@
   <div id="login-screen" class="login-screen" hidden>
     <div class="login-card">
       <div class="login-brand">
-        <img src="img/login-icon.png?v=20261008" alt="الوحدة الباطنية الخامسة" class="login-brand-icon" />
+        <img src="img/login-icon.png?v=20261008b" alt="الوحدة الباطنية الخامسة" class="login-brand-icon" />
         <h1>الوحدة الباطنية الخامسة</h1>
         <p>الطابق الثامن</p>
       </div>
@@ -179,7 +179,7 @@
     <!-- ===== Top Header / Dashboard ===== -->
     <header class="app-header">
       <div class="brand">
-        <img src="img/login-icon.png?v=20261008" alt="الوحدة الباطنية الخامسة" class="brand-icon" />
+        <img src="img/login-icon.png?v=20261008b" alt="الوحدة الباطنية الخامسة" class="brand-icon" />
         <div class="brand-text">
           <h1>الوحدة الباطنية الخامسة</h1>
           <p>الطابق الثامن</p>
@@ -936,7 +936,7 @@
   <div class="display-mode" id="display-mode" hidden>
     <div class="display-mode-head">
       <div class="display-mode-title">
-        <img src="img/login-icon.png?v=20261008" alt="" class="display-mode-icon" />
+        <img src="img/login-icon.png?v=20261008b" alt="" class="display-mode-icon" />
         <div>
           <h2>الوحدة الباطنية الخامسة — الطابق الثامن</h2>
           <p id="display-mode-time">—</p>
@@ -972,7 +972,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker
-          .register('sw.js?v=17', { scope: './' })
+          .register('sw.js?v=18', { scope: './' })
           .then(function (reg) { console.log('[SW] registered', reg.scope); })
           .catch(function (err) { console.warn('[SW] registration failed', err); });
       });
