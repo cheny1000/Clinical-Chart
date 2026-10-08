@@ -3878,12 +3878,27 @@
       });
     }
     const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+    const reviewedAt = new Date().toISOString();
     Storage.updateMedRequest(id, {
       status: "approved",
       reviewedBy: user ? user.username : "—",
-      reviewedAt: new Date().toISOString(),
+      reviewedAt: reviewedAt,
       approvedMedId: medId
     });
+    // Also update Supabase so the status syncs to other devices
+    if (SB && SB.isConfigured && SB.isConfigured()) {
+      const client = SB.getClient();
+      if (client) {
+        client.from("med_requests").update({
+          status: "approved",
+          reviewed_by: user ? user.username : "—",
+          reviewed_at: reviewedAt,
+          approved_med_id: medId
+        }).eq("id", id).then(({ error }) => {
+          if (error) console.warn("[Supabase] med request update failed:", error.message);
+        });
+      }
+    }
     UI.renderAdminMedList(meds, null);
     renderMedRequests();
     flashHint(`تمت إضافة "${req.nameTrade}" إلى كتالوج الأدوية`);
@@ -3893,11 +3908,25 @@
     const req = requests.find(r => r.id === id);
     if (!req) return;
     const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+    const reviewedAt = new Date().toISOString();
     Storage.updateMedRequest(id, {
       status: "rejected",
       reviewedBy: user ? user.username : "—",
-      reviewedAt: new Date().toISOString()
+      reviewedAt: reviewedAt
     });
+    // Also update Supabase so the status syncs to other devices
+    if (SB && SB.isConfigured && SB.isConfigured()) {
+      const client = SB.getClient();
+      if (client) {
+        client.from("med_requests").update({
+          status: "rejected",
+          reviewed_by: user ? user.username : "—",
+          reviewed_at: reviewedAt
+        }).eq("id", id).then(({ error }) => {
+          if (error) console.warn("[Supabase] med request update failed:", error.message);
+        });
+      }
+    }
     renderMedRequests();
     flashHint(`تم رفض طلب "${req.nameTrade}"`);
   }
