@@ -434,6 +434,13 @@
           <button class="discharged-tab" data-tab="dead" type="button">
             وفيات (<span id="dead-count">0</span>)
           </button>
+          <!-- Admin-only: clear all records in the active tab.
+               The button is hidden for non-admins via JS in
+               renderDischargedView(). -->
+          <button class="discharged-clear-all" id="discharged-clear-all-btn" type="button" hidden
+                  style="margin-right:auto;padding:6px 14px;background:#FEF2F2;color:#DC2626;border:1.5px solid #FECACA;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;">
+            🗑 مسح كل القائمة
+          </button>
         </div>
 
         <div class="discharged-list" id="discharged-list">
@@ -491,6 +498,12 @@
         </div>
         <div class="notif-actions">
           <button class="notif-mark-all" id="notif-mark-all-btn" type="button">تعليم الكل كمقروء</button>
+          <!-- Admin-only: clear ALL notifications. Hidden for
+               non-admins via JS in renderNotifications(). -->
+          <button class="notif-mark-all" id="notif-clear-all-btn" type="button" hidden
+                  style="background:#FEF2F2;color:#DC2626;border:1.5px solid #FECACA;">
+            🗑 حذف كل الإشعارات
+          </button>
         </div>
         <div class="notif-list" id="notif-list"></div>
       </section>
@@ -1052,7 +1065,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker
-          .register('sw.js?v=23', { scope: './' })
+          .register('sw.js?v=24', { scope: './' })
           .then(function (reg) { console.log('[SW] registered', reg.scope); })
           .catch(function (err) { console.warn('[SW] registration failed', err); });
       });

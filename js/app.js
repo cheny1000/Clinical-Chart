@@ -1987,8 +1987,24 @@
       tab.addEventListener("click", () => {
         document.querySelectorAll(".discharged-tab").forEach(t => t.classList.remove("active"));
         tab.classList.add("active");
-        renderDischargedList(tab.dataset.tab);
+        _dischargedTab = tab.dataset.tab;
+        renderDischargedView();
       });
+    });
+
+    // Admin-only: clear ALL records in the active tab
+    $("discharged-clear-all-btn").addEventListener("click", () => {
+      const msg = _dischargedTab === "dead"
+        ? "هل تريد حذف جميع سجلات الوفيات؟ لا يمكن التراجع."
+        : "هل تريد حذف جميع سجلات المرضى الخارجين؟ لا يمكن التراجع.";
+      if (!confirm(msg)) return;
+      if (_dischargedTab === "dead") {
+        Storage.clearDead();
+      } else {
+        Storage.clearDischarged();
+      }
+      renderDischargedView();
+      flashHint("تم مسح القائمة بالكامل");
     });
 
     // ----- ABX back button (abx-monitor-btn now in settings) -----
@@ -2079,6 +2095,14 @@
       renderNotifications();
       updateNotifBadge();
       flashHint("تم تعليم الكل كمقروء");
+    });
+    // Admin-only: clear ALL notifications
+    $("notif-clear-all-btn").addEventListener("click", () => {
+      if (!confirm("هل تريد حذف جميع الإشعارات؟")) return;
+      Storage.clearNotifications();
+      renderNotifications();
+      updateNotifBadge();
+      flashHint("تم حذف جميع الإشعارات");
     });
 
     // ----- Bottom navigation -----
@@ -4391,13 +4415,13 @@
     const notifications = Storage.loadNotifications();
     if (notifications.length === 0) {
       list.innerHTML = `<div class="empty-state"><div class="empty-icon">🔔</div><p>لا توجد إشعارات</p></div>`;
-      return;
     }
     const typeIcons = {
       patient_added: "➕",
       med_changed: "💊",
       patient_discharged: "🚪",
-      patient_died: "⚠️"
+      patient_died: "⚠️",
+      med_request: "💊"
     };
     notifications.forEach((n, i) => {
       const icon = typeIcons[n.type] || "🔔";
@@ -4421,6 +4445,12 @@
       });
       list.appendChild(row);
     });
+    // Show/hide the "clear all" button — admin only
+    const clearBtn = $("notif-clear-all-btn");
+    if (clearBtn) {
+      const isAdmin = Auth && Auth.isAdmin();
+      clearBtn.hidden = !(isAdmin && notifications.length > 0);
+    }
   }
 
   // -------- Open a patient --------
@@ -4438,6 +4468,13 @@
     document.querySelectorAll(".discharged-tab").forEach(t => {
       t.classList.toggle("active", t.dataset.tab === _dischargedTab);
     });
+    // Show/hide the "clear all" button — admin only
+    const clearBtn = $("discharged-clear-all-btn");
+    if (clearBtn) {
+      const isAdmin = Auth && Auth.isAdmin();
+      const count = _dischargedTab === "dead" ? dead.length : discharged.length;
+      clearBtn.hidden = !(isAdmin && count > 0);
+    }
     renderDischargedList(_dischargedTab);
   }
 
@@ -4456,7 +4493,9 @@
       return;
     }
 
-    records.forEach(r => {
+    const isAdmin = Auth && Auth.isAdmin();
+
+    records.forEach((r, i) => {
       const date = r.dischargedAt || r.diedAt || "";
       const dateStr = date
         ? new Date(date).toLocaleDateString("ar", { year: "numeric", month: "short", day: "numeric" })
@@ -4485,9 +4524,29 @@
         </div>
         ${finalDx ? `<div class="discharged-row-final-dx"><span class="dx-label">التشخيص النهائي:</span> <span class="dx-value">${escapeHtml(finalDx)}</span></div>` : ""}
         ${(!finalDx && admissionDx) ? `<div class="discharged-row-dx"><span class="dx-label">التشخيص:</span> <span class="dx-value">${escapeHtml(admissionDx)}</span></div>` : ""}
+        ${isAdmin ? `<div style="margin-top:6px;text-left:left;">
+          <button type="button" data-del-idx="${i}" style="padding:4px 10px;background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">🗑 حذف هذا السجل</button>
+        </div>` : ""}
       `;
       list.appendChild(row);
     });
+    // Bind per-record delete buttons (admin only)
+    if (isAdmin) {
+      list.querySelectorAll("button[data-del-idx]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.dataset.delIdx, 10);
+          if (isNaN(idx)) return;
+          if (!confirm("هل تريد حذف هذا السجل؟")) return;
+          if (_dischargedTab === "dead") {
+            Storage.deleteDead(idx);
+          } else {
+            Storage.deleteDischarged(idx);
+          }
+          renderDischargedView();
+          flashHint("تم حذف السجل");
+        });
+      });
+    }
   }
 
   // -------- Antibiotic + Albumin monitoring --------

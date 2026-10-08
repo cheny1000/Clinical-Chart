@@ -568,6 +568,25 @@
     arr.unshift(record);
     saveDead(arr);
   }
+  // Delete individual discharged / dead records by index.
+  // Used by the admin's delete-per-record buttons.
+  function deleteDischarged(index) {
+    const arr = loadDischarged();
+    if (index >= 0 && index < arr.length) {
+      arr.splice(index, 1);
+      saveDischarged(arr);
+    }
+  }
+  function deleteDead(index) {
+    const arr = loadDead();
+    if (index >= 0 && index < arr.length) {
+      arr.splice(index, 1);
+      saveDead(arr);
+    }
+  }
+  // Clear ALL discharged / dead records (admin "clear all" button).
+  function clearDischarged() { saveDischarged([]); }
+  function clearDead() { saveDead([]); }
 
   // ---- ABX monthly snapshots ----
   // Each snapshot captures: month label, date, antibiotics table data,
@@ -682,7 +701,9 @@
     loadAll,
     // discharged / dead
     loadDischarged, addDischarged, saveDischarged,
+    deleteDischarged, clearDischarged,
     loadDead, addDead, saveDead,
+    deleteDead, clearDead,
     // ABX snapshots
     loadAbxSnapshots, addAbxSnapshot, deleteAbxSnapshot,
     // notifications
