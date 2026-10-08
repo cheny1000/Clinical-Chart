@@ -164,6 +164,65 @@
     }
   }
 
+  // -------- Pull med requests from Supabase --------
+  // Called on boot (onLoginSuccess) + on openAdminView + every 30s
+  // via pollOnce. Pulls all med_requests from Supabase, saves them
+  // locally, and pushes a notification for any NEW pending requests
+  // that the admin hasn't seen yet.
+  async function pullMedRequestsFromCloud() {
+    if (!SB || !SB.isConfigured || !SB.isConfigured()) return;
+    const client = SB.getClient();
+    if (!client) return;
+    try {
+      const { data, error } = await client
+        .from("med_requests")
+        .select("*")
+        .order("requested_at", { ascending: false });
+      if (error || !Array.isArray(data)) return;
+      // Convert Supabase rows → local format
+      const localRequests = data.map(r => ({
+        id: r.id, nameTrade: r.name_trade || "", nameEn: r.name_en || "",
+        nameAr: r.name_ar || "", dose: r.dose || "", form: r.form || "tablet",
+        frequency: r.frequency || "1×1", notes: r.notes || "",
+        requestedBy: r.requested_by || "", requestedAt: r.requested_at || "",
+        status: r.status || "pending", reviewedBy: r.reviewed_by || "",
+        reviewedAt: r.reviewed_at || "", approvedMedId: r.approved_med_id || ""
+      }));
+      // Detect NEW pending requests that we didn't have locally
+      const oldRequests = Storage.loadMedRequests();
+      const oldIds = new Set(oldRequests.map(r => r.id));
+      const newPending = localRequests.filter(r =>
+        r.status === "pending" && !oldIds.has(r.id)
+      );
+      // Save to localStorage
+      Storage.saveMedRequests(localRequests);
+      // For each NEW pending request, push a notification + play sound
+      // (so the admin actually hears/sees the alert)
+      const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+      newPending.forEach(r => {
+        // Don't notify about our own requests
+        if (r.requestedBy !== (user ? user.username : "")) {
+          pushNotification("med_request",
+            `طلب دواء جديد: ${r.nameTrade} — من ${r.requestedBy}`,
+            r.nameTrade, "");
+        }
+      });
+      // Re-render admin list if open
+      const adminView = document.getElementById("view-admin");
+      if (adminView && !adminView.hidden) {
+        renderMedRequests();
+      }
+      // Update settings badge
+      if (Auth && Auth.isAdmin && Auth.isAdmin()) {
+        const pendingCount = Storage.getPendingMedRequestsCount();
+        const valEl = $("settings-med-request-value");
+        if (valEl) valEl.textContent = pendingCount > 0 ? `${pendingCount} طلب` : "";
+      }
+    } catch (e) {
+      console.warn("[Pull] med requests failed:", e);
+    }
+  }
+
   function hydrate() {
     const data = Storage.loadAll();
     state.patients    = data.patients || {};
@@ -528,6 +587,9 @@
     UI.showView("home");
     pullCatalogOnBoot();
     initRealtime();
+    // Also pull med requests immediately on login (so the admin sees
+    // pending requests without waiting 30s for the first poll)
+    pullMedRequestsFromCloud();
     updateNotifBadge();
     const user = Auth.getCurrentUser();
     // Personalized welcome: "أهلاً دكتور [name]" or "أهلاً دكتورة [name]"
@@ -3922,8 +3984,9 @@
       // Auto-load users list + audit log on view open
       refreshUsersList();
       refreshAuditLog();
-      // Render med requests (doctor → admin approval workflow)
-      renderMedRequests();
+      // Pull latest med requests from Supabase (so the admin sees
+      // new requests from doctors immediately when opening admin view)
+      pullMedRequestsFromCloud();
     }
     UI.showView("admin");
   }
@@ -4497,10 +4560,14 @@
   function pushNotification(type, message, patientName, room) {
     const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
     const isDoctor = Auth && Auth.isDoctor && Auth.isDoctor();
-    // Only doctors generate notifications (pharmacists + admins don't)
-    if (!isDoctor) return;
+    const isAdmin = Auth && Auth.isAdmin && Auth.isAdmin();
+    // Doctors generate patient notifications (med changes, discharge, etc.)
+    // Admins receive med_request notifications (from doctors requesting new meds)
+    // Pharmacists don't generate notifications for themselves
+    if (!isDoctor && type !== "med_request") return;
+    if (!isDoctor && !isAdmin && type === "med_request") return;
     const record = {
-      type: type,             // 'patient_added' | 'med_changed' | 'patient_discharged' | 'patient_died'
+      type: type,
       message: message,
       patientName: patientName || "",
       room: room || "",
@@ -4511,12 +4578,7 @@
     Storage.addNotification(record);
     updateNotifBadge();
     // Play the notification sound ONLY when a new patient is added
-    // (type === 'patient_added'). Other notification types (med changes,
-    // discharge, died) are silent — they only update the badge. This
-    // avoids annoying the user with a chime on every med edit while
-    // still alerting them when a new patient is registered (which is
-    // the most important event the pharmacist needs to know about
-    // immediately).
+    // or when a new med request arrives (admin needs to hear it).
     if (type === "patient_added" || type === "med_request") {
       playNotificationSound(type);
     }
