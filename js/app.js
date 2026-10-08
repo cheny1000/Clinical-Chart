@@ -387,8 +387,9 @@
     const isChartRole = isAdmin || !isDoctor;
     const chartBtn = $("print-chart-btn");
     if (chartBtn) chartBtn.hidden = !isChartRole;
-    const summaryBtn = $("med-summary-btn");
-    if (summaryBtn) summaryBtn.hidden = !isChartRole;
+    // Note: med-summary-btn was removed from the header (its modal
+    // is still opened programmatically by the distribute-send-btn
+    // workflow). No need to set its hidden attribute.
     const pillsBtn = $("print-pills-form-btn");
     if (pillsBtn) pillsBtn.hidden = !isChartRole;
     // Distribute + Send button: pharmacist + admin only (same access
@@ -2500,17 +2501,13 @@
     $("med-summary-close").addEventListener("click", closeMedSummary);
     $("med-summary-overlay").addEventListener("click", closeMedSummary);
 
-    // ----- Med Summary Button (opens the summary modal on demand) -----
-    // The summary also appears automatically after the chart is
-    // generated (with the fresh supply distribution). When opened via
-    // this button, it uses the LAST supply distribution (saved at
-    // chart-generation time) — so the Supplies category reflects
-    // what was distributed in the last chart. If no chart has been
-    // generated yet (no last distribution saved), the modal shows only
-    // the patient-prescribed meds (no supplies).
-    $("med-summary-btn").addEventListener("click", () => {
-      showMedSummaryList(_lastSupplyDistribution);
-    });
+    // Note: The med-summary-btn (red bar-chart icon) was removed from
+    // the header. The med-summary MODAL still exists in the HTML +
+    // is opened programmatically by the distribute-send-btn workflow
+    // (showMedSummaryList is called inside the supply-order submit
+    // handler in distribute+send mode). The close handlers above
+    // remain so the user can close the modal that the distribute-send
+    // workflow opened.
 
     // ----- Display Mode (TV / large screen) -----
     $("display-mode-btn").addEventListener("click", enterDisplayMode);
