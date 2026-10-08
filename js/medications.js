@@ -70,7 +70,7 @@
     { id: "amoxclav",       nameTrade: "Augmentin",           nameAr: "أموكسيسيلين/كلافيولانات", nameEn: "Amoxicillin/Clavulanate", form: "tablet", defaultDose: "1.2 g",     defaultFrequency: "1×3" },
     { id: "insulin",        nameTrade: "Human Insulin",       nameAr: "إنسولين",               nameEn: "Insulin",                  form: "vial",   defaultDose: "حسب الخطة",    defaultFrequency: "حسب القياس" },
     { id: "salbutamol",     nameTrade: "Ventolin",            nameAr: "سالبوتامول",            nameEn: "Salbutamol",               form: "vial",   defaultDose: "2.5 mg",    defaultFrequency: "1×4" },
-    { id: "vancomycin",     nameTrade: "Vancocin",            nameAr: "فانكومايسين",           nameEn: "Vancomycin",               form: "vial",   defaultDose: "حسب البروتوكول", defaultFrequency: "كل يومين" },
+    { id: "vancomycin",     nameTrade: "Vancocin",            nameAr: "فانكومايسين",           nameEn: "Vancomycin",               form: "vial",   defaultDose: "1 g",       defaultFrequency: "1×2" },
     { id: "meropenem",      nameTrade: "Meronem",             nameAr: "ميروبينيم",             nameEn: "Meropenem",                form: "vial",   defaultDose: "1 g",       defaultFrequency: "1×3" },
     // أدوية إضافية (vials)
     { id: "amoxycillin-500",     nameTrade: "Amoxycillin 500mg",    nameAr: "أموكسيسيلين 500 ملغ",  nameEn: "Amoxycillin 500mg",    form: "vial",   defaultDose: "500 mg",   defaultFrequency: "1×2" },
@@ -134,8 +134,13 @@
   //   v1 = added 24 new meds (Amoxycillin, Ceftazidime, etc.) +
   //        NaCl 100ml + 5cc Syringe auto-add rule + 14 supplies
   //   v2 = added non-daily frequencies (كل يومين, كل 3 أيام, كل أسبوع) +
-  //        changed vancomycin default from 'حسب البروتوكول' to 'كل يومين'
-  const DEFAULT_MEDICATIONS_VERSION = 2;
+  //        changed vancomycin default frequency to 'كل يومين' +
+  //        changed vancomycin default dose to 'حسب البروتوكول'
+  //   v3 = changed vancomycin default to dose='1 g' + frequency='1×2'
+  //        (user confirmed: default is daily twice, not every-2-days.
+  //         The non-daily frequencies are available for renal-failure
+  //         patients but Vancomycin's DEFAULT is 1×2 daily.)
+  const DEFAULT_MEDICATIONS_VERSION = 3;
 
   // ---- Non-daily frequency helpers ----
   // Maps a non-daily frequency string to the number of days between
