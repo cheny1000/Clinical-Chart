@@ -85,9 +85,17 @@
 
   /* تحويل التكرار إلى الرقم المكتوب في خانة الجارت
      مثلاً: "2x1" → "2"  /  "1×3" → "1"  /  "3" → "3"
-     نطابق أنماط: NxN (حروف x أو ×) أو رقم مفرد */
+     نطابق أنماط: NxN (حروف x أو ×) أو رقم مفرد
+
+     للتكرارات غير اليومية (كل يومين، كل 3 أيام، كل أسبوع) نعيد
+     النص كما هو حتى يظهر في الجارت بشكل واضح أن هذا الدواء
+     ليس يومياً. */
   function freqToDose(freq) {
     if (!freq) return "1";
+    // Non-daily frequencies → return the interval text as-is
+    const Meds = global.PharmacyMedications || {};
+    const getInterval = Meds.getFrequencyInterval || function() { return 0; };
+    if (getInterval(freq) > 0) return freq;
     const m = String(freq).match(/(\d+)\s*[x×]\s*(\d+)/i);
     if (m) return m[1];
     const n = parseInt(freq, 10);

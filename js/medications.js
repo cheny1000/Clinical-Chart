@@ -10,7 +10,12 @@
   "use strict";
 
   // Frequency shorthand options used across the app
-  const FREQUENCIES = ["1×1", "1×2", "1×3", "1×4"];
+  // Daily frequencies: "1×1" = once/day, "1×2" = twice/day, etc.
+  // Non-daily frequencies: "كل يومين" = every 2 days, "كل 3 أيام" = every 3 days,
+  // "كل أسبوع" = every week. These are for meds like Vancomycin in
+  // renal failure where dosing interval depends on kidney function
+  // and the med is NOT given every day.
+  const FREQUENCIES = ["1×1", "1×2", "1×3", "1×4", "كل يومين", "كل 3 أيام", "كل أسبوع"];
 
   // Form / dosage-form categories. Each medication has a `form` value.
   // Eight forms are supported (ordered as they appear in the UI):
@@ -65,7 +70,7 @@
     { id: "amoxclav",       nameTrade: "Augmentin",           nameAr: "أموكسيسيلين/كلافيولانات", nameEn: "Amoxicillin/Clavulanate", form: "tablet", defaultDose: "1.2 g",     defaultFrequency: "1×3" },
     { id: "insulin",        nameTrade: "Human Insulin",       nameAr: "إنسولين",               nameEn: "Insulin",                  form: "vial",   defaultDose: "حسب الخطة",    defaultFrequency: "حسب القياس" },
     { id: "salbutamol",     nameTrade: "Ventolin",            nameAr: "سالبوتامول",            nameEn: "Salbutamol",               form: "vial",   defaultDose: "2.5 mg",    defaultFrequency: "1×4" },
-    { id: "vancomycin",     nameTrade: "Vancocin",            nameAr: "فانكومايسين",           nameEn: "Vancomycin",               form: "vial",   defaultDose: "حسب البروتوكول", defaultFrequency: "حسب البروتوكول" },
+    { id: "vancomycin",     nameTrade: "Vancocin",            nameAr: "فانكومايسين",           nameEn: "Vancomycin",               form: "vial",   defaultDose: "حسب البروتوكول", defaultFrequency: "كل يومين" },
     { id: "meropenem",      nameTrade: "Meronem",             nameAr: "ميروبينيم",             nameEn: "Meropenem",                form: "vial",   defaultDose: "1 g",       defaultFrequency: "1×3" },
     // أدوية إضافية (vials)
     { id: "amoxycillin-500",     nameTrade: "Amoxycillin 500mg",    nameAr: "أموكسيسيلين 500 ملغ",  nameEn: "Amoxycillin 500mg",    form: "vial",   defaultDose: "500 mg",   defaultFrequency: "1×2" },
@@ -128,7 +133,60 @@
   // History:
   //   v1 = added 24 new meds (Amoxycillin, Ceftazidime, etc.) +
   //        NaCl 100ml + 5cc Syringe auto-add rule + 14 supplies
-  const DEFAULT_MEDICATIONS_VERSION = 1;
+  //   v2 = added non-daily frequencies (كل يومين, كل 3 أيام, كل أسبوع) +
+  //        changed vancomycin default from 'حسب البروتوكول' to 'كل يومين'
+  const DEFAULT_MEDICATIONS_VERSION = 2;
+
+  // ---- Non-daily frequency helpers ----
+  // Maps a non-daily frequency string to the number of days between
+  // doses. Returns 0 for daily frequencies (1×N) and custom text.
+  const NON_DAILY_INTERVALS = {
+    "كل يومين":  2,   // every 2 days
+    "كل 3 أيام": 3,   // every 3 days
+    "كل أسبوع":  7    // every week
+  };
+
+  // Returns the interval (in days) for a frequency string.
+  //   "1×3"       → 0 (daily, 3 times per day)
+  //   "كل يومين"  → 2 (every 2 days)
+  //   "كل أسبوع"  → 7 (every week)
+  //   "حسب القياس" → 0 (custom — treat as daily for chart purposes)
+  function getFrequencyInterval(freq) {
+    if (!freq) return 0;
+    if (NON_DAILY_INTERVALS[freq]) return NON_DAILY_INTERVALS[freq];
+    // "1×N" or plain "N" → daily (interval = 0)
+    if (/×\s*\d+/.test(freq) || /^\d+$/.test(freq)) return 0;
+    return 0; // custom → treat as daily
+  }
+
+  // Returns true if the med is "due today" — i.e. the patient should
+  // receive this medication today based on the dosing interval + the
+  // date the med was first prescribed.
+  //
+  // For daily meds (interval = 0): always due → returns true.
+  // For non-daily meds (interval > 0): calculates the day number
+  // since firstMedDate. If (dayNumber % interval) === 0 → due today.
+  //
+  // Parameters:
+  //   freq        — the frequency string (e.g. "1×3", "كل يومين")
+  //   firstMedDate — ISO date string of when the med was first prescribed
+  //                  (optional — if missing, defaults to "always due")
+  function isMedDueToday(freq, firstMedDate) {
+    const interval = getFrequencyInterval(freq);
+    if (interval === 0) return true;  // daily med → always due
+    if (!firstMedDate) return true;    // no start date → assume due
+    try {
+      const start = new Date(firstMedDate);
+      start.setHours(0, 0, 0, 0);
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const daysSinceStart = Math.floor((now - start) / 86400000);
+      if (daysSinceStart < 0) return false; // med hasn't started yet
+      return (daysSinceStart % interval) === 0;
+    } catch (e) {
+      return true;  // date parse error → assume due
+    }
+  }
 
   global.PharmacyMedications = {
     FREQUENCIES,
@@ -136,6 +194,9 @@
     FORM_ORDER,
     FORM_ICONS,
     DEFAULT_MEDICATIONS,
-    DEFAULT_MEDICATIONS_VERSION
+    DEFAULT_MEDICATIONS_VERSION,
+    NON_DAILY_INTERVALS,
+    getFrequencyInterval,
+    isMedDueToday
   };
 })(window);

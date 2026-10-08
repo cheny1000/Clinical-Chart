@@ -3681,27 +3681,47 @@
     if (meds.length === 0) {
       medsRows = `<div class="ps-empty">No medications</div>`;
     } else {
+      // Get the non-daily frequency helpers
+      const Meds = global.PharmacyMedications || {};
+      const isMedDueToday = Meds.isMedDueToday || function() { return true; };
+      const getFrequencyInterval = Meds.getFrequencyInterval || function() { return 0; };
+      const pFirstMedDate = patient.firstMedDate || "";
+
       medsRows = meds.map((m, i) => {
         // English-first name (user requested English).
         const name = m.nameEn || m.nameTrade || m.nameAr || m.name || m.id || "—";
         const dose = m.dose || "";
-        // Parse the frequency "1×N" or "×N" or "N" → extract N as integer
-        // Then format as "x N" (no × symbol, just "x").
-        let freqStr = "";
         const freq = m.frequency || "";
-        const m1 = freq.match(/×\s*(\d+)/);
-        const m2 = freq.match(/^(\d+)$/);
-        if (m1) freqStr = "x " + m1[1];
-        else if (m2) freqStr = "x " + m2[1];
-        // If freq is non-numeric (e.g. "حسب القياس"), drop it.
-        else if (/^\s*\d+\s*$/.test(freq)) freqStr = "x " + freq.trim();
-        // Build the med line: number + name + dose + freq (all inline)
-        // All using same font/size/color — only the number prefix is bold.
-        // Use non-breaking spaces to keep the parts together.
+
+        // For non-daily frequencies, show the interval text + whether
+        // the med is due today. For daily frequencies, show "x N".
+        let freqStr = "";
+        let dueNote = "";
+        const interval = getFrequencyInterval(freq);
+        if (interval > 0) {
+          // Non-daily med (e.g. "كل يومين", "كل أسبوع")
+          freqStr = freq;  // show the Arabic interval text as-is
+          if (isMedDueToday(freq, pFirstMedDate)) {
+            dueNote = " ✓ مستحق اليوم";
+          } else {
+            dueNote = " (غير مستحق اليوم)";
+          }
+        } else {
+          // Daily med: parse "1×N" or "N" → format as "x N"
+          const m1 = freq.match(/×\s*(\d+)/);
+          const m2 = freq.match(/^(\d+)$/);
+          if (m1) freqStr = "x " + m1[1];
+          else if (m2) freqStr = "x " + m2[1];
+          else if (/^\s*\d+\s*$/.test(freq)) freqStr = "x " + freq.trim();
+          // Non-numeric custom freqs (حسب القياس) → drop
+        }
+
+        // Build the med line: number + name + dose + freq + dueNote
         const parts = [
           escapeHtml(name),
           dose ? escapeHtml(dose) : "",
-          freqStr ? escapeHtml(freqStr) : ""
+          freqStr ? escapeHtml(freqStr) : "",
+          dueNote ? escapeHtml(dueNote) : ""
         ].filter(p => p).join("&nbsp;&nbsp;");
         return `<div class="ps-med-line"><span class="ps-med-num">${i + 1}.</span> <span class="ps-med-name">${parts}</span></div>`;
       }).join("");
@@ -3846,19 +3866,36 @@
       if (meds.length === 0) {
         medsRows = `<div class="ps-empty">No medications</div>`;
       } else {
+        const Meds2 = global.PharmacyMedications || {};
+        const isMedDueToday2 = Meds2.isMedDueToday || function() { return true; };
+        const getFrequencyInterval2 = Meds2.getFrequencyInterval || function() { return 0; };
+        const pFirstMedDate2 = patient.firstMedDate || "";
+
         medsRows = meds.map((m, i) => {
           const name = m.nameEn || m.nameTrade || m.nameAr || m.name || m.id || "—";
           const dose = m.dose || "";
           let freqStr = "";
+          let dueNote = "";
           const freq = m.frequency || "";
-          const m1 = freq.match(/×\s*(\d+)/);
-          const m2 = freq.match(/^(\d+)$/);
-          if (m1) freqStr = "x " + m1[1];
-          else if (m2) freqStr = "x " + m2[1];
+          const interval = getFrequencyInterval2(freq);
+          if (interval > 0) {
+            freqStr = freq;
+            if (isMedDueToday2(freq, pFirstMedDate2)) {
+              dueNote = " ✓ مستحق اليوم";
+            } else {
+              dueNote = " (غير مستحق اليوم)";
+            }
+          } else {
+            const m1 = freq.match(/×\s*(\d+)/);
+            const m2 = freq.match(/^(\d+)$/);
+            if (m1) freqStr = "x " + m1[1];
+            else if (m2) freqStr = "x " + m2[1];
+          }
           const parts = [
             escapeHtml(name),
             dose ? escapeHtml(dose) : "",
-            freqStr ? escapeHtml(freqStr) : ""
+            freqStr ? escapeHtml(freqStr) : "",
+            dueNote ? escapeHtml(dueNote) : ""
           ].filter(p => p).join("&nbsp;&nbsp;");
           return `<div class="ps-med-line"><span class="ps-med-num">${i + 1}.</span> <span class="ps-med-name">${parts}</span></div>`;
         }).join("");

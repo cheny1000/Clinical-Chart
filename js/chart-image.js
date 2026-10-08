@@ -288,6 +288,13 @@
         ctx.direction = "ltr";
         ctx.textAlign = "left";  // overridden per-cell with measureText
 
+        // Get the isMedDueToday helper from PharmacyMedications
+        const Meds = global.PharmacyMedications || {};
+        const isMedDueToday = Meds.isMedDueToday || function() { return true; };
+        const getFrequencyInterval = Meds.getFrequencyInterval || function() { return 0; };
+        // Patient's firstMedDate for non-daily med due-day calculation
+        const pFirstMedDate = patient.firstMedDate || "";
+
         const myMedCounts = {};
         (patient.medications || []).forEach(pm => {
           if (!pm || !pm.id) return;
@@ -307,8 +314,26 @@
           const colIdx = medCol[medId];
           const entry = myMedCounts[medId];
           let cellText = "";
-          if (entry.count > 0) cellText = String(entry.count);
-          else cellText = entry.freq || "؟";
+
+          // For non-daily frequencies (كل يومين, كل 3 أيام, كل أسبوع),
+          // only show the dose if today is a due day. On non-due days,
+          // show "—" so the chart clearly indicates the patient does
+          // NOT receive this med today.
+          const interval = getFrequencyInterval(entry.freq);
+          if (interval > 0) {
+            if (isMedDueToday(entry.freq, pFirstMedDate)) {
+              // Due today — show "✓" (the patient gets this med today)
+              cellText = "✓";
+            } else {
+              // Not due today — show "—" so the chart shows the med
+              // is prescribed but NOT given today
+              cellText = "—";
+            }
+          } else {
+            // Daily med — show the count or custom freq text
+            if (entry.count > 0) cellText = String(entry.count);
+            else cellText = entry.freq || "؟";
+          }
 
           // Flip to visual column: col 0 → rightmost (NUM_COLS-1)
           const visualCol = G.NUM_COLS - 1 - colIdx;
