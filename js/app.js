@@ -3020,125 +3020,12 @@
     // ----- Admin: render med requests list -----
     // Renders the pending + reviewed med requests in the admin view.
     // The admin can approve (adds to catalog) or reject each request.
-    function renderMedRequests() {
-      const list = $("admin-med-requests-list");
-      if (!list) return;
-      list.innerHTML = "";
-      const requests = Storage.loadMedRequests();
-      if (requests.length === 0) {
-        list.innerHTML = `<p class="admin-discharged-hint">لا توجد طلبات حالياً</p>`;
-        return;
-      }
-      const formLabels = (global.PharmacyMedications && global.PharmacyMedications.FORM_LABELS) || {};
-      requests.forEach(r => {
-        const dateStr = r.requestedAt
-          ? new Date(r.requestedAt).toLocaleDateString("ar", { year: "numeric", month: "short", day: "numeric" })
-          : "—";
-        const statusBadge = r.status === "pending"
-          ? `<span style="background:#FEF3C7;color:#A16207;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;">بانتظار</span>`
-          : r.status === "approved"
-          ? `<span style="background:#DCFCE7;color:#15803D;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;">موافق</span>`
-          : `<span style="background:#FEE2E2;color:#B91C1C;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;">مرفوض</span>`;
-        const card = document.createElement("div");
-        card.className = "discharged-row";
-        let actionsHtml = "";
-        if (r.status === "pending") {
-          actionsHtml = `
-            <div style="display:flex;gap:6px;margin-top:6px;">
-              <button type="button" data-action="approve" data-id="${r.id}"
-                style="flex:1;padding:8px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
-                ✅ موافقة وإضافة
-              </button>
-              <button type="button" data-action="reject" data-id="${r.id}"
-                style="flex:1;padding:8px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
-                ❌ رفض
-              </button>
-            </div>
-          `;
-        }
-        card.innerHTML = `
-          <div class="discharged-row-head">
-            <div class="discharged-row-name">${escapeHtml(r.nameTrade || "—")}</div>
-            <div class="discharged-row-date">${dateStr} ${statusBadge}</div>
-          </div>
-          <div class="discharged-row-meta">
-            <span>${escapeHtml(r.nameEn || "")}</span>
-            ${r.nameAr ? `<span>· ${escapeHtml(r.nameAr)}</span>` : ""}
-            ${r.dose ? `<span>· ${escapeHtml(r.dose)}</span>` : ""}
-            <span>· ${escapeHtml(formLabels[r.form] || r.form || "—")}</span>
-            <span>· ${escapeHtml(r.frequency || "—")}</span>
-            ${r.notes ? `<span>· 📝 ${escapeHtml(r.notes)}</span>` : ""}
-            <span>· طلب: ${escapeHtml(r.requestedBy || "—")}</span>
-          </div>
-          ${actionsHtml}
-        `;
-        list.appendChild(card);
-      });
-      // Bind approve/reject buttons
-      list.querySelectorAll("button[data-action]").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const action = btn.dataset.action;
-          const id = btn.dataset.id;
-          if (action === "approve") approveMedRequest(id);
-          else if (action === "reject") rejectMedRequest(id);
-        });
-      });
-    }
-    function approveMedRequest(id) {
-      const requests = Storage.loadMedRequests();
-      const req = requests.find(r => r.id === id);
-      if (!req) return;
-      // Generate a unique med ID from the trade name (slugified)
-      const slug = (req.nameTrade || req.nameEn || "med")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "") || "med-" + Date.now();
-      const medId = slug + "-" + Date.now().toString(36);
-      // Add to the catalog
-      const meds = Storage.loadMedications();
-      const newMed = {
-        id: medId,
-        nameTrade: req.nameTrade || "",
-        nameAr: req.nameAr || "",
-        nameEn: req.nameEn || "",
-        form: req.form || "tablet",
-        defaultDose: req.dose || "",
-        defaultFrequency: req.frequency || "1×1"
-      };
-      meds.push(newMed);
-      Storage.saveMedications(meds);
-      state.medications = meds;
-      // Push to Supabase
-      if (SBSync && SBSync.pushCatalog) {
-        SBSync.pushCatalog().then(r => {
-          if (!r.ok) console.warn("[Supabase] catalog push failed:", r.error);
-        });
-      }
-      // Mark request as approved
-      const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
-      Storage.updateMedRequest(id, {
-        status: "approved",
-        reviewedBy: user ? user.username : "—",
-        reviewedAt: new Date().toISOString(),
-        approvedMedId: medId
-      });
-      UI.renderAdminMedList(meds, null);
-      renderMedRequests();
-      flashHint(`تمت إضافة "${req.nameTrade}" إلى كتالوج الأدوية`);
-    }
-    function rejectMedRequest(id) {
-      const requests = Storage.loadMedRequests();
-      const req = requests.find(r => r.id === id);
-      if (!req) return;
-      const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
-      Storage.updateMedRequest(id, {
-        status: "rejected",
-        reviewedBy: user ? user.username : "—",
-        reviewedAt: new Date().toISOString()
-      });
-      renderMedRequests();
-      flashHint(`تم رفض طلب "${req.nameTrade}"`);
-    }
+    // NOTE: These functions are ALSO defined at the top-level scope
+    // (outside bindEvents) so openAdminView() can call renderMedRequests().
+    // The top-level definitions are the REAL ones — these are kept
+    // here only for the event-listener binding that references
+    // approveMedRequest/rejectMedRequest via closure.
+    // The actual implementations are at the top-level after bindEvents.
 
     // Settings: logout button
     $("settings-logout-btn").addEventListener("click", () => {
@@ -3714,6 +3601,125 @@
   }
 
   // -------- Settings view (for non-admin pharmacists) --------
+  // -------- Admin: Med Requests (top-level, outside bindEvents) --------
+  // These functions are defined here (top-level scope, NOT inside
+  // bindEvents) so openAdminView() can call renderMedRequests().
+  // (bindEvents is a separate closure — functions defined inside it
+  // are not accessible from openAdminView which lives at the top level.)
+  function renderMedRequests() {
+    const list = $("admin-med-requests-list");
+    if (!list) return;
+    list.innerHTML = "";
+    const requests = Storage.loadMedRequests();
+    if (requests.length === 0) {
+      list.innerHTML = `<p class="admin-discharged-hint">لا توجد طلبات حالياً</p>`;
+      return;
+    }
+    const formLabels = (global.PharmacyMedications && global.PharmacyMedications.FORM_LABELS) || {};
+    requests.forEach(r => {
+      const dateStr = r.requestedAt
+        ? new Date(r.requestedAt).toLocaleDateString("ar", { year: "numeric", month: "short", day: "numeric" })
+        : "—";
+      const statusBadge = r.status === "pending"
+        ? `<span style="background:#FEF3C7;color:#A16207;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;">بانتظار</span>`
+        : r.status === "approved"
+        ? `<span style="background:#DCFCE7;color:#15803D;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;">موافق</span>`
+        : `<span style="background:#FEE2E2;color:#B91C1C;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;">مرفوض</span>`;
+      const card = document.createElement("div");
+      card.className = "discharged-row";
+      let actionsHtml = "";
+      if (r.status === "pending") {
+        actionsHtml = `
+          <div style="display:flex;gap:6px;margin-top:6px;">
+            <button type="button" data-action="approve" data-id="${r.id}"
+              style="flex:1;padding:8px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
+              ✅ موافقة وإضافة
+            </button>
+            <button type="button" data-action="reject" data-id="${r.id}"
+              style="flex:1;padding:8px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
+              ❌ رفض
+            </button>
+          </div>
+        `;
+      }
+      card.innerHTML = `
+        <div class="discharged-row-head">
+          <div class="discharged-row-name">${escapeHtml(r.nameTrade || "—")}</div>
+          <div class="discharged-row-date">${dateStr} ${statusBadge}</div>
+        </div>
+        <div class="discharged-row-meta">
+          <span>${escapeHtml(r.nameEn || "")}</span>
+          ${r.nameAr ? `<span>· ${escapeHtml(r.nameAr)}</span>` : ""}
+          ${r.dose ? `<span>· ${escapeHtml(r.dose)}</span>` : ""}
+          <span>· ${escapeHtml(formLabels[r.form] || r.form || "—")}</span>
+          <span>· ${escapeHtml(r.frequency || "—")}</span>
+          ${r.notes ? `<span>· 📝 ${escapeHtml(r.notes)}</span>` : ""}
+          <span>· طلب: ${escapeHtml(r.requestedBy || "—")}</span>
+        </div>
+        ${actionsHtml}
+      `;
+      list.appendChild(card);
+    });
+    list.querySelectorAll("button[data-action]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const action = btn.dataset.action;
+        const id = btn.dataset.id;
+        if (action === "approve") approveMedRequest(id);
+        else if (action === "reject") rejectMedRequest(id);
+      });
+    });
+  }
+  function approveMedRequest(id) {
+    const requests = Storage.loadMedRequests();
+    const req = requests.find(r => r.id === id);
+    if (!req) return;
+    const slug = (req.nameTrade || req.nameEn || "med")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "med-" + Date.now();
+    const medId = slug + "-" + Date.now().toString(36);
+    const meds = Storage.loadMedications();
+    meds.push({
+      id: medId,
+      nameTrade: req.nameTrade || "",
+      nameAr: req.nameAr || "",
+      nameEn: req.nameEn || "",
+      form: req.form || "tablet",
+      defaultDose: req.dose || "",
+      defaultFrequency: req.frequency || "1×1"
+    });
+    Storage.saveMedications(meds);
+    state.medications = meds;
+    if (SBSync && SBSync.pushCatalog) {
+      SBSync.pushCatalog().then(r => {
+        if (!r.ok) console.warn("[Supabase] catalog push failed:", r.error);
+      });
+    }
+    const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+    Storage.updateMedRequest(id, {
+      status: "approved",
+      reviewedBy: user ? user.username : "—",
+      reviewedAt: new Date().toISOString(),
+      approvedMedId: medId
+    });
+    UI.renderAdminMedList(meds, null);
+    renderMedRequests();
+    flashHint(`تمت إضافة "${req.nameTrade}" إلى كتالوج الأدوية`);
+  }
+  function rejectMedRequest(id) {
+    const requests = Storage.loadMedRequests();
+    const req = requests.find(r => r.id === id);
+    if (!req) return;
+    const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+    Storage.updateMedRequest(id, {
+      status: "rejected",
+      reviewedBy: user ? user.username : "—",
+      reviewedAt: new Date().toISOString()
+    });
+    renderMedRequests();
+    flashHint(`تم رفض طلب "${req.nameTrade}"`);
+  }
+
   // Shows a simplified settings page with:
   //   - Dark/light mode toggle
   //   - TV display mode entry
