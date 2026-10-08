@@ -20,7 +20,8 @@
     DISCHARGED:  "pharma.discharged.v1",   // array: discharged patient records
     DEAD:        "pharma.dead.v1",          // array: dead patient records
     ABX_SNAPSHOTS: "pharma.abx-snapshots.v1", // array: monthly ABX snapshots
-    NOTIFICATIONS: "pharma.notifications.v1"   // array: pharmacist notifications
+    NOTIFICATIONS: "pharma.notifications.v1",   // array: pharmacist notifications
+    MED_REQUESTS: "pharma.med-requests.v1"   // array: doctor → admin med approval requests
   };
 
   function safeParse(raw, fallback) {
@@ -626,6 +627,34 @@
     return loadNotifications().filter(n => !n.read).length;
   }
 
+  // ---- Medication requests (doctor → admin approval) ----
+  // Each request: { id, nameTrade, nameAr, nameEn, form, dose, frequency,
+  //                 notes, requestedBy, requestedAt, status, reviewedBy, reviewedAt }
+  //   status: 'pending' | 'approved' | 'rejected'
+  function loadMedRequests() {
+    return safeParse(localStorage.getItem(STORAGE_KEYS.MED_REQUESTS), []);
+  }
+  function saveMedRequests(arr) {
+    try { localStorage.setItem(STORAGE_KEYS.MED_REQUESTS, JSON.stringify(arr || [])); }
+    catch (e) { /* ignore quota */ }
+  }
+  function addMedRequest(record) {
+    const arr = loadMedRequests();
+    arr.unshift(record);  // newest first
+    saveMedRequests(arr);
+  }
+  function updateMedRequest(id, updates) {
+    const arr = loadMedRequests();
+    const idx = arr.findIndex(r => r.id === id);
+    if (idx >= 0) {
+      Object.assign(arr[idx], updates);
+      saveMedRequests(arr);
+    }
+  }
+  function getPendingMedRequestsCount() {
+    return loadMedRequests().filter(r => r.status === 'pending').length;
+  }
+
   global.PharmacyStorage = {
     // patients
     loadPatients,
@@ -658,6 +687,9 @@
     loadAbxSnapshots, addAbxSnapshot, deleteAbxSnapshot,
     // notifications
     loadNotifications, addNotification, markNotificationRead,
-    markAllNotificationsRead, clearNotifications, getUnreadCount
+    markAllNotificationsRead, clearNotifications, getUnreadCount,
+    // med requests (doctor → admin)
+    loadMedRequests, saveMedRequests, addMedRequest, updateMedRequest,
+    getPendingMedRequestsCount
   };
 })(window);

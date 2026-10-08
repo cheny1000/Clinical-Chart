@@ -2923,6 +2923,199 @@
       enterDisplayMode();
     });
 
+    // ----- Med Request Modal (doctor → admin) -----
+    // Opens a modal where the doctor enters the details of a new
+    // medication not in the catalog. On submit, the request is saved
+    // to localStorage + a notification is pushed for the admin.
+    // The admin reviews it in the admin view and can approve (adds
+    // the med to the catalog) or reject it.
+    function openMedRequestModal() {
+      // Clear all fields
+      ["med-req-name-trade", "med-req-name-en", "med-req-name-ar",
+       "med-req-dose", "med-req-notes"].forEach(id => {
+        const el = $(id);
+        if (el) el.value = "";
+      });
+      const formEl = $("med-req-form");
+      if (formEl) formEl.value = "";
+      const freqEl = $("med-req-frequency");
+      if (freqEl) freqEl.value = "";
+      const errEl = $("med-req-error");
+      if (errEl) errEl.hidden = true;
+      // Show modal
+      $("med-request-overlay").hidden = false;
+      $("med-request-modal").hidden = false;
+      setTimeout(() => $("med-req-name-trade")?.focus(), 50);
+    }
+    function closeMedRequestModal() {
+      $("med-request-overlay").hidden = true;
+      $("med-request-modal").hidden = true;
+    }
+    function submitMedRequest() {
+      const nameTrade = ($("med-req-name-trade")?.value || "").trim();
+      if (!nameTrade) {
+        $("med-req-error").hidden = false;
+        $("med-req-name-trade")?.focus();
+        return;
+      }
+      const nameEn = ($("med-req-name-en")?.value || "").trim();
+      const nameAr = ($("med-req-name-ar")?.value || "").trim();
+      const dose = ($("med-req-dose")?.value || "").trim();
+      const form = ($("med-req-form")?.value || "").trim() || "tablet";
+      const frequency = ($("med-req-frequency")?.value || "").trim() || "1×1";
+      const notes = ($("med-req-notes")?.value || "").trim();
+      const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+
+      const record = {
+        id: "med-req-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+        nameTrade: nameTrade,
+        nameEn: nameEn,
+        nameAr: nameAr,
+        dose: dose,
+        form: form,
+        frequency: frequency,
+        notes: notes,
+        requestedBy: user ? user.username : "—",
+        requestedAt: new Date().toISOString(),
+        status: "pending"
+      };
+      Storage.addMedRequest(record);
+      // Push a notification so the admin sees a new request waiting
+      pushNotification("med_request",
+        `طلب دواء جديد: ${nameTrade} — من ${user ? user.username : "—"}`,
+        nameTrade, "");
+      closeMedRequestModal();
+      flashHint("تم إرسال طلب إضافة الدواء — سيتم مراجعته من قبل المسؤول");
+    }
+    $("settings-med-request-btn").addEventListener("click", openMedRequestModal);
+    $("med-request-close").addEventListener("click", closeMedRequestModal);
+    $("med-request-cancel").addEventListener("click", closeMedRequestModal);
+    $("med-request-overlay").addEventListener("click", closeMedRequestModal);
+    $("med-request-submit").addEventListener("click", submitMedRequest);
+
+    // ----- Admin: render med requests list -----
+    // Renders the pending + reviewed med requests in the admin view.
+    // The admin can approve (adds to catalog) or reject each request.
+    function renderMedRequests() {
+      const list = $("admin-med-requests-list");
+      if (!list) return;
+      list.innerHTML = "";
+      const requests = Storage.loadMedRequests();
+      if (requests.length === 0) {
+        list.innerHTML = `<p class="admin-discharged-hint">لا توجد طلبات حالياً</p>`;
+        return;
+      }
+      const formLabels = (global.PharmacyMedications && global.PharmacyMedications.FORM_LABELS) || {};
+      requests.forEach(r => {
+        const dateStr = r.requestedAt
+          ? new Date(r.requestedAt).toLocaleDateString("ar", { year: "numeric", month: "short", day: "numeric" })
+          : "—";
+        const statusBadge = r.status === "pending"
+          ? `<span style="background:#FEF3C7;color:#A16207;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;">بانتظار</span>`
+          : r.status === "approved"
+          ? `<span style="background:#DCFCE7;color:#15803D;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;">موافق</span>`
+          : `<span style="background:#FEE2E2;color:#B91C1C;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;">مرفوض</span>`;
+        const card = document.createElement("div");
+        card.className = "discharged-row";
+        let actionsHtml = "";
+        if (r.status === "pending") {
+          actionsHtml = `
+            <div style="display:flex;gap:6px;margin-top:6px;">
+              <button type="button" data-action="approve" data-id="${r.id}"
+                style="flex:1;padding:8px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
+                ✅ موافقة وإضافة
+              </button>
+              <button type="button" data-action="reject" data-id="${r.id}"
+                style="flex:1;padding:8px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
+                ❌ رفض
+              </button>
+            </div>
+          `;
+        }
+        card.innerHTML = `
+          <div class="discharged-row-head">
+            <div class="discharged-row-name">${escapeHtml(r.nameTrade || "—")}</div>
+            <div class="discharged-row-date">${dateStr} ${statusBadge}</div>
+          </div>
+          <div class="discharged-row-meta">
+            <span>${escapeHtml(r.nameEn || "")}</span>
+            ${r.nameAr ? `<span>· ${escapeHtml(r.nameAr)}</span>` : ""}
+            ${r.dose ? `<span>· ${escapeHtml(r.dose)}</span>` : ""}
+            <span>· ${escapeHtml(formLabels[r.form] || r.form || "—")}</span>
+            <span>· ${escapeHtml(r.frequency || "—")}</span>
+            ${r.notes ? `<span>· 📝 ${escapeHtml(r.notes)}</span>` : ""}
+            <span>· طلب: ${escapeHtml(r.requestedBy || "—")}</span>
+          </div>
+          ${actionsHtml}
+        `;
+        list.appendChild(card);
+      });
+      // Bind approve/reject buttons
+      list.querySelectorAll("button[data-action]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const action = btn.dataset.action;
+          const id = btn.dataset.id;
+          if (action === "approve") approveMedRequest(id);
+          else if (action === "reject") rejectMedRequest(id);
+        });
+      });
+    }
+    function approveMedRequest(id) {
+      const requests = Storage.loadMedRequests();
+      const req = requests.find(r => r.id === id);
+      if (!req) return;
+      // Generate a unique med ID from the trade name (slugified)
+      const slug = (req.nameTrade || req.nameEn || "med")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "") || "med-" + Date.now();
+      const medId = slug + "-" + Date.now().toString(36);
+      // Add to the catalog
+      const meds = Storage.loadMedications();
+      const newMed = {
+        id: medId,
+        nameTrade: req.nameTrade || "",
+        nameAr: req.nameAr || "",
+        nameEn: req.nameEn || "",
+        form: req.form || "tablet",
+        defaultDose: req.dose || "",
+        defaultFrequency: req.frequency || "1×1"
+      };
+      meds.push(newMed);
+      Storage.saveMedications(meds);
+      state.medications = meds;
+      // Push to Supabase
+      if (SBSync && SBSync.pushCatalog) {
+        SBSync.pushCatalog().then(r => {
+          if (!r.ok) console.warn("[Supabase] catalog push failed:", r.error);
+        });
+      }
+      // Mark request as approved
+      const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+      Storage.updateMedRequest(id, {
+        status: "approved",
+        reviewedBy: user ? user.username : "—",
+        reviewedAt: new Date().toISOString(),
+        approvedMedId: medId
+      });
+      UI.renderAdminMedList(meds, null);
+      renderMedRequests();
+      flashHint(`تمت إضافة "${req.nameTrade}" إلى كتالوج الأدوية`);
+    }
+    function rejectMedRequest(id) {
+      const requests = Storage.loadMedRequests();
+      const req = requests.find(r => r.id === id);
+      if (!req) return;
+      const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+      Storage.updateMedRequest(id, {
+        status: "rejected",
+        reviewedBy: user ? user.username : "—",
+        reviewedAt: new Date().toISOString()
+      });
+      renderMedRequests();
+      flashHint(`تم رفض طلب "${req.nameTrade}"`);
+    }
+
     // Settings: logout button
     $("settings-logout-btn").addEventListener("click", () => {
       if (!confirm("هل تريد تسجيل الخروج؟")) return;
@@ -3527,6 +3720,20 @@
     // usage reports. Admins + pharmacists still see it.
     const abxRow = $("settings-abx-btn");
     if (abxRow) abxRow.hidden = isDoctor;
+    // Show the "request new medication" row only for doctors (the
+    // primary users who request new meds) + admins (who may also
+    // want to add meds directly). Hide it for pharmacists.
+    const medReqRow = $("settings-med-request-btn");
+    if (medReqRow) {
+      const isAdmin = Auth && Auth.isAdmin();
+      medReqRow.hidden = !(isDoctor || isAdmin);
+    }
+    // Show pending med requests count for admins in the row value
+    if (Auth && Auth.isAdmin && Auth.isAdmin()) {
+      const pendingCount = Storage.getPendingMedRequestsCount();
+      const valEl = $("settings-med-request-value");
+      if (valEl) valEl.textContent = pendingCount > 0 ? `${pendingCount} طلب` : "";
+    }
     // The discharged/dead patients list row stays visible to ALL
     // roles (admin + doctor + pharmacist) — every role may need
     // to look up a returning patient's history.
@@ -3565,6 +3772,8 @@
       // Auto-load users list + audit log on view open
       refreshUsersList();
       refreshAuditLog();
+      // Render med requests (doctor → admin approval workflow)
+      renderMedRequests();
     }
     UI.showView("admin");
   }
@@ -4158,7 +4367,7 @@
     // still alerting them when a new patient is registered (which is
     // the most important event the pharmacist needs to know about
     // immediately).
-    if (type === "patient_added") {
+    if (type === "patient_added" || type === "med_request") {
       playNotificationSound(type);
     }
   }
