@@ -583,6 +583,12 @@
             handleMedicationRealtimeChange(payload);
           }
         )
+        .on("postgres_changes",
+          { event: "*", schema: "public", table: "med_requests" },
+          (payload) => {
+            handleMedRequestRealtimeChange(payload);
+          }
+        )
         .subscribe((status) => {
           if (status === "SUBSCRIBED") {
             console.log("[Realtime] connected");
@@ -684,14 +690,68 @@
   }
 
   function handleMedicationRealtimeChange(payload) {
-    // For medications, the simplest reliable approach is to do a
-    // quick re-pull of the catalog. The catalog is small (80 meds)
-    // so this is fast.
     if (!SBSync || !SBSync.pullCatalog) return;
     SBSync.pullCatalog().then(res => {
       if (res.ok) {
         state.medications = Storage.loadMedications();
         UI.renderAdminMedList(state.medications, null);
+      }
+    });
+  }
+
+  // Handles Realtime changes to the 'med_requests' table from OTHER
+  // devices. When a doctor submits a med request, it's pushed to
+  // Supabase. This handler fires on the admin's device → adds the
+  // request to the local list + plays a notification sound + pushes
+  // a local notification so the admin sees the badge update.
+  function handleMedRequestRealtimeChange(payload) {
+    if (!SB || !SB.isConfigured()) return;
+    const row = payload.new || payload.old;
+    if (!row || !row.id) return;
+    // Pull all med requests from Supabase + merge with local
+    const client = SB.getClient();
+    if (!client) return;
+    client.from("med_requests").select("*").order("requested_at", { ascending: false }).then(({ data, error }) => {
+      if (error || !Array.isArray(data)) return;
+      // Convert Supabase rows → local format + save
+      const localRequests = data.map(r => ({
+        id: r.id,
+        nameTrade: r.name_trade || "",
+        nameEn: r.name_en || "",
+        nameAr: r.name_ar || "",
+        dose: r.dose || "",
+        form: r.form || "tablet",
+        frequency: r.frequency || "1×1",
+        notes: r.notes || "",
+        requestedBy: r.requested_by || "",
+        requestedAt: r.requested_at || "",
+        status: r.status || "pending",
+        reviewedBy: r.reviewed_by || "",
+        reviewedAt: r.reviewed_at || "",
+        approvedMedId: r.approved_med_id || ""
+      }));
+      Storage.saveMedRequests(localRequests);
+      // Re-render the med requests list if the admin view is open
+      const adminView = document.getElementById("view-admin");
+      if (adminView && !adminView.hidden) {
+        renderMedRequests();
+      }
+      // If this is a NEW request (INSERT) from another device, play
+      // the notification sound + push a local notification
+      if (payload.eventType === "INSERT") {
+        const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+        // Don't echo back to the sender
+        if (row.requested_by !== (user ? user.username : "")) {
+          pushNotification("med_request",
+            `طلب دواء جديد: ${row.name_trade || "—"} — من ${row.requested_by || "—"}`,
+            row.name_trade || "", "");
+        }
+      }
+      // Update the settings row badge count (for admin)
+      if (Auth && Auth.isAdmin && Auth.isAdmin()) {
+        const pendingCount = Storage.getPendingMedRequestsCount();
+        const valEl = $("settings-med-request-value");
+        if (valEl) valEl.textContent = pendingCount > 0 ? `${pendingCount} طلب` : "";
       }
     });
   }
@@ -3004,6 +3064,27 @@
         status: "pending"
       };
       Storage.addMedRequest(record);
+      // Push to Supabase so the admin on ANOTHER device sees the request
+      if (SB && SB.isConfigured && SB.isConfigured()) {
+        const client = SB.getClient();
+        if (client) {
+          client.from("med_requests").upsert({
+            id: record.id,
+            name_trade: record.nameTrade,
+            name_en: record.nameEn,
+            name_ar: record.nameAr,
+            dose: record.dose,
+            form: record.form,
+            frequency: record.frequency,
+            notes: record.notes,
+            requested_by: record.requestedBy,
+            requested_at: record.requestedAt,
+            status: "pending"
+          }).then(({ error }) => {
+            if (error) console.warn("[Supabase] med request push failed:", error.message);
+          });
+        }
+      }
       // Push a notification so the admin sees a new request waiting
       pushNotification("med_request",
         `طلب دواء جديد: ${nameTrade} — من ${user ? user.username : "—"}`,

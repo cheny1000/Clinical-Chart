@@ -154,8 +154,56 @@ ON CONFLICT (id) DO NOTHING;
 */
 
 -- ============================================================
--- User Management + Audit Log
+-- Notifications table (cross-device sync)
 -- ============================================================
+-- Stores notifications that need to be visible across all devices
+-- (e.g. doctor sends a med request → admin on another device sees it).
+-- The app uses Realtime subscriptions on this table to deliver
+-- notifications instantly to other devices.
+CREATE TABLE IF NOT EXISTS notifications (
+  id          TEXT PRIMARY KEY,             -- unique ID (e.g. 'notif-1234567890-abc')
+  type        TEXT NOT NULL DEFAULT '',     -- 'patient_added' | 'med_changed' | 'med_request' | etc.
+  message     TEXT NOT NULL DEFAULT '',     -- human-readable message
+  patient_name TEXT NOT NULL DEFAULT '',   -- optional patient name context
+  room        TEXT NOT NULL DEFAULT '',    -- optional room context
+  by_user     TEXT NOT NULL DEFAULT '',    -- who triggered the notification
+  read        BOOLEAN NOT NULL DEFAULT false,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "anon_full_notifications"
+  ON notifications FOR ALL
+  TO anon
+  USING (true)
+  WITH CHECK (true);
+
+-- ============================================================
+-- Med Requests table (doctor → admin approval, cross-device)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS med_requests (
+  id            TEXT PRIMARY KEY,
+  name_trade    TEXT NOT NULL DEFAULT '',
+  name_en       TEXT NOT NULL DEFAULT '',
+  name_ar       TEXT NOT NULL DEFAULT '',
+  dose          TEXT NOT NULL DEFAULT '',
+  form          TEXT NOT NULL DEFAULT 'tablet',
+  frequency     TEXT NOT NULL DEFAULT '1×1',
+  notes         TEXT NOT NULL DEFAULT '',
+  requested_by  TEXT NOT NULL DEFAULT '',
+  requested_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  status        TEXT NOT NULL DEFAULT 'pending',  -- 'pending' | 'approved' | 'rejected'
+  reviewed_by   TEXT NOT NULL DEFAULT '',
+  reviewed_at   TIMESTAMPTZ,
+  approved_med_id TEXT NOT NULL DEFAULT ''
+);
+
+ALTER TABLE med_requests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "anon_full_med_requests"
+  ON med_requests FOR ALL
+  TO anon
+  USING (true)
+  WITH CHECK (true);
 -- Run scripts/users-and-audit-schema.sql for the latest version
 -- of this section (it includes the default admin account seed
 -- and the LEGACY sentinel handling for the existing admin
