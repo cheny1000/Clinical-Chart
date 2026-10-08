@@ -120,6 +120,45 @@
           UI.renderPatientView(p, state.currentBed.roomId, state.currentBed.bed);
         }
       }
+      // Also pull med requests from Supabase (so the admin sees new
+      // doctor requests even if Realtime failed to deliver them).
+      // This is the safety net for the med-request workflow.
+      const client = SB.getClient();
+      if (client) {
+        const { data: medReqData, error: medReqErr } = await client
+          .from("med_requests")
+          .select("*")
+          .order("requested_at", { ascending: false });
+        if (!medReqErr && Array.isArray(medReqData)) {
+          // Convert Supabase rows → local format + save
+          const localRequests = medReqData.map(r => ({
+            id: r.id, nameTrade: r.name_trade || "", nameEn: r.name_en || "",
+            nameAr: r.name_ar || "", dose: r.dose || "", form: r.form || "tablet",
+            frequency: r.frequency || "1×1", notes: r.notes || "",
+            requestedBy: r.requested_by || "", requestedAt: r.requested_at || "",
+            status: r.status || "pending", reviewedBy: r.reviewed_by || "",
+            reviewedAt: r.reviewed_at || "", approvedMedId: r.approved_med_id || ""
+          }));
+          // Only update if something changed (compare count to avoid
+          // unnecessary re-renders on every poll)
+          const oldCount = Storage.loadMedRequests().length;
+          Storage.saveMedRequests(localRequests);
+          if (localRequests.length !== oldCount) {
+            console.log("[Poll] med requests changed:", oldCount, "→", localRequests.length);
+            // Re-render the admin med requests list if open
+            const adminView = document.getElementById("view-admin");
+            if (adminView && !adminView.hidden) {
+              renderMedRequests();
+            }
+            // Update the settings row badge count
+            if (Auth && Auth.isAdmin && Auth.isAdmin()) {
+              const pendingCount = Storage.getPendingMedRequestsCount();
+              const valEl = $("settings-med-request-value");
+              if (valEl) valEl.textContent = pendingCount > 0 ? `${pendingCount} طلب` : "";
+            }
+          }
+        }
+      }
     } catch (e) {
       console.warn("[Poll] pull failed:", e);
     }
