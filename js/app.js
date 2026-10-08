@@ -671,18 +671,14 @@
     const isOwnEcho = updatedAt > 0 && (Date.now() - updatedAt) < 3000;
     if (!isOwnEcho) {
       if (isInsert) {
-        // Another device added a new patient
+        // Another device added a new patient — play the patient_added
+        // chime so the pharmacist hears audible feedback.
         playNotificationSound("patient_added");
-      } else if (isDelete) {
-        // Another device deleted (likely discharged or died). We
-        // can't tell which from the realtime payload alone, but the
-        // default tone is a safe fallback.
-        playNotificationSound("default");
-      } else {
-        // Another device updated an existing patient (med change
-        // or info change).
-        playNotificationSound("med_changed");
       }
+      // Note: we no longer play sounds for UPDATE or DELETE events
+      // from other devices. Only NEW patient additions get a chime.
+      // This matches the user's preference: "play the sound only when
+      // registering a new patient."
     }
   }
 
@@ -1052,6 +1048,19 @@
     }
   }
 
+  // Flush any pending patient changes to Storage + Supabase. Called
+  // when the user navigates away from the patient page (back button,
+  // room grid tap, etc.) to ensure click-based changes (gender
+  // toggle, lab values) — which don't fire blur events — are still
+  // persisted before the current bed is cleared.
+  function flushPendingPatientChanges() {
+    if (!state.currentBed) return;
+    const bedKey = state.currentBed.key;
+    const p = state.patients[bedKey];
+    if (!p) return;
+    persistPatient(bedKey);
+  }
+
   // -------- GFR (eGFR) calculator --------
   // Computes the estimated Glomerular Filtration Rate using the
   // CKD-EPI 2021 refit equation (the latest version, which dropped
@@ -1390,29 +1399,39 @@
     });
 
     // Patient name input — save on blur, debounced
+    // Patient name input — save ONLY on blur (not debounced during typing).
+    // The user specifically requested: "do not sync the patient name +
+    // info until the user leaves the patient page." This means:
+    //   - While typing the name → update local state.patients[key].name
+    //     only (no Storage save, no Supabase push)
+    //   - On blur → save to Storage + push to Supabase (this is the
+    //     existing blur handler below which also fires pushNotification)
     let nameTimer = null;
     $("patient-name-input").addEventListener("input", (e) => {
       if (!state.currentBed) return;
       const p = ensurePatient(state.currentBed.key);
       p.name = e.target.value;
-      clearTimeout(nameTimer);
-      nameTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
+      // NOTE: We intentionally do NOT call persistPatient() here.
+      // The name + info sync happens only on blur (when the user
+      // leaves the patient page). This prevents the app from
+      // pushing half-typed names to Supabase every 400ms, which
+      // was causing cross-device sync noise + triggering
+      // unnecessary Realtime updates on the pharmacist's device.
       // Live-update the previous-admission banner as the user types a
       // name. This way if they're entering a returning patient, the
       // banner appears immediately (without waiting for blur).
       renderPreviousAdmissionBanner(p);
     });
 
-    // Plate number input (optional) — save debounced like the name.
-    // Plate is a free-text field the pharmacist fills in for some
-    // patients; it's optional and doesn't affect anything else.
+    // Plate number input (optional) — save ONLY on blur (not debounced
+    // during typing). Same reasoning as the name input: don't sync
+    // patient info to Supabase until the user leaves the field/page.
     let plateTimer = null;
     $("patient-plate-input").addEventListener("input", (e) => {
       if (!state.currentBed) return;
       const p = ensurePatient(state.currentBed.key);
       p.plateNumber = e.target.value;
-      clearTimeout(plateTimer);
-      plateTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
+      // NOTE: No persistPatient() on input — only on blur.
     });
     $("patient-plate-input").addEventListener("blur", () => {
       if (!state.currentBed) return;
@@ -1420,9 +1439,8 @@
       persistPatient(state.currentBed.key);
     });
 
-    // Age (العمر) — numeric input. Saved debounced like the name +
-    // plate inputs. Validated to digits-only and capped at 3 chars
-    // (oldest human age possible).
+    // Age (العمر) — numeric input. Saved ONLY on blur. Validated to
+    // digits-only and capped at 3 chars (oldest human age possible).
     let ageTimer = null;
     $("patient-age-input").addEventListener("input", (e) => {
       if (!state.currentBed) return;
@@ -1432,12 +1450,9 @@
       const cleaned = (e.target.value || "").replace(/\D/g, "").slice(0, 3);
       if (e.target.value !== cleaned) e.target.value = cleaned;
       p.age = cleaned;
-      clearTimeout(ageTimer);
-      ageTimer = setTimeout(() => {
-        persistPatient(state.currentBed.key);
-        renderGFRCard();
-      }, 400);
-      // Recompute GFR immediately for instant visual feedback
+      // NOTE: No persistPatient() on input — only on blur.
+      // Recompute GFR immediately for instant visual feedback (no
+      // Supabase push, just local UI update).
       renderGFRCard();
     });
     $("patient-age-input").addEventListener("blur", () => {
@@ -1463,8 +1478,15 @@
       } else {
         p.gender = value;
       }
-      persistPatient(state.currentBed.key);
-      // Refresh the toggle visuals immediately.
+      // NOTE: We intentionally do NOT call persistPatient() here.
+      // The gender is saved to Supabase only when the user leaves
+      // the patient page (via the blur handlers on the other
+      // patient-info fields, OR when the user navigates away from
+      // the patient view). This matches the user's request: "do
+      // not sync patient info until the user leaves the page."
+      //
+      // We DO update the local UI immediately so the toggle visual
+      // + GFR card reflect the new gender.
       syncGenderButtons(p.gender);
       // Recompute GFR (gender is one of the three required inputs).
       renderGFRCard();
@@ -1498,13 +1520,14 @@
     // care — not the doctor using the app, who may be a resident
     // covering the ward). The attending physician is shown on the bed
     // buttons in the rooms grid + on the printed patient sheet.
+    // Saved ONLY on blur (not debounced during typing) — same as the
+    // other patient info fields.
     let doctorTimer = null;
     $("patient-doctor-input").addEventListener("input", (e) => {
       if (!state.currentBed) return;
       const p = ensurePatient(state.currentBed.key);
       p.doctor = e.target.value;
-      clearTimeout(doctorTimer);
-      doctorTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
+      // NOTE: No persistPatient() on input — only on blur.
     });
     $("patient-doctor-input").addEventListener("blur", () => {
       if (!state.currentBed) return;
@@ -1516,13 +1539,13 @@
     // admins only. Pharmacists can see it (display-only). Stored on
     // the patient record and shown on bed buttons + patient sheets +
     // the ABX monitoring table.
+    // Saved ONLY on blur — same as the other patient info fields.
     let diagnosisTimer = null;
     $("patient-diagnosis-input").addEventListener("input", (e) => {
       if (!state.currentBed) return;
       const p = ensurePatient(state.currentBed.key);
       p.diagnosis = e.target.value;
-      clearTimeout(diagnosisTimer);
-      diagnosisTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
+      // NOTE: No persistPatient() on input — only on blur.
     });
     $("patient-diagnosis-input").addEventListener("blur", () => {
       if (!state.currentBed) return;
@@ -1597,14 +1620,26 @@
       const p = ensurePatient(state.currentBed.key);
       if (!p.labs) p.labs = {};
       p.labs[key] = target.value;
-      clearTimeout(labTimer);
-      labTimer = setTimeout(() => persistPatient(state.currentBed.key), 400);
+      // NOTE: No persistPatient() on input — only on blur of the lab
+      // field OR when the user leaves the patient page (flushPending
+      // PatientChanges is called from openPatient + the back button).
       // If the changed lab is S. Creatinine, refresh the GFR card
       // (creatinine is one of the three required inputs).
       if (key === "creatinine") {
         renderGFRCard();
       }
     });
+    // Lab inputs also persist on blur (so the user can edit + tab
+    // to the next field without losing changes).
+    document.addEventListener("blur", (e) => {
+      const target = e.target;
+      if (!target || !target.classList || !target.classList.contains("lab-input")) return;
+      if (!state.currentBed) return;
+      clearTimeout(labTimer);
+      persistPatient(state.currentBed.key);
+      // Refresh GFR after blur (in case the user edited creatinine).
+      renderGFRCard();
+    }, true);  // useCapture=true so we catch blur on the lab inputs
     $("patient-name-input").addEventListener("blur", () => {
       if (!state.currentBed) return;
       clearTimeout(nameTimer);
@@ -1633,8 +1668,13 @@
       refreshStatsAndRooms();
     });
 
-    // Back button
+    // Back button — flush any pending patient info changes (e.g.
+    // gender toggle, GFR, lab values) to Storage + Supabase BEFORE
+    // leaving the patient page. This ensures changes made via
+    // click-based controls (gender buttons) — which don't fire blur
+    // events — are still persisted when the user navigates away.
     $("back-btn").addEventListener("click", () => {
+      flushPendingPatientChanges();
       state.currentBed = null;
       UI.showView("home");
     });
@@ -4077,11 +4117,16 @@
     };
     Storage.addNotification(record);
     updateNotifBadge();
-    // Play the notification sound so the user hears audible feedback
-    // when a new notification is created. The sound is synthesized
-    // via Web Audio API (no external file). Users can disable it via
-    // the Settings view.
-    playNotificationSound(type);
+    // Play the notification sound ONLY when a new patient is added
+    // (type === 'patient_added'). Other notification types (med changes,
+    // discharge, died) are silent — they only update the badge. This
+    // avoids annoying the user with a chime on every med edit while
+    // still alerting them when a new patient is registered (which is
+    // the most important event the pharmacist needs to know about
+    // immediately).
+    if (type === "patient_added") {
+      playNotificationSound(type);
+    }
   }
 
   function updateNotifBadge() {
@@ -4503,6 +4548,11 @@
   }
 
   function openPatient({ key, roomId, bed }) {
+    // Flush any pending changes from the previously-open patient
+    // (if any) BEFORE switching to the new one. This ensures the
+    // gender toggle / lab values on the previous patient are saved
+    // before we overwrite state.currentBed with the new bed key.
+    flushPendingPatientChanges();
     state.currentBed = { key, roomId, bed };
     const p = state.patients[key] || null;
     UI.renderPatientView(p, roomId, bed);
