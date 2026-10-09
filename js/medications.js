@@ -37,6 +37,20 @@
     solution:          "Solution",
     supplies:          "Supplies"
   };
+  // Short abbreviations for each form — used in the patient sheet
+  // print view (left of each med line). These are simple text labels
+  // (not images) so they render correctly in the print window which
+  // doesn't have access to the app's image files.
+  const FORM_ABBR = {
+    vial:                  "V",
+    ampule:                "A",
+    "prefilled-syringe":   "PS",
+    tablet:                "T",
+    "syrup-and-oral-drop": "OSD",
+    suppository:           "S",
+    solution:              "Sol",
+    supplies:              "Sup"
+  };
   // Display order — determines tab order in the bottom-sheet
   const FORM_ORDER = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup-and-oral-drop", "suppository", "solution", "supplies"];
   // Icons for each form — emoji strings or special image markers
@@ -196,6 +210,7 @@
   global.PharmacyMedications = {
     FREQUENCIES,
     FORM_LABELS,
+    FORM_ABBR,
     FORM_ORDER,
     FORM_ICONS,
     DEFAULT_MEDICATIONS,
