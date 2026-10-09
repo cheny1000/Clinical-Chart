@@ -4128,6 +4128,23 @@
     //     "x N" form instead.
     const meds = (Array.isArray(patient.medications) ? patient.medications : [])
       .filter(pm => pm && pm.id !== "syringe-5cc");
+    // Sort medications by form: Vials first, then Ampules, then
+    // Prefilled Syringes, then Tablets (pills last). This matches
+    // the user's request: "Vials at the top of the list, Tablets
+    // at the bottom."
+    const FORM_ORDER_PRINT = [
+      "vial", "ampule", "prefilled-syringe", "solution",
+      "syrup-and-oral-drop", "suppository", "supplies", "tablet"
+    ];
+    const Meds = global.PharmacyMedications || {};
+    const medCatalog = state.medications || [];
+    const sortedMeds = meds.slice().sort((a, b) => {
+      const formA = (medCatalog.find(m => m.id === a.id)?.form) || a.form || "tablet";
+      const formB = (medCatalog.find(m => m.id === b.id)?.form) || b.form || "tablet";
+      const idxA = FORM_ORDER_PRINT.indexOf(formA);
+      const idxB = FORM_ORDER_PRINT.indexOf(formB);
+      return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+    });
     let medsRows = "";
     if (meds.length === 0) {
       medsRows = `<div class="ps-empty">No medications</div>`;
@@ -4161,7 +4178,7 @@
       ];
       const hasCriticalMed = meds.some(m => ANTIBIOTIC_IDS.indexOf(m.id) !== -1);
 
-      medsRows = meds.map((m, i) => {
+      medsRows = sortedMeds.map((m, i) => {
         // English-first name (user requested English).
         const name = m.nameEn || m.nameTrade || m.nameAr || m.name || m.id || "—";
         const dose = m.dose || "";
@@ -4338,6 +4355,19 @@
       // Build medications list (same as printPatientSheet)
       const meds = (Array.isArray(patient.medications) ? patient.medications : [])
         .filter(pm => pm && pm.id !== "syringe-5cc");
+      // Sort by form: Vials first, Tablets last
+      const FORM_ORDER_PRINT2 = [
+        "vial", "ampule", "prefilled-syringe", "solution",
+        "syrup-and-oral-drop", "suppository", "supplies", "tablet"
+      ];
+      const medCatalog2 = state.medications || [];
+      const sortedMeds = meds.slice().sort((a, b) => {
+        const formA = (medCatalog2.find(m => m.id === a.id)?.form) || a.form || "tablet";
+        const formB = (medCatalog2.find(m => m.id === b.id)?.form) || b.form || "tablet";
+        const idxA = FORM_ORDER_PRINT2.indexOf(formA);
+        const idxB = FORM_ORDER_PRINT2.indexOf(formB);
+        return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+      });
       let medsRows = "";
       if (meds.length === 0) {
         medsRows = `<div class="ps-empty">No medications</div>`;
@@ -4365,7 +4395,7 @@
         ];
         const hasCriticalMed2 = meds.some(m => ANTIBIOTIC_IDS2.indexOf(m.id) !== -1);
 
-        medsRows = meds.map((m, i) => {
+        medsRows = sortedMeds.map((m, i) => {
           const name = m.nameEn || m.nameTrade || m.nameAr || m.name || m.id || "—";
           const dose = m.dose || "";
           let freqStr = "";
