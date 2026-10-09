@@ -4067,18 +4067,18 @@
       });
     }
 
-    // Vitals — BP + O2, empty
+    // Vitals — BP + O2, empty (shown FIRST at the top per user request)
     const vitalsRows = `
       <div class="ps-lab-row"><span class="ps-lab-val">—</span><span class="ps-lab-label">BP</span></div>
       <div class="ps-lab-row"><span class="ps-lab-val">—</span><span class="ps-lab-label">O₂ Sat</span></div>
     `;
     return `
       <div class="ps-labs-section">
-        <div class="ps-labs-title">Lab Results</div>
+        <div class="ps-labs-title">Vitals</div>
+        ${vitalsRows}
+        <div class="ps-labs-title" style="margin-top:10px;">Lab Results</div>
         ${labRows}
         ${historyRows ? `<div class="ps-labs-title" style="margin-top:10px;">Previous Results</div>${historyRows}` : ""}
-        <div class="ps-labs-title" style="margin-top:10px;">Vitals</div>
-        ${vitalsRows}
       </div>
     `;
   }
@@ -4259,7 +4259,8 @@
       '.ps-meds-col { border: 1.5px solid #000; padding: 10px 12px; direction: ltr; text-align: left; }',
       '.ps-med-line { font-size: 16px; font-weight: 700; padding: 6px 0; border-bottom: 1px dashed #ccc; }',
       '.ps-med-line:last-child { border-bottom: none; }',
-      '.ps-med-day { display: inline-block; width: 38px; text-align: center; font-size: 14px; font-weight: 800; background: #DCFCE7; border: 1.5px solid #16a34a; border-radius: 6px; padding: 2px 4px; margin-right: 8px; color: #15803D; vertical-align: middle; }',
+      '.ps-med-day:empty { display: inline-block; width: 38px; margin-right: 8px; }',
+      '.ps-med-day:not(:empty) { display: inline-block; width: 38px; text-align: center; font-size: 14px; font-weight: 800; background: #DCFCE7; border: 1.5px solid #16a34a; border-radius: 6px; padding: 2px 4px; margin-right: 8px; color: #15803D; vertical-align: middle; }',
       // IMPORTANT: name + dose + freq share the SAME font-size,
       // font-weight, and color (per user request).
       '.ps-med-num { font-weight: 700; }',
@@ -4450,7 +4451,8 @@
       '.ps-meds-col { border: 1.5px solid #000; padding: 10px 12px; direction: ltr; text-align: left; }',
       '.ps-med-line { font-size: 16px; font-weight: 700; padding: 6px 0; border-bottom: 1px dashed #ccc; }',
       '.ps-med-line:last-child { border-bottom: none; }',
-      '.ps-med-day { display: inline-block; width: 38px; text-align: center; font-size: 14px; font-weight: 800; background: #DCFCE7; border: 1.5px solid #16a34a; border-radius: 6px; padding: 2px 4px; margin-right: 8px; color: #15803D; vertical-align: middle; }',
+      '.ps-med-day:empty { display: inline-block; width: 38px; margin-right: 8px; }',
+      '.ps-med-day:not(:empty) { display: inline-block; width: 38px; text-align: center; font-size: 14px; font-weight: 800; background: #DCFCE7; border: 1.5px solid #16a34a; border-radius: 6px; padding: 2px 4px; margin-right: 8px; color: #15803D; vertical-align: middle; }',
       '.ps-med-num { font-weight: 700; }',
       '.ps-med-name { font-weight: 700; }',
       '.ps-empty { text-align: center; padding: 20px; color: #999; font-size: 12px; }',
