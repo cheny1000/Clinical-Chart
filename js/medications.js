@@ -76,14 +76,15 @@
     supplies:            "img:img/supplies-icon.png"
   };
 
-  // Demo medication catalog — editable by administrator
-  // Each medication has THREE name fields + a `form` field:
-  //   nameTrade  : Trade / brand name (shown as the PRIMARY name in the UI)
-  //   nameAr     : Arabic generic name (kept for backward compat; hidden if nameTrade exists)
-  //   nameEn     : Scientific / generic Latin name (shown as secondary under nameTrade)
-  //   form       : one of "vial", "ampule", "prefilled-syringe", "tablet", "supplies"
-  // If nameTrade is empty, the UI falls back to nameAr.
-  const DEFAULT_MEDICATIONS = [
+  // ===== DISABLED CATALOG =====
+  // The old default catalog is kept here (disabled) so existing
+  // patient prescriptions that reference these med IDs still have
+  // a lookup entry. These meds will NOT appear in the med-selection
+  // sheet (bottom-sheet) because the seed-merge logic only adds
+  // DEFAULT_MEDICATIONS (below) — not this list.
+  // When the user provides their new list, it will replace
+  // DEFAULT_MEDICATIONS entirely.
+  const DISABLED_MEDICATIONS = [
     { id: "paracetamol",    nameTrade: "Tylenol / Panadol",  nameAr: "باراسيتامول",          nameEn: "Paracetamol",              form: "tablet", defaultDose: "1 g",       defaultFrequency: "1×3" },
     { id: "pantoprazole",   nameTrade: "Controloc",           nameAr: "بانتوبرازول",          nameEn: "Pantoprazole",             form: "vial",   defaultDose: "40 mg",     defaultFrequency: "1×1" },
     { id: "ceftriaxone",    nameTrade: "Ceftriaxone Pfizer",  nameAr: "سيفترياكسون",          nameEn: "Ceftriaxone",              form: "vial",   defaultDose: "1 g",       defaultFrequency: "1×2" },
@@ -147,6 +148,39 @@
     { id: "ringers-lactate",     nameTrade: "Ringer Lactate", nameAr: "", nameEn: "Ringer's Lactate",     form: "supplies", defaultDose: "500 ml", defaultFrequency: "حسب الحاجة" }
   ];
 
+  // ===== NEW DEFAULT CATALOG =====
+  // This will be replaced with the user's new med list when they
+  // provide it. For now it's empty — the old meds are disabled
+  // (moved to DISABLED_MEDICATIONS above) but still available as
+  // lookup entries for existing patient prescriptions.
+  // The disabled meds are merged into the user's local catalog
+  // as "hidden" entries so existing patient meds still resolve
+  // their names + forms for the chart + patient sheet printing.
+  const DEFAULT_MEDICATIONS = [
+    // --- PLACEHOLDER: User's new med list goes here ---
+    // Keeping essential supplies so the med sheet + chart still work:
+    { id: "syringe-5cc",          nameTrade: "5cc Syringe",     nameAr: "سرنجة 5 سي سي", nameEn: "5cc Syringe",            form: "supplies", defaultDose: "1 سرنجة", defaultFrequency: "حسب الحاجة" },
+    { id: "syringe-1cc",          nameTrade: "1cc Syringe",     nameAr: "سرنجة 1 سي سي", nameEn: "1cc Syringe",            form: "supplies", defaultDose: "1 سرنجة", defaultFrequency: "حسب الحاجة" },
+    { id: "syringe-10cc",         nameTrade: "10cc Syringe",    nameAr: "سرنجة 10 سي سي", nameEn: "10cc Syringe",          form: "supplies", defaultDose: "1 سرنجة", defaultFrequency: "حسب الحاجة" },
+    { id: "syringe-20cc",         nameTrade: "20cc Syringe",    nameAr: "سرنجة 20 سي سي", nameEn: "20cc Syringe",          form: "supplies", defaultDose: "1 سرنجة", defaultFrequency: "حسب الحاجة" },
+    { id: "syringe-50cc",         nameTrade: "50cc Syringe",    nameAr: "سرنجة 50 سي سي", nameEn: "50cc Syringe",          form: "supplies", defaultDose: "1 سرنجة", defaultFrequency: "حسب الحاجة" },
+    { id: "iv-set",               nameTrade: "I.V. Set",       nameAr: "خط وريدي", nameEn: "I.V. Set",                 form: "supplies", defaultDose: "1 خط",   defaultFrequency: "حسب الحاجة" },
+    { id: "blood-iv-set",         nameTrade: "Blood I.V. Set", nameAr: "خط دم", nameEn: "Blood I.V. Set",              form: "supplies", defaultDose: "1 خط",   defaultFrequency: "حسب الحاجة" },
+    { id: "urine-bag",            nameTrade: "Urine Bag",      nameAr: "كيس بول", nameEn: "Urine Bag",                 form: "supplies", defaultDose: "1 كيس",   defaultFrequency: "حسب الحاجة" },
+    { id: "floy-14",              nameTrade: "Floy size 14",   nameAr: "فولي 14", nameEn: "Foley Catheter 14",         form: "supplies", defaultDose: "1 قطعة", defaultFrequency: "حسب الحاجة" },
+    { id: "floy-16",              nameTrade: "Floy size 16",   nameAr: "فولي 16", nameEn: "Foley Catheter 16",         form: "supplies", defaultDose: "1 قطعة", defaultFrequency: "حسب الحاجة" },
+    { id: "floy-18",              nameTrade: "Floy size 18",   nameAr: "فولي 18", nameEn: "Foley Catheter 18",         form: "supplies", defaultDose: "1 قطعة", defaultFrequency: "حسب الحاجة" },
+    { id: "ng-tube-14",           nameTrade: "NG Tube size 14", nameAr: "أنبوب معدي 14", nameEn: "NG Tube 14",         form: "supplies", defaultDose: "1 قطعة", defaultFrequency: "حسب الحاجة" },
+    { id: "ng-tube-16",           nameTrade: "NG Tube size 16", nameAr: "أنبوب معدي 16", nameEn: "NG Tube 16",         form: "supplies", defaultDose: "1 قطعة", defaultFrequency: "حسب الحاجة" },
+    { id: "ng-tube-18",           nameTrade: "NG Tube size 18", nameAr: "أنبوب معدي 18", nameEn: "NG Tube 18",         form: "supplies", defaultDose: "1 قطعة", defaultFrequency: "حسب الحاجة" },
+    { id: "cannula",              nameTrade: "Cannula",        nameAr: "كانيولا", nameEn: "Cannula",                  form: "supplies", defaultDose: "1 قطعة", defaultFrequency: "حسب الحاجة" },
+    { id: "dextrose-saline",      nameTrade: "G/S — Glucose Saline", nameAr: "ديكستروز سالين", nameEn: "Dextrose Saline", form: "supplies", defaultDose: "500 ml", defaultFrequency: "حسب الحاجة" },
+    { id: "nacl-100ml",           nameTrade: "N/S 100ml", nameAr: "مغذي ملح 100 مل", nameEn: "Sodium Chloride 0.9% 100ml", form: "supplies", defaultDose: "100 ml", defaultFrequency: "حسب الحاجة" },
+    { id: "sodium-chloride-09",  nameTrade: "N/S 500ml",      nameAr: "", nameEn: "Sodium Chloride 0.9% 500ml", form: "supplies", defaultDose: "500 ml", defaultFrequency: "حسب الحاجة" },
+    { id: "glucose-5",           nameTrade: "G/W 5%",     nameAr: "", nameEn: "Glucose 5%",            form: "supplies", defaultDose: "500 ml", defaultFrequency: "حسب الحاجة" },
+    { id: "ringers-lactate",     nameTrade: "R/L — Ringer Lactate", nameAr: "", nameEn: "Ringer's Lactate",     form: "supplies", defaultDose: "500 ml", defaultFrequency: "حسب الحاجة" }
+  ];
+
   // Bump this number whenever you add new medications to
   // DEFAULT_MEDICATIONS and want existing users to receive them on
   // their next app open. The storage layer compares this version to
@@ -160,11 +194,11 @@
   //   v2 = added non-daily frequencies (كل يومين, كل 3 أيام, كل أسبوع) +
   //        changed vancomycin default frequency to 'كل يومين' +
   //        changed vancomycin default dose to 'حسب البروتوكول'
-  //   v3 = changed vancomycin default to dose='1 g' + frequency='1×2'
-  //        (user confirmed: default is daily twice, not every-2-days.
-  //         The non-daily frequencies are available for renal-failure
-  //         patients but Vancomycin's DEFAULT is 1×2 daily.)
-  const DEFAULT_MEDICATIONS_VERSION = 3;
+  //   v4 = disabled old catalog, kept only supplies + fluids as
+  //        DEFAULT_MEDICATIONS. Old meds moved to DISABLED_MEDICATIONS
+  //        so existing patient prescriptions still resolve. Waiting
+  //        for user's new med list to replace DEFAULT_MEDICATIONS.
+  const DEFAULT_MEDICATIONS_VERSION = 4;
 
   // ---- Non-daily frequency helpers ----
   // Maps a non-daily frequency string to the number of days between
@@ -226,6 +260,7 @@
     FORM_ICONS,
     DEFAULT_MEDICATIONS,
     DEFAULT_MEDICATIONS_VERSION,
+    DISABLED_MEDICATIONS,
     NON_DAILY_INTERVALS,
     getFrequencyInterval,
     isMedDueToday
