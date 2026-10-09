@@ -11,7 +11,7 @@
      once.
    ============================================================ */
 
-const CACHE_VERSION = 'pharma-ward-v38';
+const CACHE_VERSION = 'pharma-ward-v39';
 const PRECACHE_URLS = [
   './',
   './index.html',
