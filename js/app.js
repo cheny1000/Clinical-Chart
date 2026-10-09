@@ -2381,17 +2381,34 @@
         const m = (item.frequency || "").match(/×\s*(\d+)/);
         return m ? parseInt(m[1], 10) : -1; // -1 = custom/non-numeric
       })();
+      // Extract the dose multiplier (the N in "N×M")
+      let currentMult = (function () {
+        const m = (item.frequency || "").match(/(\d+)\s*×/);
+        return m ? parseInt(m[1], 10) : 1; // default 1
+      })();
 
       let newCount;
       if (currentCount === -1) {
-        // Was custom: switching to numeric starts at 1
+        // Was custom: switching to numeric starts at 1×1
         newCount = 1;
+        currentMult = 1;
       } else if (incBtn) {
-        newCount = Math.min(MAX, currentCount + 1);
+        // Shift+click increments the multiplier (1→2→3)
+        if (e.shiftKey) {
+          currentMult = Math.min(6, currentMult + 1);
+        } else {
+          newCount = Math.min(MAX, currentCount + 1);
+        }
       } else {
-        newCount = Math.max(MIN, currentCount - 1);
+        // Shift+click decrements the multiplier (3→2→1)
+        if (e.shiftKey) {
+          currentMult = Math.max(1, currentMult - 1);
+        } else {
+          newCount = Math.max(MIN, currentCount - 1);
+        }
       }
-      item.frequency = `1×${newCount}`;
+      if (newCount === undefined) newCount = currentCount;
+      item.frequency = `${currentMult}×${newCount}`;
       syncSelectedUI();
     });
 

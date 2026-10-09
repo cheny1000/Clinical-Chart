@@ -10,12 +10,12 @@
   "use strict";
 
   // Frequency shorthand options used across the app
-  // Daily frequencies: "1×1" = once/day, "1×2" = twice/day, etc.
-  // Non-daily frequencies: "كل يومين" = every 2 days, "كل 3 أيام" = every 3 days,
-  // "كل أسبوع" = every week. These are for meds like Vancomycin in
-  // renal failure where dosing interval depends on kidney function
-  // and the med is NOT given every day.
-  const FREQUENCIES = ["1×1", "1×2", "1×3", "1×4", "كل يومين", "كل 3 أيام", "كل أسبوع"];
+  // Frequency format: "N×M" where N = dose multiplier (units per dose),
+  // M = times per day. Examples:
+  //   "1×3" = 1 unit, 3 times/day (default)
+  //   "2×3" = 2 units, 3 times/day (double dose, 3 times)
+  //   "2×1" = 2 units, once/day (double dose, once)
+  const FREQUENCIES = ["1×1", "1×2", "1×3", "1×4", "2×1", "2×2", "2×3", "2×4", "3×1", "3×2", "3×3", "كل يومين", "كل 3 أيام", "كل أسبوع"];
 
   // Form / dosage-form categories. Each medication has a `form` value.
   // Eight forms are supported (ordered as they appear in the UI):
