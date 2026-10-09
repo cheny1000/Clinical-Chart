@@ -4138,6 +4138,29 @@
       const getFrequencyInterval = Meds.getFrequencyInterval || function() { return 0; };
       const pFirstMedDate = patient.firstMedDate || "";
 
+      // Compute the patient's day label (D1, D2, ...) based on
+      // firstMedDate. Same logic as the ABX monitoring view.
+      let dayLabel = "";
+      if (pFirstMedDate) {
+        const nowDay = new Date();
+        nowDay.setHours(0, 0, 0, 0);
+        const startDay = new Date(pFirstMedDate);
+        startDay.setHours(0, 0, 0, 0);
+        const diffDays = Math.floor((nowDay - startDay) / 86400000);
+        dayLabel = "D" + Math.max(1, diffDays + 1);
+      }
+
+      // Check if the patient has any critical med (antibiotic/albumin).
+      // If so, show the day label. If not, don't show it (day tracking
+      // is only for critical meds).
+      const ANTIBIOTIC_IDS = [
+        "ceftriaxone", "meropenem", "vancomycin", "amoxycillin-500",
+        "ceftazidime-1g", "ciprofloxacin-200", "cefotaxime-1g",
+        "colistin", "tigecycline", "amoxclav", "azithromycin-500",
+        "metronidazole-500"
+      ];
+      const hasCriticalMed = meds.some(m => ANTIBIOTIC_IDS.indexOf(m.id) !== -1);
+
       medsRows = meds.map((m, i) => {
         // English-first name (user requested English).
         const name = m.nameEn || m.nameTrade || m.nameAr || m.name || m.id || "—";
@@ -4150,31 +4173,31 @@
         let dueNote = "";
         const interval = getFrequencyInterval(freq);
         if (interval > 0) {
-          // Non-daily med (e.g. "كل يومين", "كل أسبوع")
-          freqStr = freq;  // show the Arabic interval text as-is
+          freqStr = freq;
           if (isMedDueToday(freq, pFirstMedDate)) {
             dueNote = " ✓ مستحق اليوم";
           } else {
             dueNote = " (غير مستحق اليوم)";
           }
         } else {
-          // Daily med: parse "1×N" or "N" → format as "x N"
           const m1 = freq.match(/×\s*(\d+)/);
           const m2 = freq.match(/^(\d+)$/);
           if (m1) freqStr = "x " + m1[1];
           else if (m2) freqStr = "x " + m2[1];
           else if (/^\s*\d+\s*$/.test(freq)) freqStr = "x " + freq.trim();
-          // Non-numeric custom freqs (حسب القياس) → drop
         }
 
-        // Build the med line: number + name + dose + freq + dueNote
+        // Day label for this med — show D1/D2/... only for critical
+        // meds (antibiotics). Non-critical meds get an empty cell.
+        const medDay = (ANTIBIOTIC_IDS.indexOf(m.id) !== -1 && hasCriticalMed) ? dayLabel : "";
+
         const parts = [
           escapeHtml(name),
           dose ? escapeHtml(dose) : "",
           freqStr ? escapeHtml(freqStr) : "",
           dueNote ? escapeHtml(dueNote) : ""
         ].filter(p => p).join("&nbsp;&nbsp;");
-        return `<div class="ps-med-line"><span class="ps-med-num">${i + 1}.</span> <span class="ps-med-name">${parts}</span></div>`;
+        return `<div class="ps-med-line"><span class="ps-med-day">${medDay}</span><span class="ps-med-num">${i + 1}.</span> <span class="ps-med-name">${parts}</span></div>`;
       }).join("");
     }
 
@@ -4236,6 +4259,7 @@
       '.ps-meds-col { border: 1.5px solid #000; padding: 10px 12px; direction: ltr; text-align: left; }',
       '.ps-med-line { font-size: 16px; font-weight: 700; padding: 6px 0; border-bottom: 1px dashed #ccc; }',
       '.ps-med-line:last-child { border-bottom: none; }',
+      '.ps-med-day { display: inline-block; width: 38px; text-align: center; font-size: 14px; font-weight: 800; background: #DCFCE7; border: 1.5px solid #16a34a; border-radius: 6px; padding: 2px 4px; margin-right: 8px; color: #15803D; vertical-align: middle; }',
       // IMPORTANT: name + dose + freq share the SAME font-size,
       // font-weight, and color (per user request).
       '.ps-med-num { font-weight: 700; }',
@@ -4322,6 +4346,24 @@
         const getFrequencyInterval2 = Meds2.getFrequencyInterval || function() { return 0; };
         const pFirstMedDate2 = patient.firstMedDate || "";
 
+        // Compute day label (D1, D2, ...) for this patient
+        let dayLabel2 = "";
+        if (pFirstMedDate2) {
+          const nowDay2 = new Date();
+          nowDay2.setHours(0, 0, 0, 0);
+          const startDay2 = new Date(pFirstMedDate2);
+          startDay2.setHours(0, 0, 0, 0);
+          const diffDays2 = Math.floor((nowDay2 - startDay2) / 86400000);
+          dayLabel2 = "D" + Math.max(1, diffDays2 + 1);
+        }
+        const ANTIBIOTIC_IDS2 = [
+          "ceftriaxone", "meropenem", "vancomycin", "amoxycillin-500",
+          "ceftazidime-1g", "ciprofloxacin-200", "cefotaxime-1g",
+          "colistin", "tigecycline", "amoxclav", "azithromycin-500",
+          "metronidazole-500"
+        ];
+        const hasCriticalMed2 = meds.some(m => ANTIBIOTIC_IDS2.indexOf(m.id) !== -1);
+
         medsRows = meds.map((m, i) => {
           const name = m.nameEn || m.nameTrade || m.nameAr || m.name || m.id || "—";
           const dose = m.dose || "";
@@ -4342,13 +4384,15 @@
             if (m1) freqStr = "x " + m1[1];
             else if (m2) freqStr = "x " + m2[1];
           }
+          // Day label for critical meds only
+          const medDay2 = (ANTIBIOTIC_IDS2.indexOf(m.id) !== -1 && hasCriticalMed2) ? dayLabel2 : "";
           const parts = [
             escapeHtml(name),
             dose ? escapeHtml(dose) : "",
             freqStr ? escapeHtml(freqStr) : "",
             dueNote ? escapeHtml(dueNote) : ""
           ].filter(p => p).join("&nbsp;&nbsp;");
-          return `<div class="ps-med-line"><span class="ps-med-num">${i + 1}.</span> <span class="ps-med-name">${parts}</span></div>`;
+          return `<div class="ps-med-line"><span class="ps-med-day">${medDay2}</span><span class="ps-med-num">${i + 1}.</span> <span class="ps-med-name">${parts}</span></div>`;
         }).join("");
       }
 
@@ -4406,6 +4450,7 @@
       '.ps-meds-col { border: 1.5px solid #000; padding: 10px 12px; direction: ltr; text-align: left; }',
       '.ps-med-line { font-size: 16px; font-weight: 700; padding: 6px 0; border-bottom: 1px dashed #ccc; }',
       '.ps-med-line:last-child { border-bottom: none; }',
+      '.ps-med-day { display: inline-block; width: 38px; text-align: center; font-size: 14px; font-weight: 800; background: #DCFCE7; border: 1.5px solid #16a34a; border-radius: 6px; padding: 2px 4px; margin-right: 8px; color: #15803D; vertical-align: middle; }',
       '.ps-med-num { font-weight: 700; }',
       '.ps-med-name { font-weight: 700; }',
       '.ps-empty { text-align: center; padding: 20px; color: #999; font-size: 12px; }',
