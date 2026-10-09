@@ -614,6 +614,30 @@
       return;
     }
     updateSupabaseStatusUI("جارٍ المزامنة…", "loading");
+
+    // If DEFAULT_MEDICATIONS is empty, it means the user wants a
+    // completely empty catalog. Delete all rows from Supabase's
+    // medications table + clear the local cache too.
+    const def = (Meds && Meds.DEFAULT_MEDICATIONS) || [];
+    if (def.length === 0) {
+      console.log("[Sync] DEFAULT_MEDICATIONS is empty — wiping cloud + local catalog");
+      const client = SB.getClient();
+      if (client) {
+        try {
+          await client.from("medications").delete().neq("id", "");
+          console.log("[Sync] cloud medications table cleared");
+        } catch (e) {
+          console.warn("[Sync] failed to clear cloud medications:", e);
+        }
+      }
+      // Clear local cache
+      Storage.saveMedications([]);
+      state.medications = [];
+      UI.renderAdminMedList([], null);
+      updateSupabaseStatusUI("مربوط · 0 دواء", "connected");
+      return;
+    }
+
     // Cloud is the source of truth: pullCatalog() overwrites the
     // local cache with the cloud version. No merge, no push-back
     // needed — the cloud is what every device reads from.
@@ -625,10 +649,6 @@
       // ONE-TIME CLOUD SEED: if the cloud is empty or has fewer meds
       // than DEFAULT_MEDICATIONS, push the local defaults up so the
       // cloud becomes the source of truth with the full catalog.
-      // This handles the case where the user just upgraded to the
-      // "cloud-source-of-truth" model and the cloud still has the
-      // old (smaller) catalog from the previous model.
-      const def = (Meds && Meds.DEFAULT_MEDICATIONS) || [];
       if (Array.isArray(state.medications) && def.length > 0 &&
           state.medications.length < def.length) {
         console.log("[Sync] cloud has " + state.medications.length + " meds, defaults have " + def.length + " — seeding cloud");
