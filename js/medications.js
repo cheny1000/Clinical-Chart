@@ -346,7 +346,7 @@
   //        changed vancomycin default frequency to 'كل يومين' +
   //        changed vancomycin default dose to 'حسب البروتوكول'
   //   v8 = user's full 235-med list re-added with full names (form kept)
-  const DEFAULT_MEDICATIONS_VERSION = 8;
+  const DEFAULT_MEDICATIONS_VERSION = 9;
 
   // ---- Non-daily frequency helpers ----
   // Maps a non-daily frequency string to the number of days between
