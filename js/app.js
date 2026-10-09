@@ -646,12 +646,14 @@
       state.medications = Storage.loadMedications();
       UI.renderAdminMedList(state.medications, null);
       updateSupabaseStatusUI(`مربوط · ${res.count} دواء`, "connected");
-      // ONE-TIME CLOUD SEED: if the cloud is empty or has fewer meds
-      // than DEFAULT_MEDICATIONS, push the local defaults up so the
-      // cloud becomes the source of truth with the full catalog.
+      // ONE-TIME CLOUD SEED: ONLY seed the cloud if it's COMPLETELY
+      // EMPTY (0 meds). Don't seed if it has fewer than DEFAULT —
+      // the admin may have intentionally deleted meds, and re-seeding
+      // would undo their deletions. This was the root cause of the
+      // "deleted meds reappear" bug.
       if (Array.isArray(state.medications) && def.length > 0 &&
-          state.medications.length < def.length) {
-        console.log("[Sync] cloud has " + state.medications.length + " meds, defaults have " + def.length + " — seeding cloud");
+          state.medications.length === 0) {
+        console.log("[Sync] cloud is empty (0 meds) — seeding with defaults");
         state.medications = def.slice();
         Storage.saveMedications(def);
         UI.renderAdminMedList(def, null);
