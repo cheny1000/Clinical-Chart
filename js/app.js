@@ -107,17 +107,17 @@
   async function pollOnce() {
     if (!SB || !SBSync || !SB.isConfigured()) return;
     try {
-      // Pull patients — this merges with local state + triggers UI
-      // refresh if any patients changed.
-      const pres = await SBSync.pullPatients();
-      if (pres && pres.ok) {
-        state.patients = Storage.loadPatients();
-        refreshStatsAndRooms();
-        // If the patient view is open, refresh it so the user sees
-        // the updated data immediately.
-        if (state.currentBed) {
-          const p = state.patients[state.currentBed.key] || null;
-          UI.renderPatientView(p, state.currentBed.roomId, state.currentBed.bed);
+      // Only pull patients if we're NOT currently viewing a patient.
+      // Pulling while viewing would overwrite local edits (like med
+      // deletes) with a potentially stale cloud version (the push
+      // may still be in flight). The patient view is always saved
+      // on blur + on back-button, so the local state is always
+      // fresher than the cloud while the patient view is open.
+      if (!state.currentBed) {
+        const pres = await SBSync.pullPatients();
+        if (pres && pres.ok) {
+          state.patients = Storage.loadPatients();
+          refreshStatsAndRooms();
         }
       }
       // Also pull med requests from Supabase (so the admin sees new
