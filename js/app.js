@@ -812,6 +812,18 @@
 
   function handleMedicationRealtimeChange(payload) {
     if (!SBSync || !SBSync.pullCatalog) return;
+    // Don't re-pull the catalog if the admin view is currently open
+    // and we just made an edit (delete/add). The push may still be
+    // in flight to Supabase, and pulling now would get the OLD cloud
+    // version (without our edit) and overwrite the local version
+    // (with our edit). The admin view always saves on edit, so
+    // the local state is fresher while the admin view is open.
+    const adminView = document.getElementById("view-admin");
+    if (adminView && !adminView.hidden) {
+      // Skip this Realtime echo — our own edit just triggered it
+      console.log("[Realtime] skipping catalog pull (admin view open, likely our own edit)");
+      return;
+    }
     SBSync.pullCatalog().then(res => {
       if (res.ok) {
         state.medications = Storage.loadMedications();
