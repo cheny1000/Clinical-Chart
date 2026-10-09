@@ -4209,12 +4209,15 @@
         const medDay = (ANTIBIOTIC_IDS.indexOf(m.id) !== -1 && hasCriticalMed) ? dayLabel : "";
 
         // Form abbreviation — a short label (V, A, PS, T, etc.)
-        // shown in a colored box left of the med number. Each form
-        // gets a different background color so the user can visually
-        // distinguish Vials from Ampules from Tablets at a glance.
+        // shown in a box left of the med number. Fluids (N/S, G/S,
+        // R/L, G/W) get "F" instead of "Sup" even though they stay
+        // in the supplies category.
         const FORM_ABBR = (global.PharmacyMedications && global.PharmacyMedications.FORM_ABBR) || {};
+        const FLUID_IDS_PRINT = (global.PharmacyMedications && global.PharmacyMedications.FLUID_IDS) || [];
         const medForm = (medCatalog.find(m2 => m2.id === m.id)?.form) || m.form || "tablet";
-        const formAbbr = FORM_ABBR[medForm] || "—";
+        // Check if this med is a fluid — if so, use "F" abbreviation
+        const isFluid = FLUID_IDS_PRINT.indexOf(m.id) !== -1;
+        const formAbbr = isFluid ? "F" : (FORM_ABBR[medForm] || "—");
 
         const parts = [
           escapeHtml(name),
@@ -4285,8 +4288,8 @@
       '.ps-med-line { font-size: 16px; font-weight: 700; padding: 6px 0; border-bottom: 1px dashed #ccc; }',
       '.ps-med-line:last-child { border-bottom: none; }',
       '.ps-med-day:empty { display: inline-block; width: 38px; margin-right: 8px; }',
-      '.ps-med-day:not(:empty) { display: inline-block; width: 38px; text-align: center; font-size: 14px; font-weight: 800; background: #DCFCE7; border: 1.5px solid #16a34a; border-radius: 6px; padding: 2px 4px; margin-right: 8px; color: #15803D; vertical-align: middle; }',
-      '.ps-med-form { display: inline-block; width: 32px; text-align: center; font-size: 12px; font-weight: 800; border-radius: 6px; padding: 2px 4px; margin-right: 8px; vertical-align: middle; background: #F1F5F9; border: 1.5px solid var(--border, #CBD5E1); color: #475569; }',
+      '.ps-med-day:not(:empty) { display: inline-block; width: 38px; text-align: center; font-size: 14px; font-weight: 800; background: #000; border: 1.5px solid #000; border-radius: 6px; padding: 2px 4px; margin-right: 8px; color: #fff; vertical-align: middle; }',
+      '.ps-med-form { display: inline-block; width: 32px; text-align: center; font-size: 12px; font-weight: 800; border-radius: 6px; padding: 2px 4px; margin-right: 8px; vertical-align: middle; background: #fff; border: 1.5px solid #000; color: #000; }',
       // IMPORTANT: name + dose + freq share the SAME font-size,
       // font-weight, and color (per user request).
       '.ps-med-num { font-weight: 700; }',
@@ -4426,10 +4429,12 @@
           }
           // Day label for critical meds only
           const medDay2 = (ANTIBIOTIC_IDS2.indexOf(m.id) !== -1 && hasCriticalMed2) ? dayLabel2 : "";
-          // Form abbreviation
+          // Form abbreviation — fluids get "F"
           const FORM_ABBR2 = (global.PharmacyMedications && global.PharmacyMedications.FORM_ABBR) || {};
+          const FLUID_IDS_P2 = (global.PharmacyMedications && global.PharmacyMedications.FLUID_IDS) || [];
           const medForm2 = (medCatalog2.find(m2 => m2.id === m.id)?.form) || m.form || "tablet";
-          const formAbbr2 = FORM_ABBR2[medForm2] || "—";
+          const isFluid2 = FLUID_IDS_P2.indexOf(m.id) !== -1;
+          const formAbbr2 = isFluid2 ? "F" : (FORM_ABBR2[medForm2] || "—");
           const parts = [
             escapeHtml(name),
             dose ? escapeHtml(dose) : "",
@@ -4495,8 +4500,8 @@
       '.ps-med-line { font-size: 16px; font-weight: 700; padding: 6px 0; border-bottom: 1px dashed #ccc; }',
       '.ps-med-line:last-child { border-bottom: none; }',
       '.ps-med-day:empty { display: inline-block; width: 38px; margin-right: 8px; }',
-      '.ps-med-day:not(:empty) { display: inline-block; width: 38px; text-align: center; font-size: 14px; font-weight: 800; background: #DCFCE7; border: 1.5px solid #16a34a; border-radius: 6px; padding: 2px 4px; margin-right: 8px; color: #15803D; vertical-align: middle; }',
-      '.ps-med-form { display: inline-block; width: 32px; text-align: center; font-size: 12px; font-weight: 800; border-radius: 6px; padding: 2px 4px; margin-right: 8px; vertical-align: middle; background: #F1F5F9; border: 1.5px solid var(--border, #CBD5E1); color: #475569; }',
+      '.ps-med-day:not(:empty) { display: inline-block; width: 38px; text-align: center; font-size: 14px; font-weight: 800; background: #000; border: 1.5px solid #000; border-radius: 6px; padding: 2px 4px; margin-right: 8px; color: #fff; vertical-align: middle; }',
+      '.ps-med-form { display: inline-block; width: 32px; text-align: center; font-size: 12px; font-weight: 800; border-radius: 6px; padding: 2px 4px; margin-right: 8px; vertical-align: middle; background: #fff; border: 1.5px solid #000; color: #000; }',
       '.ps-med-num { font-weight: 700; }',
       '.ps-med-name { font-weight: 700; }',
       '.ps-empty { text-align: center; padding: 20px; color: #999; font-size: 12px; }',

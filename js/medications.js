@@ -51,6 +51,16 @@
     solution:              "Sol",
     supplies:              "Sup"
   };
+  // Fluid IDs — these are IV fluids (N/S, G/S, R/L, G/W) that stay
+  // in the "supplies" form category but get a special abbreviation
+  // "F" (Fluids) in the patient sheet instead of "Sup".
+  const FLUID_IDS = [
+    "dextrose-saline",     // G/S
+    "ringers-lactate",     // R/L
+    "glucose-5",           // G/W
+    "sodium-chloride-09",  // N/S 500ml
+    "nacl-100ml"           // N/S 100ml
+  ];
   // Display order — determines tab order in the bottom-sheet
   const FORM_ORDER = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup-and-oral-drop", "suppository", "solution", "supplies"];
   // Icons for each form — emoji strings or special image markers
@@ -211,6 +221,7 @@
     FREQUENCIES,
     FORM_LABELS,
     FORM_ABBR,
+    FLUID_IDS,
     FORM_ORDER,
     FORM_ICONS,
     DEFAULT_MEDICATIONS,
