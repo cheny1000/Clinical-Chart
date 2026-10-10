@@ -995,16 +995,25 @@
     form.value = formVal;
     dose.value      = med.defaultDose || "";
 
+    // Normalize the stored frequency to the math "×" (U+00D7) form
+    // because the dropdown options use "×" (U+00D7). Old catalog
+    // entries may use Latin "x" (U+0078) — without this normalization,
+    // freq.value = "1x1" wouldn't match any dropdown option, and the
+    // browser would render it with RTL text shaping that visually
+    // flips the digits (e.g. "1×3" appearing as "3×1").
+    const normalizedFreq = (med.defaultFrequency || "")
+      .replace(/x/g, "×")     // Latin x → math ×
+      .replace(/\s+/g, "");   // strip any spaces around the ×
     const freqOptions = global.PharmacyMedications.FREQUENCIES;
-    const isStandard = freqOptions.includes(med.defaultFrequency);
-    if (isStandard || !med.defaultFrequency) {
-      freq.value = med.defaultFrequency || "1×1";
+    const isStandard = freqOptions.includes(normalizedFreq);
+    if (isStandard || !normalizedFreq) {
+      freq.value = normalizedFreq || "1×1";
       freqWrap.hidden = true;
       freqCustom.value = "";
     } else {
       freq.value = "custom";
       freqWrap.hidden = false;
-      freqCustom.value = med.defaultFrequency;
+      freqCustom.value = normalizedFreq;
     }
   }
   function hideAdminForm() {
@@ -1032,7 +1041,11 @@
     const dose   = document.getElementById("adm-dose").value.trim();
     const freqSel = document.getElementById("adm-freq").value;
     const freqCustom = document.getElementById("adm-freq-custom").value.trim();
-    const frequency = freqSel === "custom" ? freqCustom : freqSel;
+    // Normalize the frequency: convert any Latin "x" (U+0078) to the
+    // math "×" (U+00D7) form used by the dropdown + the rest of the
+    // app. This ensures consistency in storage + future reads.
+    const rawFreq = freqSel === "custom" ? freqCustom : freqSel;
+    const frequency = rawFreq.replace(/x/g, "×").replace(/\s+/g, "");
     const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup-and-oral-drop", "suppository", "solution", "supplies"];
 
     return {
