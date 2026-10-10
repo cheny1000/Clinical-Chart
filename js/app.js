@@ -4156,6 +4156,10 @@
   // PWA standalone mode).
   function printPatientSheet(patient, currentBed) {
     if (!patient || !currentBed) return;
+    // Version marker — printed in a small footer on each patient sheet
+    // so we can verify the running code version visually. Bump this
+    // when making print-layout changes that need to be visible.
+    const SHEET_VERSION = "v1.1-sumDose";
     const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
     // The patient's attending physician (الطبيب المعالج) — stored as
     // a free-text field on the patient record (e.g. "أ.د. محمد الجبوري").
@@ -4393,6 +4397,10 @@
       // Second grid column (visually LEFT in RTL) — medications list
       '  <div class="ps-meds-col">' + medsRows + '</div>',
       '</div>',
+      // Tiny version marker in the footer — only visible on screen,
+      // hidden when actually printing. Lets us verify which version
+      // of the code is actually running.
+      '<div style="position:fixed;bottom:2px;right:4px;font-size:9px;color:#ccc;font-weight:400;pointer-events:none;">' + SHEET_VERSION + '</div>',
       '<script>',
       // Wait for fonts to load before printing (800ms safety margin)
       'window.addEventListener("load", function() {',

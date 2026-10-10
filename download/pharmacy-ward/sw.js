@@ -11,7 +11,7 @@
      once.
    ============================================================ */
 
-const CACHE_VERSION = 'pharma-ward-v49';
+const CACHE_VERSION = 'pharma-ward-v2';
 const PRECACHE_URLS = [
   './',
   './index.html',
@@ -25,9 +25,6 @@ const PRECACHE_URLS = [
   './js/auth.js',
   './js/remote-adapter.js',
   './js/ui.js',
-  './js/chart-image.js',
-  './js/chart-bridge.js',
-  './js/pills-form.js',
   './js/app.js',
   './manifest.json',
   './img/login-icon.png',
@@ -112,31 +109,6 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Network-first for everything else (JS, CSS, fonts, CDN).
-  // For same-origin JS files specifically, we bypass cache entirely
-  // (no fallback) so code changes ALWAYS take effect — this avoids
-  // the situation where a user is stuck on an old cached version of
-  // app.js after a deployment. JS files are small and the app already
-  // uses ?v=Date.now() cache-busting in index.html.
-  const isSameOriginJS = isSameOrigin && req.destination === 'script';
-  if (isSameOriginJS) {
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE_VERSION).then((c) => c.put(req, copy));
-          return res;
-        })
-        // For JS, no cache fallback — better to fail loudly than
-        // serve stale code that confuses the user.
-        .catch(() => new Response('/* network error — JS unavailable */', {
-          status: 503,
-          headers: { 'Content-Type': 'application/javascript' }
-        }))
-    );
-    return;
-  }
-
-  // All other resources (CSS, fonts, CDN) — network-first with cache fallback.
   event.respondWith(
     fetch(req)
       .then((res) => {
