@@ -18,6 +18,7 @@
      name_trade      TEXT
      name_ar         TEXT
      name_en         TEXT
+     name_chart      TEXT        (optional — used by جارت الجارت + printed chart)
      form            TEXT NOT NULL DEFAULT 'vial'
      default_dose    TEXT NOT NULL
      default_frequency TEXT NOT NULL
@@ -178,6 +179,48 @@
   // Uses upsert (insert with ON CONFLICT DO UPDATE) so partial failures
   // don't leave the cloud table empty. Also deletes any rows that exist
   // in the cloud but not locally (so removals propagate).
+  //
+  // Optional column fallback for the medications table.
+  // Similar to upsertWithFallback() for the patients table — but
+  // with a different (smaller) set of optional columns. The only
+  // optional column on `medications` is `name_chart`, which was
+  // added in a schema migration. Legacy installs that haven't run
+  // the migration don't have the column, and the upsert would fail
+  // with: "Could not find the 'name_chart' column of 'medications'
+  // in the schema cache". We catch that, strip the column, retry.
+  const OPTIONAL_MED_COLS = ["name_chart"];
+
+  async function upsertMedicationsWithFallback(client, slice) {
+    let currentSlice = slice;
+    let strippedCols = new Set();
+    // Max 1 retry per optional column.
+    for (let attempt = 0; attempt <= OPTIONAL_MED_COLS.length; attempt++) {
+      const { error: upErr } = await client
+        .from("medications")
+        .upsert(currentSlice, { onConflict: "id" });
+      if (!upErr) {
+        if (strippedCols.size > 0) {
+          console.warn("[Supabase] med upsert succeeded after stripping columns:", Array.from(strippedCols).join(", "));
+        }
+        return { ok: true };
+      }
+      const msg = upErr.message || "";
+      const colMatch = msg.match(/Could not find the '([a-zA-Z_]+)' column/);
+      const missingCol = colMatch ? colMatch[1] : null;
+      if (!missingCol || !OPTIONAL_MED_COLS.includes(missingCol)) {
+        return { ok: false, error: msg };
+      }
+      if (!strippedCols.has(missingCol)) {
+        console.warn("[Supabase] stripping missing med column '" + missingCol + "' and retrying upsert");
+        strippedCols.add(missingCol);
+        currentSlice = currentSlice.map(row => stripColumn(row, missingCol));
+      } else {
+        return { ok: false, error: msg };
+      }
+    }
+    return { ok: false, error: "Exhausted med column-stripping retries" };
+  }
+
   // Returns { ok: true } on success or { ok: false, error }.
   async function pushCatalog() {
     if (!SB || !SB.isConfigured()) return { ok: false, error: "غير مُهيّأ" };
@@ -188,17 +231,20 @@
     if (!Array.isArray(meds)) return { ok: false, error: "كتالوج محلي غير صالح" };
 
     try {
-      // 1) Upsert all rows (insert OR update on conflict by id)
+      // 1) Upsert all rows (insert OR update on conflict by id).
+      // We use upsertMedicationsWithFallback() which retries with
+      // progressively stripped optional columns (currently only
+      // `name_chart`) — this lets the app keep working on legacy
+      // Supabase installs that haven't yet run the latest schema
+      // migration that adds the `name_chart` column.
       const rows = meds.map((m, i) => medToRow(m, i));
       const CHUNK = 100;
       for (let i = 0; i < rows.length; i += CHUNK) {
         const slice = rows.slice(i, i + CHUNK);
-        const { error: upErr } = await client
-          .from("medications")
-          .upsert(slice, { onConflict: "id" });
-        if (upErr) {
+        const result = await upsertMedicationsWithFallback(client, slice);
+        if (!result.ok) {
           saveSyncState({ lastPushOk: false, lastPushAt: Date.now() });
-          return { ok: false, error: upErr.message };
+          return { ok: false, error: result.error };
         }
       }
 
