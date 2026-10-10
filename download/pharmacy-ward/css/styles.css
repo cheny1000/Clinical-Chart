@@ -60,6 +60,103 @@ html, body { margin: 0; padding: 0; }
   --safe-right:  env(safe-area-inset-right, 0px);
 }
 
+/* ---------- Dark mode ---------- */
+html[data-theme="dark"] {
+  --bg:            #0F172A;
+  --surface:       #1E293B;
+  --primary:       #38BDF8;
+  --primary-dark:  #0EA5E9;
+  --primary-soft:  #0C2540;
+  --success:       #34D399;
+  --success-soft:  #064E3B;
+  --warning:       #FBBF24;
+  --warning-soft:  #422006;
+  --empty:         #475569;
+  --empty-soft:    #1E293B;
+  --danger:        #F87171;
+  --danger-soft:   #450A0A;
+
+  --text:          #F1F5F9;
+  --text-muted:    #94A3B8;
+  --text-faint:    #64748B;
+  --border:        #334155;
+  --border-strong: #475569;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 -8px 28px rgba(0, 0, 0, 0.6);
+}
+html[data-theme="dark"] .app-header {
+  background: linear-gradient(180deg, #1E293B 0%, #0F172A 100%);
+}
+html[data-theme="dark"] .login-screen {
+  background: linear-gradient(180deg, #1E293B 0%, #0F172A 100%);
+}
+html[data-theme="dark"] .login-card {
+  background: #1E293B;
+  color: #F1F5F9;
+}
+html[data-theme="dark"] .login-name-input,
+html[data-theme="dark"] .patient-name-input,
+html[data-theme="dark"] .patient-plate-input,
+html[data-theme="dark"] .supply-order-row input,
+html[data-theme="dark"] .admin-user-form-row input,
+html[data-theme="dark"] .admin-user-form-row select {
+  background: #0F172A;
+  color: #F1F5F9;
+  border-color: #334155;
+}
+html[data-theme="dark"] .brand-darkmode {
+  color: #FBBF24;
+}
+html[data-theme="dark"] .stat-chip {
+  background: #1E293B;
+}
+html[data-theme="dark"] .room-card {
+  background: #1E293B;
+}
+html[data-theme="dark"] .bed-btn {
+  background: #0F172A;
+}
+html[data-theme="dark"] .bed-btn.state-empty {
+  background: #1E293B;
+  border-color: #334155;
+}
+html[data-theme="dark"] .med-sheet {
+  background: #1E293B;
+}
+html[data-theme="dark"] .sheet-tab {
+  background: #0F172A;
+  color: #94A3B8;
+}
+html[data-theme="dark"] .med-option {
+  background: #0F172A;
+}
+html[data-theme="dark"] .med-option .med-name {
+  color: #F1F5F9;
+}
+html[data-theme="dark"] .patient-row {
+  background: #1E293B;
+}
+html[data-theme="dark"] .admin-users-section,
+html[data-theme="dark"] .admin-audit-section,
+html[data-theme="dark"] .admin-user-form,
+html[data-theme="dark"] .admin-user-row,
+html[data-theme="dark"] .admin-med-row {
+  background: #1E293B;
+}
+html[data-theme="dark"] .supply-order-card {
+  background: #1E293B;
+}
+html[data-theme="dark"] .supply-order-row {
+  background: #0F172A;
+}
+html[data-theme="dark"] .supply-order-hint {
+  background: #0F172A;
+  color: #94A3B8;
+}
+
 /* ---------- Base ---------- */
 html, body {
   height: 100%;
@@ -324,6 +421,71 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   gap: 6px;
   flex-shrink: 0;
 }
+.brand-darkmode {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: #475569;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: background 160ms ease, color 160ms ease, transform 120ms ease;
+}
+.brand-darkmode:active {
+  transform: scale(0.94);
+  background: #E2E8F0;
+}
+.brand-darkmode svg {
+  display: block;
+}
+.brand-darkmode[hidden] { display: none !important; }
+.brand-pdf {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: #ECFDF5;
+  border: 1px solid #059669;
+  color: #047857;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: background 160ms ease, color 160ms ease, transform 120ms ease;
+}
+.brand-pdf:active {
+  transform: scale(0.94);
+  background: #D1FAE5;
+}
+.brand-pdf svg { display: block; }
+.brand-pdf[hidden] { display: none !important; }
+
+/* ---------- Stats bar (in header) ---------- */
+.stats-bar {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 10px;
+  flex-wrap: wrap;
+}
+.stat-chip {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: var(--r-full);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.stat-chip-num {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--primary);
+}
+.stat-chip-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
 .brand-logout {
   width: 40px;
   height: 40px;
@@ -343,6 +505,48 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 .brand-logout[hidden] { display: none !important; }
 .brand-settings[hidden] { display: none !important; }
 .brand-chart[hidden] { display: none !important; }
+.brand-sync[hidden] { display: none !important; }
+
+/* Sync button — green accent (distinct from chart button's blue) */
+.brand-sync {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: #ECFDF5;
+  border: 1px solid #10B981;
+  color: #047857;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: background 160ms ease, color 160ms ease, transform 120ms ease;
+}
+.brand-sync:active {
+  transform: scale(0.94);
+  background: #D1FAE5;
+}
+.brand-sync:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.brand-sync svg {
+  display: block;
+}
+/* Spinning animation while sync is in progress */
+@keyframes brand-sync-spin {
+  to { transform: rotate(360deg); }
+}
+.brand-sync.is-syncing svg {
+  animation: brand-sync-spin 1s linear infinite;
+}
+/* Subtle pulse to draw attention when there are pending remote changes */
+@keyframes brand-sync-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45); }
+  70%  { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+.brand-sync:not(.is-syncing):not(:disabled):not([hidden]):hover {
+  animation: brand-sync-pulse 1.6s ease-out 1;
+}
 
 .brand-chart {
   width: 40px;
@@ -360,9 +564,29 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   transform: scale(0.94);
   background: var(--primary-soft);
 }
-.brand-chart svg, .brand-settings svg, .brand-logout svg {
+.brand-chart svg, .brand-settings svg, .brand-logout svg,
+.brand-display svg, .brand-darkmode svg, .brand-pdf svg,
+.brand-sync svg, .distribute-send-btn svg {
   display: block;
+  margin: auto;
 }
+.brand-display {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: #475569;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: background 160ms ease, color 160ms ease, transform 120ms ease;
+}
+.brand-display:active {
+  transform: scale(0.94);
+  background: #E2E8F0;
+}
+.brand-display[hidden] { display: none !important; }
 
 /* ---------- App shell ---------- */
 .app {
@@ -553,6 +777,23 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 }
 
 /* ---- Beds area inside a room ---- */
+/* grid-2x3 layout: rooms 1-5 (6 beds in 3 rows × 2 cols).
+   grid-2x2 layout: rooms 6-10 (4 beds in 2 rows × 2 cols).
+   Both use the same .beds-row class for each row of 2 beds.
+   RTL: first bed (lower number) appears on the RIGHT side of each row. */
+.room-beds.grid-2x3,
+.room-beds.grid-2x2 {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.beds-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+/* ---- Legacy layouts (kept for backward compat) ---- */
 /* split-3-3 layout: 3 beds on RIGHT + 3 beds on LEFT (no door). */
 .room-beds.split-3-3 {
   display: grid;
@@ -608,6 +849,33 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   font-weight: 800;
   color: var(--text);
 }
+/* Patient name on occupied beds — replaces the bed number */
+.bed-btn .bed-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.15;
+  max-height: 2.4em;          /* ~2 lines max */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+/* Attending physician name (smaller, muted) */
+.bed-btn .bed-doctor {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 2px;
+  line-height: 1.1;
+  max-height: 1.3em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
 .bed-btn .bed-state {
   font-size: 11px;
   font-weight: 600;
@@ -630,7 +898,15 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   color: #9A3412;
 }
 .bed-btn.state-occupied .bed-num { color: #9A3412; }
-.bed-btn.state-occupied .bed-state::before { content: "مشغول"; }
+/* Hide the "مشغول" label on occupied beds — the patient name
+   replaces it now (we show bed-name + bed-doctor instead) */
+.bed-btn.state-occupied .bed-state,
+.bed-btn.state-meds .bed-state,
+.bed-btn.state-albumin .bed-state,
+.bed-btn.state-meronem .bed-state,
+.bed-btn.state-albumin-meronem .bed-state {
+  display: none;
+}
 
 /* State: occupied, has meds */
 .bed-btn.state-meds {
@@ -718,6 +994,444 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   font-weight: 500;
 }
 
+/* Plate number row — second input under the patient name, smaller
+   and lighter (it's optional). Mirrors the name input style but with
+   smaller font, lighter weight, and a subtle accent color so the
+   user can tell it apart from the name field. */
+.patient-plate-row { display: flex; margin-top: 8px; }
+.patient-plate-input {
+  flex: 1;
+  width: 100%;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  background: #FAFAFA;
+  color: var(--text-muted);
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.patient-plate-input:focus {
+  border-style: solid;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(27, 68, 63, 0.10);
+  color: var(--text);
+  background: #fff;
+}
+.patient-plate-input::placeholder {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+/* ---------- Demographics row (age + gender) ----------
+   Compact row with the age input on one side and the gender toggle
+   buttons on the other. The toggle uses two segmented buttons. */
+.patient-demographics-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: stretch;
+}
+.patient-age-input {
+  width: 70px;
+  flex-shrink: 0;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  background: #FAFAFA;
+  color: var(--text-muted);
+  outline: none;
+  text-align: center;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.patient-age-input:focus {
+  border-style: solid;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(27, 68, 63, 0.10);
+  color: var(--text);
+  background: #fff;
+}
+.patient-age-input::placeholder {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+.patient-gender-toggle {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r-md);
+  padding: 3px;
+  background: #FAFAFA;
+  transition: border-color 160ms ease;
+}
+.patient-gender-toggle:has(.patient-gender-btn.is-active) {
+  border-style: solid;
+  border-color: var(--primary);
+  background: #fff;
+}
+.patient-gender-btn {
+  flex: 1;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+.patient-gender-btn.is-active {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(27, 68, 63, 0.20);
+}
+.patient-gender-btn:active { transform: scale(0.97); }
+html[data-theme="dark"] .patient-age-input,
+html[data-theme="dark"] .patient-gender-toggle {
+  background: var(--bg-card);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+/* Doctor (الطبيب المعالج) row — same style as the plate row so the
+   two optional fields look consistent underneath the patient name. */
+.patient-doctor-row { display: flex; margin-top: 8px; }
+.patient-doctor-input {
+  flex: 1;
+  width: 100%;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  background: #FAFAFA;
+  color: var(--text-muted);
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.patient-doctor-input:focus {
+  border-style: solid;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(27, 68, 63, 0.10);
+  color: var(--text);
+  background: #fff;
+}
+.patient-doctor-input::placeholder {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+html[data-theme="dark"] .patient-doctor-input { background: var(--bg-card); }
+
+/* Lab values row — grid of small inputs for lab results */
+.patient-labs-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+.lab-input {
+  width: 100%;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r-sm);
+  padding: 8px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #FAFAFA;
+  color: var(--text-muted);
+  outline: none;
+  text-align: center;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.lab-input:focus {
+  border-style: solid;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(27, 68, 63, 0.10);
+  color: var(--text);
+  background: #fff;
+}
+.lab-input::placeholder { color: var(--text-faint); font-weight: 500; }
+.lab-input:disabled { opacity: 0.6; }
+html[data-theme="dark"] .lab-input { background: var(--bg-card); }
+
+/* Lab cell (input + add button) */
+.lab-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.lab-add-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.lab-add-btn:active { transform: scale(0.9); background: var(--primary-dark); }
+.lab-add-btn[hidden] { display: none; }
+
+/* ---------- GFR calculator card ----------
+   Displays the calculated eGFR (CKD-EPI 2021 equation) using the
+   patient's age + gender + S. Creatinine. Color-coded by stage
+   so the user can spot impaired kidney function at a glance. */
+.gfr-card {
+  margin-top: 10px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px 8px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+.gfr-card[hidden] { display: none; }
+.gfr-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.gfr-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+.gfr-stage {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  background: var(--primary-soft);
+  color: var(--primary);
+  white-space: nowrap;
+}
+.gfr-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.gfr-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+}
+.gfr-unit {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.gfr-formula {
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 4px;
+  font-weight: 600;
+  font-style: italic;
+}
+
+/* GFR stages color coding (per KDIGO classification) */
+.gfr-card.stage-g1 .gfr-stage { background: #DCFCE7; color: #15803D; }   /* ≥90 Normal */
+.gfr-card.stage-g1 .gfr-value { color: #15803D; }
+.gfr-card.stage-g2 .gfr-stage { background: #ECFDF5; color: #047857; }    /* 60-89 Mildly decreased */
+.gfr-card.stage-g2 .gfr-value { color: #047857; }
+.gfr-card.stage-g3a .gfr-stage { background: #FEF9C3; color: #A16207; }   /* 45-59 Mild-moderate */
+.gfr-card.stage-g3a .gfr-value { color: #A16207; }
+.gfr-card.stage-g3b .gfr-stage { background: #FED7AA; color: #C2410C; }   /* 30-44 Moderate-severe */
+.gfr-card.stage-g3b .gfr-value { color: #C2410C; }
+.gfr-card.stage-g4 .gfr-stage { background: #FEE2E2; color: #B91C1C; }    /* 15-29 Severe */
+.gfr-card.stage-g4 .gfr-value { color: #B91C1C; }
+.gfr-card.stage-g5 .gfr-stage { background: #FECACA; color: #991B1B; }    /* <15 Kidney failure */
+.gfr-card.stage-g5 .gfr-value { color: #991B1B; }
+
+html[data-theme="dark"] .gfr-card { background: var(--bg-card); border-color: var(--border); }
+html[data-theme="dark"] .gfr-card.stage-g1 .gfr-stage { background: rgba(22, 163, 74, 0.2); color: #4ADE80; }
+html[data-theme="dark"] .gfr-card.stage-g2 .gfr-stage { background: rgba(5, 150, 105, 0.2); color: #34D399; }
+html[data-theme="dark"] .gfr-card.stage-g3a .gfr-stage { background: rgba(202, 138, 4, 0.2); color: #FACC15; }
+html[data-theme="dark"] .gfr-card.stage-g3b .gfr-stage { background: rgba(194, 65, 12, 0.2); color: #FB923C; }
+html[data-theme="dark"] .gfr-card.stage-g4 .gfr-stage { background: rgba(185, 28, 28, 0.2); color: #F87171; }
+html[data-theme="dark"] .gfr-card.stage-g5 .gfr-stage { background: rgba(153, 27, 27, 0.2); color: #EF4444; }
+
+/* Lab history (previous entries) */
+.patient-labs-history {
+  margin-top: 10px;
+}
+.lab-history-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.lab-history-row {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 3px 0;
+  display: flex;
+  gap: 8px;
+}
+.lab-history-date {
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+}
+.lab-history-vals {
+  font-weight: 500;
+}
+
+/* ABX save monthly button */
+.abx-save-btn {
+  width: 100%;
+  margin-top: 16px;
+  background: #080;
+  color: #fff;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 136, 0, 0.30);
+}
+.abx-save-btn:active { background: #006400; }
+
+/* ---------- Notifications ---------- */
+.notif-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #DC2626;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 4px;
+  box-shadow: 0 0 0 2px #fff;
+}
+.notif-badge[hidden] { display: none !important; }
+.notif-actions {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+.notif-mark-all, .notif-clear {
+  padding: 8px 14px;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 700;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.notif-mark-all { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+.notif-clear { background: #FEF2F2; color: #DC2626; border-color: #FECACA; }
+.notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.notif-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+}
+.notif-row.notif-unread {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.notif-icon { font-size: 20px; flex-shrink: 0; }
+.notif-content { flex: 1; min-width: 0; }
+.notif-message { font-size: 13px; font-weight: 700; color: var(--text); }
+.notif-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.notif-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #DC2626;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+/* Saved ABX snapshots list */
+.abx-saved-btn {
+  width: 100%;
+  margin-top: 8px;
+  background: #475569;
+  color: #fff;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(71, 85, 105, 0.30);
+}
+.abx-saved-btn:active { background: #334155; }
+.abx-snapshot-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.abx-snapshot-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.abx-snapshot-month {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--primary);
+}
+.abx-snapshot-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.abx-snapshot-meta2 {
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+.abx-snapshot-view-btn, .abx-snapshot-del-btn {
+  margin-top: 8px;
+  padding: 6px 12px;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 700;
+  border: 1.5px solid;
+  cursor: pointer;
+}
+.abx-snapshot-view-btn {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-color: var(--primary);
+  margin-left: 0;
+}
+.abx-snapshot-del-btn {
+  background: #FEF2F2;
+  color: #DC2626;
+  border-color: #FECACA;
+  margin-right: 8px;
+}
+
 /* meds section */
 .meds-section {
   margin-top: 16px;
@@ -732,6 +1446,11 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   margin: 0;
   font-size: 17px;
   font-weight: 800;
+}
+.meds-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .add-med-fab {
   display: inline-flex;
@@ -749,6 +1468,13 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 .add-med-fab:active {
   transform: scale(0.97);
   background: var(--primary-dark);
+}
+.patient-print-btn {
+  background: #1E40AF;
+  box-shadow: 0 4px 10px rgba(30, 64, 175, 0.30);
+}
+.patient-print-btn:active {
+  background: #1E3A8A;
 }
 
 .meds-list {
@@ -902,6 +1628,204 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   background: #FEE2E2;
 }
 
+/* Discharge + Died buttons (in patient view) */
+.patient-action-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: var(--r-md);
+  font-weight: 700;
+  font-size: 14px;
+  border: 1.5px solid;
+  transition: background 160ms ease, transform 120ms ease;
+}
+.patient-action-btn:active { transform: scale(0.99); }
+.discharge-btn {
+  background: #EFF6FF;
+  color: #1E40AF;
+  border-color: #BFDBFE;
+}
+.discharge-btn:active { background: #DBEAFE; }
+.died-btn {
+  background: #F5F3FF;
+  color: #6B21A8;
+  border-color: #DDD6FE;
+}
+.died-btn:active { background: #EDE9FE; }
+
+/* Discharged / Dead patients view */
+.discharged-tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+.discharged-tab {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.discharged-tab.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.discharged-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.discharged-row {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+}
+.discharged-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.discharged-row-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+.discharged-row-date {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.discharged-row-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+/* Final diagnosis row — shown when a discharged patient has a final
+   diagnosis recorded. Highlighted with a green left border + soft
+   green background to distinguish from the admission diagnosis. */
+.discharged-row.has-final-dx {
+  border-left: 3px solid #15803D;
+  background: linear-gradient(90deg, #F0FDF4 0%, var(--surface) 12%);
+}
+.discharged-row-final-dx,
+.discharged-row-dx {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: var(--primary-soft);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.5;
+  word-break: break-word;
+}
+.discharged-row-final-dx {
+  background: #DCFCE7;
+  color: #14532D;
+}
+.discharged-row-final-dx .dx-label,
+.discharged-row-dx .dx-label {
+  font-weight: 800;
+  margin-left: 4px;
+}
+.discharged-row-final-dx .dx-value {
+  font-weight: 600;
+}
+html[data-theme="dark"] .discharged-row.has-final-dx {
+  background: linear-gradient(90deg, rgba(22, 163, 74, 0.10) 0%, var(--bg-card) 12%);
+  border-left-color: #22C55E;
+}
+html[data-theme="dark"] .discharged-row-final-dx {
+  background: rgba(22, 163, 74, 0.18);
+  color: #BBF7D0;
+}
+
+/* ---------- Antibiotic + Albumin monitoring ---------- */
+.abx-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.abx-stat-card {
+  flex: 1;
+  min-width: 100px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  text-align: center;
+}
+.abx-stat-num {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--primary);
+}
+.abx-stat-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-top: 2px;
+}
+.abx-section {
+  margin-top: 16px;
+}
+.abx-section h3 {
+  font-size: 15px;
+  font-weight: 800;
+  margin: 0 0 8px;
+  color: var(--text);
+}
+.abx-table {
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.abx-row {
+  display: grid;
+  grid-template-columns: 1.3fr 0.8fr 1.2fr 0.8fr 0.6fr 0.5fr;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  align-items: center;
+}
+.abx-row:last-child { border-bottom: none; }
+.abx-row:nth-child(odd) { background: rgba(0,0,0,0.02); }
+.abx-row-header {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 800;
+  font-size: 11px;
+}
+.abx-row-header:nth-child(odd) { background: var(--primary); }
+/* Albumin table has fewer columns (no med name) */
+#abx-albumin-table .abx-row {
+  grid-template-columns: 1.3fr 0.8fr 0.8fr 0.6fr 0.5fr 1fr;
+}
+.abx-cell-name { font-weight: 800; color: var(--text); }
+.abx-cell-med { font-weight: 700; color: var(--primary-dark); }
+.abx-cell-day { font-weight: 800; color: #DC2626; }
+.abx-cell-diag { font-weight: 600; color: var(--text-muted); font-style: italic; }
+.abx-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+html[data-theme="dark"] .abx-row:nth-child(odd) { background: rgba(255,255,255,0.03); }
+
 /* ---------- Patients list view ---------- */
 .patients-stat {
   display: flex;
@@ -967,6 +1891,39 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   color: var(--text-muted);
   margin-top: 2px;
 }
+/* Plate number — appears at the end of the room/bed line if present */
+.patient-row .pr-plate {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+/* Age + gender — appended after the plate number when filled in */
+.patient-row .pr-demo {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+/* Albumin yellow dot — larger marker next to the patient name */
+.patient-row .pr-albumin-dot {
+  display: inline-block;
+  margin-right: 6px;
+  color: #CA8A04;
+  font-size: 24px;
+  line-height: 1;
+  vertical-align: middle;
+}
+/* Meronem red dot — larger marker next to the patient name */
+.patient-row .pr-meronem-dot {
+  display: inline-block;
+  margin-right: 6px;
+  color: #B91C1C;
+  font-size: 24px;
+  line-height: 1;
+  vertical-align: middle;
+}
+.patient-row.has-albumin .pr-name,
+.patient-row.has-meronem .pr-name {
+  /* Subtle visual cue: slightly bolder name for marked patients */
+  font-weight: 800;
+}
 .patient-row .pr-meds {
   font-size: 11px;
   font-weight: 700;
@@ -1009,11 +1966,15 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   backdrop-filter: saturate(180%) blur(12px);
   -webkit-backdrop-filter: saturate(180%) blur(12px);
   border-top: 1px solid var(--border);
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: stretch;
   z-index: 50;
 }
 .nav-item {
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1212,7 +2173,7 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   border-color: #16A34A;
   color: #166534;
 }
-.sheet-tab[data-tab="syrup"].active {
+.sheet-tab[data-tab="syrup-and-oral-drop"].active {
   background: #FFF7ED;
   border-color: #EA580C;
   color: #9A3412;
@@ -1233,7 +2194,7 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 .admin-form-badge.is-ampule            { background: #E0E7FF; color: #3730A3; border: 1px solid #C7D2FE; }
 .admin-form-badge.is-prefilled-syringe { background: #FCE7F3; color: #9D174D; border: 1px solid #FBCFE8; }
 .admin-form-badge.is-tablet            { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
-.admin-form-badge.is-syrup             { background: #FFF7ED; color: #9A3412; border: 1px solid #FED7AA; }
+.admin-form-badge.is-syrup-and-oral-drop     { background: #FFF7ED; color: #9A3412; border: 1px solid #FED7AA; }
 .admin-form-badge.is-suppository       { background: #F5F3FF; color: #5B21B6; border: 1px solid #DDD6FE; }
 .admin-form-badge.is-solution          { background: #ECFEFF; color: #155E75; border: 1px solid #A5F3FC; }
 .admin-form-badge.is-supplies          { background: #DCFCE7; color: #166534; border: 1px solid #BBF7D0; }
@@ -1261,6 +2222,55 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   .sheet-tab-label { font-size: 9px; }
   .sheet-tab-icon { font-size: 12px; }
   .sheet-tab-icon-img { max-width: 12px; max-height: 14px; }
+
+  /* Header: prevent button crowding on small screens.
+     The brand-actions row now has many buttons (chart, med-summary,
+     pills-form, display, settings, logout, darkmode). On a 360-400px
+     wide phone these don't all fit in one row alongside the brand
+     icon + text. Fix:
+       - Shrink all header buttons to 32×32px (was 40×40)
+       - Reduce gap between them (6→3px)
+       - Reduce brand-text h1 size (17→14px) and the unit subtitle
+         (12→10px) so the text column takes less horizontal room
+       - Allow the .brand row to wrap (buttons → 2nd row) if they
+         STILL don't fit (extra-small phones < 320px) */
+  .brand {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .brand-actions {
+    gap: 3px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .brand-chart,
+  .brand-settings,
+  .brand-display,
+  .brand-pdf,
+  .brand-logout,
+  .brand-darkmode,
+  .brand-sync {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--r-sm);
+  }
+  .brand-chart svg,
+  .brand-settings svg,
+  .brand-display svg,
+  .brand-pdf svg,
+  .brand-logout svg,
+  .brand-darkmode svg,
+  .brand-sync svg {
+    width: 16px;
+    height: 16px;
+  }
+  .brand-icon {
+    width: 32px;
+    height: 32px;
+  }
+  .brand-text h1 { font-size: 14px; }
+  .brand-text p { font-size: 10px; margin-top: 1px; }
 }
 .sheet-tab-icon {
   font-size: 18px;
@@ -1723,6 +2733,34 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   -webkit-overflow-scrolling: touch;
   padding-inline-start: 2px;
 }
+
+/* Section header — group med rows by their form (vial, ampule, etc.) */
+.admin-med-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  font-weight: 800;
+  font-size: 13px;
+  /* Use the form's color from .is-{form} badge (background + color).
+     Make the header more prominent by using a slightly bolder
+     background (slightly darker than the badge — we override the
+     background by stacking a subtle gradient on top). */
+  margin-top: 6px;
+}
+.admin-med-section-header:first-child {
+  margin-top: 0;
+}
+.admin-med-section-name {
+  font-weight: 800;
+}
+.admin-med-section-count {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.75;
+}
 .admin-med-row {
   display: flex;
   align-items: center;
@@ -1825,11 +2863,46 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   color: var(--text-muted);
   font-size: 16px;
   line-height: 1;
+  /* NO transition on hover — the admin list re-renders on every click,
+     which would reset :hover state and cause a visible flicker as the
+     transition re-animates from the default colors. Apply hover colors
+     instantly instead. */
+  transition: none;
+}
+/* Drag handle — visual indicator that the row can be reordered.
+   The actual drag is initiated from anywhere on the row (the entire
+   row is draggable=true). The handle just provides a visual cue. */
+.admin-ico-btn.drag-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: 18px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;  /* allow custom touch handling, prevent scroll */
+}
+.admin-ico-btn.drag-handle:active { cursor: grabbing; }
+
+/* Drag states on the med row itself */
+.admin-med-row { user-select: none; -webkit-user-select: none; }
+.admin-med-row.dragging {
+  opacity: 0.4;
+  background: var(--primary-soft) !important;
+}
+.admin-med-row.drag-over {
+  border-color: var(--primary) !important;
+  background: var(--primary-soft) !important;
+  /* Add a top border highlight to indicate the drop position */
+  box-shadow: inset 0 3px 0 var(--primary);
 }
 .admin-ico-btn.move.top    { color: #1b443f; }
 .admin-ico-btn.move.up     { color: #1b443f; }
 .admin-ico-btn.move.down   { color: #475569; }
 .admin-ico-btn.move.bottom  { color: #475569; }
+/* The 4 move buttons (.move.top/up/down/bottom) are no longer rendered
+   in the admin med list — replaced by drag-and-drop. Keeping the CSS
+   classes here for now in case they get re-introduced. */
+
 .admin-ico-btn.move:hover:not(:disabled) {
   background: var(--primary-soft);
   color: var(--primary-dark);
@@ -2066,6 +3139,52 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+/* Discharged/dead patients section in admin view */
+.admin-discharged-section {
+  margin-top: 18px;
+  background: var(--primary-soft);
+  border: 1.5px solid var(--primary);
+  border-radius: var(--r-lg);
+  padding: 14px;
+}
+.admin-discharged-section h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.admin-discharged-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.btn-discharged {
+  width: 100%;
+  padding: 12px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-md);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 160ms ease, transform 120ms ease;
+}
+.btn-discharged:hover { background: var(--primary-dark, #143d38); }
+.btn-discharged:active { transform: scale(0.99); }
+html[data-theme="dark"] .admin-discharged-section {
+  background: rgba(27, 68, 63, 0.18);
+  border-color: var(--primary);
+}
 .admin-danger-zone button {
   width: 100%;
   padding: 12px;
@@ -2118,6 +3237,979 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 /* ---------- Print: hidden on screen, visible only when printing ---------- */
 .print-root {
   display: none;
+}
+
+/* ---------- Display Mode (TV / large screen, view-only) ---------- */
+.display-mode {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: linear-gradient(180deg, #0F172A 0%, #1E293B 100%);
+  color: #F1F5F9;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: 'Tajawal', 'Cairo', sans-serif;
+}
+.display-mode[hidden] { display: none !important; }
+.display-mode-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  background: rgba(0,0,0,0.3);
+  flex-shrink: 0;
+}
+.display-mode-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.display-mode-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+}
+.display-mode-title h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  color: #F1F5F9;
+}
+.display-mode-title p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #94A3B8;
+  font-weight: 600;
+}
+.display-mode-exit {
+  background: rgba(220,38,38,0.2);
+  border: 1px solid #DC2626;
+  color: #F87171;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 160ms ease;
+  flex-shrink: 0;
+}
+.display-mode-exit:hover { background: rgba(220,38,38,0.4); }
+.display-mode-rooms {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 48px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+  gap: 32px;
+  align-content: start;
+}
+/* Display-mode room card */
+.dm-room {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 24px;
+  padding: 28px;
+}
+.dm-room-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.dm-room-num {
+  font-size: 32px;
+  font-weight: 800;
+  color: #F1F5F9;
+}
+.dm-room-occ {
+  font-size: 18px;
+  color: #94A3B8;
+  font-weight: 600;
+}
+.dm-beds {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.dm-bed {
+  padding: 20px 14px;
+  border-radius: 16px;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  min-height: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.dm-bed-empty {
+  background: rgba(100,116,139,0.15);
+  border: 1px solid rgba(100,116,139,0.2);
+  color: #64748B;
+}
+.dm-bed-occupied {
+  background: rgba(249,115,22,0.15);
+  border: 1px solid rgba(249,115,22,0.3);
+  color: #FB923C;
+}
+.dm-bed-meds {
+  background: rgba(34,197,94,0.15);
+  border: 1px solid rgba(34,197,94,0.3);
+  color: #4ADE80;
+}
+.dm-bed-albumin {
+  background: rgba(234,179,8,0.2);
+  border: 1px solid rgba(234,179,8,0.4);
+  color: #FACC15;
+}
+.dm-bed-meronem {
+  background: rgba(239,68,68,0.2);
+  border: 1px solid rgba(239,68,68,0.4);
+  color: #F87171;
+}
+.dm-bed-albumin-meronem {
+  background: linear-gradient(135deg, rgba(234,179,8,0.2) 0%, rgba(239,68,68,0.2) 100%);
+  border: 1px solid rgba(234,179,8,0.4);
+  color: #FACC15;
+}
+.dm-bed-num {
+  font-size: 16px;
+  opacity: 0.7;
+}
+.dm-bed-name {
+  font-size: 20px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.dm-bed-flag {
+  font-size: 22px;
+}
+
+/* ---------- Supply Order Modal (shown before printing) ---------- */
+.supply-order-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  z-index: 100;
+  animation: fadeIn 200ms ease-out;
+}
+.supply-order-overlay[hidden] { display: none !important; }
+.supply-order-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 101;
+  padding: 16px;
+}
+.supply-order-modal[hidden] { display: none !important; }
+.supply-order-card {
+  background: #fff;
+  border-radius: var(--r-xl);
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  animation: supplySlideUp 250ms ease-out;
+}
+@keyframes supplySlideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.supply-order-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--primary);
+  color: #fff;
+  padding: 16px 20px;
+  flex-shrink: 0;
+}
+.supply-order-head h3 { margin: 0; font-size: 18px; font-weight: 800; }
+.supply-order-close {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 120ms ease;
+  flex-shrink: 0;
+}
+.supply-order-close:active { background: rgba(255,255,255,0.4); }
+.supply-order-hint {
+  margin: 0;
+  padding: 12px 20px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: #F8FAFC;
+  flex-shrink: 0;
+}
+.supply-order-list {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 20px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.supply-order-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: #F8FAFC;
+}
+.supply-order-row-label { flex: 1; min-width: 0; }
+.supply-order-row-name { font-size: 13px; font-weight: 700; color: var(--text); }
+.supply-order-row-range { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.supply-order-row input {
+  width: 70px;
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  background: #fff;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.supply-order-row input::-webkit-outer-spin-button,
+.supply-order-row input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.supply-order-row input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(27,68,63,0.10); }
+.supply-order-submit {
+  padding: 16px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 120ms ease;
+}
+.supply-order-submit:active { transform: scale(0.98); }
+.supply-order-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+.supply-order-pdf {
+  padding: 12px;
+  background: #fff;
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 120ms ease;
+}
+.supply-order-pdf:active { transform: scale(0.98); }
+
+/* ---------- Med Summary Modal (shown after chart generation) ---------- */
+.med-summary-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  z-index: 102;
+  animation: fadeIn 200ms ease-out;
+}
+.med-summary-overlay[hidden] { display: none !important; }
+.med-summary-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 103;
+  padding: 16px;
+}
+.med-summary-modal[hidden] { display: none !important; }
+.med-summary-card {
+  background: #fff;
+  border-radius: var(--r-xl);
+  max-width: 560px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  animation: supplySlideUp 250ms ease-out;
+}
+.med-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--primary);
+  color: #fff;
+  padding: 16px 20px;
+  flex-shrink: 0;
+}
+.med-summary-head h3 { margin: 0; font-size: 18px; font-weight: 800; }
+.med-summary-close {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.med-summary-close:active { background: rgba(255,255,255,0.4); }
+.med-summary-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 20px;
+  background: #fff;
+}
+.med-summary-group {
+  margin-bottom: 16px;
+}
+.med-summary-group-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--primary-dark);
+  padding: 6px 10px;
+  background: var(--primary-soft);
+  border-radius: var(--r-sm);
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.med-summary-group-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  background: rgba(255,255,255,0.7);
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+}
+.med-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.med-summary-row:last-child { border-bottom: none; }
+.med-summary-row-name {
+  flex: 1;
+  font-weight: 700;
+  color: var(--text);
+}
+.med-summary-row-count {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--primary);
+  min-width: 40px;
+  text-align: center;
+  background: var(--primary-soft);
+  padding: 2px 10px;
+  border-radius: var(--r-full);
+}
+.med-summary-row-count.custom {
+  background: #F1F5F9;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.med-summary-footer {
+  padding: 10px 20px;
+  background: #F8FAFC;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* Send-to-chart-bridge buttons inside the med-summary footer.
+   These appear when the med-summary is opened via the new
+   "distribute-send-btn" workflow (review supplies + meds, then send). */
+.med-summary-footer .med-summary-send-btn,
+.med-summary-footer .med-summary-cancel-btn {
+  padding: 12px;
+  border: none;
+  border-radius: var(--r-md);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 160ms ease, transform 120ms ease;
+}
+.med-summary-footer .med-summary-send-btn {
+  background: var(--primary);
+  color: #fff;
+  margin-bottom: 6px;
+}
+.med-summary-footer .med-summary-send-btn:hover { background: var(--primary-dark, #143d38); }
+.med-summary-footer .med-summary-send-btn:active { transform: scale(0.98); }
+.med-summary-footer .med-summary-cancel-btn {
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1.5px solid var(--border);
+}
+.med-summary-footer .med-summary-cancel-btn:hover { background: var(--bg); }
+.med-summary-footer .med-summary-cancel-btn:active { transform: scale(0.98); }
+html[data-theme="dark"] .med-summary-card,
+html[data-theme="dark"] .med-summary-body { background: var(--bg-card); }
+html[data-theme="dark"] .med-summary-footer { background: var(--bg); color: var(--text-muted); }
+html[data-theme="dark"] .med-summary-row { border-color: var(--border); }
+html[data-theme="dark"] .med-summary-row-count.custom { background: var(--bg); }
+html[data-theme="dark"] .med-summary-footer .med-summary-cancel-btn { background: var(--bg); border-color: var(--border); color: var(--text-muted); }
+
+/* ---------- Discharge Modal (final diagnosis required) ----------
+   Modal that appears when the user clicks the discharge button.
+   Requires the user to enter a final diagnosis before confirming
+   the discharge. The diagnosis is stored on the discharged record
+   and shown when the patient is readmitted later. */
+.discharge-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  z-index: 100;
+  animation: fadeIn 200ms ease-out;
+}
+.discharge-overlay[hidden] { display: none !important; }
+.discharge-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 101;
+  padding: 16px;
+}
+.discharge-modal[hidden] { display: none !important; }
+.discharge-card {
+  background: #fff;
+  border-radius: var(--r-xl);
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.30);
+  animation: supplySlideUp 250ms ease-out;
+}
+.discharge-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--primary);
+  color: #fff;
+  padding: 14px 18px;
+  flex-shrink: 0;
+}
+.discharge-head h3 { margin: 0; font-size: 16px; font-weight: 800; }
+.discharge-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-full);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.discharge-close:hover { background: rgba(255, 255, 255, 0.15); }
+.discharge-body {
+  padding: 18px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+.discharge-patient-name {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+.discharge-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.discharge-diagnosis-input {
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  background: #fff;
+  outline: none;
+  resize: vertical;
+  min-height: 80px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.discharge-diagnosis-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(27, 68, 63, 0.10);
+}
+.discharge-diagnosis-input::placeholder {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+.discharge-previous-diagnosis {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--primary-soft);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+}
+.discharge-previous-diagnosis[hidden] { display: none !important; }
+.discharge-previous-label {
+  display: block;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.discharge-previous-value {
+  display: block;
+  color: var(--text);
+  font-weight: 600;
+}
+.discharge-error {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  background: #FEF2F2;
+  color: var(--danger);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 700;
+}
+.discharge-error[hidden] { display: none !important; }
+.discharge-footer {
+  display: flex;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.discharge-cancel,
+.discharge-confirm {
+  flex: 1;
+  padding: 12px;
+  border-radius: var(--r-md);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 160ms ease, transform 120ms ease;
+}
+.discharge-cancel {
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1.5px solid var(--border);
+}
+.discharge-cancel:hover { background: var(--bg); }
+.discharge-cancel:active { transform: scale(0.98); }
+.discharge-confirm {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+}
+.discharge-confirm:hover { background: var(--primary-dark, #143d38); }
+.discharge-confirm:active { transform: scale(0.98); }
+html[data-theme="dark"] .discharge-card { background: var(--bg-card); }
+html[data-theme="dark"] .discharge-diagnosis-input { background: var(--bg); border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .discharge-cancel { background: var(--bg); border-color: var(--border); color: var(--text-muted); }
+
+/* ---------- Previous admission banner (in patient header) ----------
+   Small inline banner that appears when the patient name matches a
+   previously discharged patient. Shows the last recorded final
+   diagnosis so the doctor knows about prior admissions at a glance. */
+.previous-admission-banner {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, #FEF3C7 0%, #FEF9C3 100%);
+  border: 1px solid #FDE68A;
+  border-radius: var(--r-md);
+  font-size: 12px;
+  color: #92400E;
+  line-height: 1.5;
+}
+.previous-admission-label {
+  display: block;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+.previous-admission-value {
+  display: block;
+  font-weight: 700;
+  color: #78350F;
+  word-break: break-word;
+}
+.previous-admission-date {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: #92400E;
+  opacity: 0.7;
+}
+html[data-theme="dark"] .previous-admission-banner {
+  background: rgba(146, 64, 14, 0.15);
+  border-color: rgba(146, 64, 14, 0.3);
+  color: #FCD34D;
+}
+html[data-theme="dark"] .previous-admission-value { color: #FBBF24; }
+html[data-theme="dark"] .previous-admission-date { color: #FCD34D; }
+
+/* ---------- User Management + Audit Log (admin only) ---------- */
+.admin-users-section,
+.admin-audit-section {
+  margin-top: 18px;
+  padding: 16px;
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+}
+.admin-users-section h4,
+.admin-audit-section h4 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+.admin-users-section[hidden],
+.admin-audit-section[hidden] { display: none !important; }
+
+/* User form */
+.admin-user-form {
+  background: #F8FAFC;
+  border: 1px dashed var(--border);
+  border-radius: var(--r-md);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.admin-user-form-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.admin-user-form-row input,
+.admin-user-form-row select {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  background: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  outline: none;
+}
+.admin-user-form-row select {
+  flex: 0 0 80px;
+  font-size: 12px;
+  padding: 8px 6px;
+}
+.admin-user-form-row input:focus,
+.admin-user-form-row select:focus {
+  border-color: var(--primary);
+}
+.btn-create-user {
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--r-md);
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+.btn-create-user:active { transform: scale(0.98); }
+
+/* Users list */
+.admin-users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.admin-users-empty,
+.admin-users-loading,
+.admin-users-error {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.admin-users-error { color: var(--danger); }
+.admin-user-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: #fff;
+}
+.admin-user-row.is-inactive {
+  opacity: 0.6;
+  background: #F8FAFC;
+}
+.admin-user-info { flex: 1; min-width: 0; }
+.admin-user-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+.admin-user-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.admin-user-username { color: var(--primary); font-weight: 700; }
+.admin-user-role {
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  font-size: 10px;
+  font-weight: 700;
+}
+.admin-user-role-admin {
+  background: #FEF2F2;
+  color: #B91C1C;
+}
+.admin-user-role-doctor {
+  background: #F0FDF4;
+  color: #166534;
+}
+.admin-user-role-pharmacist {
+  background: #EFF6FF;
+  color: #1E40AF;
+}
+.admin-user-state.is-on  { color: #166534; font-weight: 700; }
+.admin-user-state.is-off { color: #B91C1C; font-weight: 700; }
+.admin-user-gender {
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  font-size: 10px;
+  font-weight: 700;
+  background: #F1F5F9;
+  color: #475569;
+}
+.admin-user-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.admin-user-actions button {
+  padding: 6px 10px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.admin-user-actions button:active { background: #F1F5F9; }
+.admin-user-actions .btn-user-reset  { color: var(--primary); }
+.admin-user-actions .btn-user-toggle { color: #B45309; }
+.admin-user-actions .btn-user-delete { color: var(--danger); }
+.btn-refresh-users,
+.btn-audit-refresh {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-refresh-users:active,
+.btn-audit-refresh:active { background: #F1F5F9; }
+
+/* Audit log */
+.admin-audit-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0 0 10px;
+}
+.admin-audit-list {
+  max-height: 320px;
+  overflow-y: auto;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: #fff;
+}
+.admin-audit-empty,
+.admin-audit-loading,
+.admin-audit-error {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.admin-audit-error { color: var(--danger); }
+.audit-row {
+  padding: 8px 12px;
+  border-bottom: 1px solid #F1F5F9;
+}
+.audit-row:last-child { border-bottom: none; }
+.audit-row-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 11px;
+}
+.audit-user {
+  color: var(--primary);
+  font-weight: 800;
+}
+.audit-action {
+  color: var(--text);
+  font-weight: 700;
+}
+.audit-time {
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-right: auto;
+}
+.audit-row-details {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* ---------- Doctor view (for doctors) ---------- */
+.doctor-patients-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+.doctor-patient-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background 120ms ease, transform 120ms ease;
+}
+.doctor-patient-card:active { transform: scale(0.99); background: var(--primary-soft); }
+.doctor-patient-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.doctor-patient-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+.doctor-patient-loc {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.doctor-patient-meta {
+  font-size: 12px;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* ---------- Settings view (for non-admin pharmacists) ---------- */
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: right;  /* RTL */
+  transition: background 120ms ease, transform 120ms ease;
+}
+.settings-row:active { transform: scale(0.99); }
+.settings-row-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  width: 28px;
+  text-align: center;
+}
+.settings-row-label {
+  flex: 1;
+  text-align: right;
+}
+.settings-row-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.settings-row-arrow {
+  font-size: 20px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transform: rotate(180deg);  /* point left in RTL */
+}
+.settings-row-danger {
+  background: #FEF2F2;
+  border-color: #FECACA;
+  color: #B91C1C;
+}
+html[data-theme="dark"] .settings-row-danger {
+  background: rgba(220, 38, 38, 0.12);
+  border-color: rgba(220, 38, 38, 0.4);
 }
 
 @media print {
@@ -2246,7 +4338,11 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     border-top: 1.5px solid #475569;
     padding-top: 6px;
   }
-  @page { margin: 14mm 12mm; }
+  /* NOTE: The @page rule for the CHART (landscape, 3mm margin) is
+     defined later alongside .chart-print-root. We no longer put a
+     default @page rule here — that caused iOS Safari to pick up the
+     first @page rule (default portrait) and ignore the chart's
+     landscape rule, resulting in half-empty PDFs on iPhone. */
 }
 
 /* Larger tablet adjustments */
@@ -2316,27 +4412,40 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   .med-sheet,
   .sheet-overlay { display: none !important; }
 
+  /* IMPORTANT: We center the chart vertically on the A4 page using a
+     table wrapper + vertical-align: middle (not flexbox or 100vh).
+     This works in all browsers including iOS Safari's print engine,
+     because table cells respect the page height for vertical
+     centering, unlike 100vh which uses the screen height.
+     The chart table itself stays width: 100% horizontally. */
   .chart-print-root {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    min-height: 100dvh;
+    display: table;
+    width: 100%;
+    height: 100%;
     color: #000;
     font-family: 'Tajawal', 'Cairo', 'Arial', sans-serif;
   }
-
-  /* Each page also centered */
   .chart-page {
-    display: flex;
-    justify-content: center;
+    display: table-cell;
+    vertical-align: middle;
+    padding-top: 0;
+    padding-bottom: 0;
   }
 
-  /* Page setup: A4 Landscape with minimal margins */
+  /* Page setup: A4 Landscape.
+     White space (margin) around the chart outer border:
+       - Top (north):    2mm
+       - Bottom (south): 2mm
+       - Right (east):    1.5mm
+       - Left (west):     1.5mm
+     This @page margin is the ONLY page rule. The chart-matrix
+     itself sits 6px inside this printable area so its box-shadow
+     outer border (3px black ring) lands exactly on the printable
+     area edge — i.e. 2mm/1.5mm from the paper edge.
+     Available printable area: 294mm × 206mm = 1111px × 779px (96dpi). */
   @page {
     size: A4 landscape;
-    margin: 3mm;
+    margin: 2mm 1.5mm;
   }
 
   /* Editable header — pharmacist fills by hand (inside the patient col header) */
@@ -2361,24 +4470,40 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     color: #000;
   }
 
-  /* The matrix table — compact */
+  /* The matrix table — sized to fit 35 patients × 50 meds inside the
+     294mm × 206mm printable area, leaving exactly 2mm/1.5mm of white
+     space around the outer border.
+     Border structure (three concentric rings):
+       1. Inner border: 2px solid #000 (the table border)
+       2. White gap: 3px (first box-shadow ring)
+       3. Outer border: 3px solid #000 (second box-shadow ring)
+     The outer border sits at the printable area edge (2mm/1.5mm
+     from the paper edge). margin: 6px positions the matrix border
+     6px inside the printable area, so the 6px box-shadow reaches
+     the printable area edge exactly. width: calc(100% - 12px)
+     reserves 6px on each side for the box-shadow. */
   .chart-matrix {
-    width: 100%;
+    width: calc(100% - 12px);
+    margin: 6px;
     border-collapse: collapse;
     font-size: 7px;
     table-layout: fixed;
+    border: 2px solid #000;
+    box-shadow: 0 0 0 3px #fff, 0 0 0 6px #000;
   }
 
   /* Patient column (rightmost) — header with two-line text centered
-     vertically and horizontally, larger font. */
+     vertically and horizontally, larger font. Width 70px to use more
+     of the available horizontal space (width budget for 50 meds +
+     patient col = 50×19 + 70 = 1020px, fits in ~1083px usable width). */
   .chart-patient-col-header {
     background: #fff;
     color: #000;
     font-weight: 800;
     padding: 1px 2px;
-    border: 1px solid #000;
+    border: 1.5px solid #000;
     text-align: center;
-    font-size: 10px;
+    font-size: 9px;
     width: 70px;
     min-width: 70px;
     vertical-align: middle;
@@ -2386,74 +4511,113 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   }
 
   /* Medication column headers — vertical text, compact.
-     vertical-align: middle centers the text vertically between the
-     top and bottom edges of the header cell. */
+     Width 19px matches the data cell width (square cells).
+     Height 75px — header + 35 rows × 19px = 75 + 665 = 740px,
+     plus 2×2px inner border + 2×6px box-shadow + 2×6px margin = 768px,
+     comfortably fits the 779px printable height. */
   .chart-med-col-header {
     background: #fff;
     color: #000;
-    border: 1px solid #000;
+    border: 1.5px solid #000;
     padding: 1px 0;
     text-align: center;
     vertical-align: middle;
-    height: 65px;
-    width: 18px;
-    min-width: 18px;
+    height: 75px;
+    width: 19px;
+    min-width: 19px;
   }
   .chart-med-label {
     writing-mode: vertical-rl;
     text-orientation: mixed;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     line-height: 1.05;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-height: 60px;
+    max-height: 70px;
     margin: auto 0;
     display: block;
   }
 
-  /* Patient cell (rightmost in each row) — same height as med cell width */
+  /* Patient cell (rightmost in each row) — 70px wide × 19px tall,
+     matching the row height for the new 35×50 layout. */
   .chart-patient-cell {
     background: #fff;
     font-weight: 700;
     padding: 0 3px;
-    border: 1px solid #000;
+    border: 1.5px solid #000;
     text-align: center;
     vertical-align: middle;
     width: 70px;
     min-width: 70px;
-    height: 18px;
-    font-size: 9px;
+    height: 19px;
+    font-size: 8px;
     color: #000;
-    line-height: 18px;
+    line-height: 19px;
   }
 
-  /* Matrix data cells — same width and height = 18px (square) */
+  /* Matrix data cells — 19×19px (square). Sized so 50 med cols +
+     70px patient col = 1020px wide fits in ~1083px usable width,
+     and 35 rows × 19px + 75px header = 740px tall fits in ~755px
+     usable height (within the 294×206mm printable area). */
   .chart-cell {
-    border: 1px solid #000;
+    border: 1.5px solid #000;
     text-align: center;
     vertical-align: middle;
     padding: 0;
     font-size: 11px;
     font-weight: 800;
     color: #000;
-    width: 18px;
-    min-width: 18px;
-    height: 18px;
-    line-height: 18px;
+    width: 19px;
+    min-width: 19px;
+    height: 19px;
+    line-height: 19px;
     background: #fff;
     box-sizing: border-box;
+    text-align: center !important;
+    display: table-cell;
   }
 
-  /* Force all rows to exactly 18px */
+  /* Fix: frequency digits appeared slightly toward the top of the cell
+     because <center> is a block element and the digit sits in the
+     upper portion of the line-box (font ascender bias).
+     Using flexbox on <center> centers the digit precisely both
+     horizontally and vertically within the cell. line-height: 1
+     eliminates the ascender extra space.
+     ADDITIONAL NUDGE: even with flexbox + line-height:1, the digit was
+     still ~0.5px above true center because the font's cap-height is
+     less than 100% of em-size, so the visual midpoint of a single
+     digit glyph is slightly above the line-box center. Adding
+     padding-top: 1px; padding-bottom: 0 shifts the flex centering
+     area down by 0.5px, nudging the digit down to the true cell center. */
+  .chart-cell > center,
+  .chart-patient-cell > center {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+    line-height: 1;
+    text-align: center;
+    padding-top: 1px;
+    padding-bottom: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  /* Force all rows to exactly 19px */
   .chart-matrix tr {
-    height: 18px;
+    height: 19px;
   }
 
-  /* Custom freq cell (e.g. "حسب القياس") — smaller text, same plain look */
+  /* Custom freq cell (e.g. "حسب القياس", "حسب الحاجة") — same font
+     size as numeric cells (12px) so all freq entries look uniform.
+     line-height: 1 to wrap neatly inside the 18px cell. font-weight
+     slightly lower than numeric cells to distinguish visually
+     without making it smaller. */
   .chart-cell-custom {
-    font-size: 8px;
+    font-size: 11px;
     font-weight: 700;
     line-height: 1;
   }
@@ -2470,4 +4634,109 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+
+  /* iOS Safari renders fonts slightly larger than Android/Chrome,
+     causing 35 rows to overflow the A4 page. On iOS, we shrink the
+     cells a bit so all 35 rows fit on one page. We detect iOS via
+     a class added by JS (html.is-ios) at print time. iOS rows are
+     17px and cells 17×17px (proportional to the 19px non-iOS cells). */
+  html.is-ios .chart-cell {
+    width: 17px;
+    min-width: 17px;
+    height: 17px;
+    line-height: 17px;
+    font-size: 10px;
+  }
+  html.is-ios .chart-patient-cell {
+    height: 17px;
+    line-height: 17px;
+    font-size: 7px;
+  }
+  html.is-ios .chart-matrix tr {
+    height: 17px;
+  }
+  html.is-ios .chart-med-col-header {
+    width: 17px;
+    min-width: 17px;
+    height: 65px;
+  }
+  html.is-ios .chart-med-label {
+    max-height: 60px;
+  }
+  html.is-ios .chart-cell-custom {
+    font-size: 10px;
+  }
+}
+
+/* ============================================================
+   Seniors (الأخصائيون) view
+   ============================================================
+   Added 2026-10-08 — groups occupied patients by their attending
+   physician (patient.doctor field) and displays each physician
+   with their patient list. Doctors + admins only (pharmacists
+   don't see this tab).
+   Placed at the END of the file to avoid any risk of orphan
+   braces corrupting earlier rules.
+   ============================================================ */
+.seniors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+.senior-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.senior-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--primary);
+  color: #fff;
+}
+.senior-name {
+  font-size: 15px;
+  font-weight: 800;
+}
+.senior-count {
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 3px 10px;
+  border-radius: var(--r-full);
+}
+.senior-patients {
+  padding: 8px 16px;
+}
+.senior-patient-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.senior-patient-row:last-child {
+  border-bottom: none;
+}
+.senior-patient-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+.senior-patient-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+html[data-theme="dark"] .senior-card {
+  background: #1E293B;
+  border-color: #334155;
+}
+html[data-theme="dark"] .senior-patient-row {
+  border-bottom-color: #334155;
 }

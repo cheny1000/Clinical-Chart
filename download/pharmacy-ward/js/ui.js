@@ -63,12 +63,34 @@
   // ---------- Dashboard stats ----------
   function renderStats(patientsMap) {
     let patientCount = 0;
+    let albuminCount = 0;
+    let meronemCount = 0;
     for (const p of Object.values(patientsMap)) {
-      if (p && p.name && p.name.trim()) patientCount++;
+      if (p && p.name && p.name.trim()) {
+        patientCount++;
+        const flags = bedSpecialFlags(p);
+        if (flags.hasAlbumin) albuminCount++;
+        if (flags.hasMeronem) meronemCount++;
+      }
     }
     // Update patients-count in the patients view (if visible)
     const pcEl = document.getElementById("patients-count");
     if (pcEl) pcEl.textContent = patientCount;
+    // Update the stats bar in the header
+    const sPatients = document.getElementById("stat-patients");
+    const sBeds     = document.getElementById("stat-beds-total");
+    const sAlbumin  = document.getElementById("stat-albumin");
+    const sMeronem  = document.getElementById("stat-meronem");
+    if (sPatients) sPatients.textContent = patientCount;
+    // Count total beds from the Ward layout
+    const Ward = global.PharmacyWard;
+    let totalBeds = 0;
+    if (Ward && Ward.ROOMS) {
+      Ward.ROOMS.forEach(r => { totalBeds += (r.bedCount || r.beds.length); });
+    }
+    if (sBeds) sBeds.textContent = totalBeds;
+    if (sAlbumin) sAlbumin.textContent = albuminCount;
+    if (sMeronem) sMeronem.textContent = meronemCount;
   }
 
   // ---------- Bed status helper ----------
@@ -76,6 +98,37 @@
     if (!patient || !patient.name || !patient.name.trim()) return "empty";
     const hasMeds = Array.isArray(patient.medications) && patient.medications.length > 0;
     return hasMeds ? "meds" : "occupied";
+  }
+
+  // Detect if a patient has Albumin and/or Meronem prescribed.
+  // Used to color the bed button with a split gradient (yellow/red/green)
+  // per the user's clinical rule:
+  //   - Meronem only    → half red + half green
+  //   - Albumin only    → half yellow + half green
+  //   - Albumin+Meronem → thirds yellow + red + green
+  // Match by id OR by name (case-insensitive) so any user-added
+  // variant like 'meronem-500mg' or 'Albumin 25%' is detected.
+  function bedSpecialFlags(patient) {
+    const flags = { hasAlbumin: false, hasMeronem: false };
+    if (!patient || !Array.isArray(patient.medications)) return flags;
+    for (const pm of patient.medications) {
+      if (!pm) continue;
+      const id = (pm.id || "").toLowerCase();
+      const name = ((pm.nameTrade || "") + " " + (pm.nameEn || "") + " " + (pm.nameAr || "")).toLowerCase();
+      // Albumin: match id or name contains 'albumin' or 'ألبومين'
+      if (id.indexOf("albumin") >= 0 || name.indexOf("albumin") >= 0 || name.indexOf("ألبومين") >= 0) {
+        flags.hasAlbumin = true;
+      }
+      // Meronem/Meropenem: match id or name contains 'meronem' or 'meropenem' or 'ميرونيم' or 'ميروبينيم'
+      if (
+        id.indexOf("meronem") >= 0 || id.indexOf("meropenem") >= 0 ||
+        name.indexOf("meronem") >= 0 || name.indexOf("meropenem") >= 0 ||
+        name.indexOf("ميرونيم") >= 0 || name.indexOf("ميروبينيم") >= 0
+      ) {
+        flags.hasMeronem = true;
+      }
+    }
+    return flags;
   }
 
   // ---------- Rooms grid ----------
@@ -91,21 +144,28 @@
         return p && p.name && p.name.trim();
       }).length;
 
-      // Build the beds grid per room layout
+      // Build the beds grid per room layout.
+      // Layout is either "grid-2x3" (rooms 1-5, 6 beds in 3 rows × 2 cols)
+      // or "grid-2x2" (rooms 6-10, 4 beds in 2 rows × 2 cols).
+      // In both layouts, the bed `side` field tells which row (top/
+      // middle/bottom) the bed belongs to. Each row has 2 beds.
       let bedsArea;
-      if (room.layout === "split-3-3") {
-        // 3 beds on right + 3 beds on left (inside the room)
-        const right = room.beds.filter(b => b.side === "right");
-        const left  = room.beds.filter(b => b.side === "left");
-        bedsArea = h("div", { class: "room-beds split-3-3" }, [
-          h("div", { class: "beds-col beds-right" },
-            right.map(b => bedButton(room, b, patientsMap))),
-          h("div", { class: "beds-col beds-left" },
-            left.map(b => bedButton(room, b, patientsMap)))
-        ]);
+      if (room.layout === "grid-2x3" || room.layout === "grid-2x2") {
+        const rows = [];
+        const sides = room.layout === "grid-2x3"
+          ? ["top", "middle", "bottom"]
+          : ["top", "bottom"];
+        sides.forEach(side => {
+          const rowBeds = room.beds.filter(b => b.side === side);
+          rows.push(
+            h("div", { class: "beds-row" },
+              rowBeds.map(b => bedButton(room, b, patientsMap)))
+          );
+        });
+        bedsArea = h("div", { class: "room-beds " + room.layout }, rows);
       } else {
-        // linear-4: 4 beds in a row
-        bedsArea = h("div", { class: "room-beds linear-4" },
+        // Fallback (legacy layouts) — render all beds in one container
+        bedsArea = h("div", { class: "room-beds " + room.layout },
           room.beds.map(b => bedButton(room, b, patientsMap)));
       }
 
@@ -131,15 +191,57 @@
     const key = global.PharmacyWard.bedKey(room.id, bed.number);
     const patient = patientsMap[key] || null;
     const status = bedStatus(patient);
+    // Bed content layout (per user request):
+    //   - For empty beds: "سرير N" (the bed number, unchanged)
+    //   - For occupied beds: patient name (top) + attending doctor
+    //     (bottom, in a smaller muted text). The bed number is no
+    //     longer shown when the bed is occupied — the patient's name
+    //     replaces it. The attending physician is the specialist who
+    //     manages the patient's care (stored as patient.doctor field).
+    const bedNum = "سرير " + bed.number;
+    if (patient && patient.name && patient.name.trim()) {
+      // Occupied bed — show patient name + attending doctor (if any)
+      const children = [
+        h("span", { class: "bed-icon" }),
+        h("span", { class: "bed-name" }, patient.name.trim())
+      ];
+      if (patient.doctor && patient.doctor.trim()) {
+        children.push(h("span", { class: "bed-doctor" }, patient.doctor.trim()));
+      }
+      return h("button", {
+        class: `bed-btn state-${status}`,
+        dataset: { roomId: room.id, bed: bed.number, key: key },
+        type: "button"
+      }, children);
+    }
+    // Empty bed — show "سرير N" (the bed number)
     return h("button", {
       class: `bed-btn state-${status}`,
       dataset: { roomId: room.id, bed: bed.number, key: key },
       type: "button"
     }, [
       h("span", { class: "bed-icon" }),
-      h("span", { class: "bed-num" }, "سرير " + bed.number),
+      h("span", { class: "bed-num" }, bedNum),
       h("span", { class: "bed-state" })
     ]);
+  }
+
+  // Helper: convert lab key to input ID (creatinine → lab-creatinine)
+  function labFieldIdFromKey(key) {
+    const map = {
+      creatinine: "creatinine", albumin: "albumin", wbc: "wbc",
+      hb: "hb", plt: "plt", na: "na", k: "k",
+      glucose: "glucose", crp: "cr"
+    };
+    return map[key] || key;
+  }
+
+  // Helper: format ISO date string to short Arabic date
+  function formatDateShort(dateStr) {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("ar", { day: "numeric", month: "short" });
+    } catch (e) { return dateStr; }
   }
 
   // ---------- Patient view ----------
@@ -147,8 +249,161 @@
     document.getElementById("loc-room").textContent = "غرفة " + roomId;
     document.getElementById("loc-bed").textContent  = "سرير " + bedNumber;
 
+    // IMPORTANT: Don't reset the name input value if it's currently
+    // FOCUSED. Otherwise, when Supabase Realtime broadcasts the
+    // patient update back to this same device (echo from our own push),
+    // the renderPatientView call would overwrite the user's in-progress
+    // typing with the value they JUST typed (effectively losing any
+    // characters typed between the input event and the realtime echo,
+    // typically 100-400ms). On slow phones this looks like characters
+    // being auto-erased while typing fast.
     const nameInput = document.getElementById("patient-name-input");
-    nameInput.value = (patient && patient.name) ? patient.name : "";
+    const isNameFocused = document.activeElement === nameInput;
+    if (!isNameFocused) {
+      nameInput.value = (patient && patient.name) ? patient.name : "";
+    }
+
+    // Same logic for plate input.
+    const plateInput = document.getElementById("patient-plate-input");
+    const isPlateFocused = document.activeElement === plateInput;
+    if (!isPlateFocused) {
+      plateInput.value = (patient && patient.plateNumber) ? String(patient.plateNumber) : "";
+    }
+
+    // Age input — same focus-guard logic.
+    const ageInput = document.getElementById("patient-age-input");
+    const isAgeFocused = document.activeElement === ageInput;
+    if (!isAgeFocused) {
+      ageInput.value = (patient && patient.age) ? String(patient.age) : "";
+    }
+
+    // Gender toggle — sync the .is-active class on the two buttons
+    // (male / female). If patient.gender is empty or unknown, both
+    // buttons stay un-highlighted.
+    if (window._syncGenderButtons) {
+      window._syncGenderButtons((patient && patient.gender) ? patient.gender : "");
+    }
+
+    // GFR card — recompute using the loaded patient's age + gender +
+    // S. Creatinine. The card hides itself if any of the three is
+    // missing or invalid (handled inside _renderGFRCard).
+    if (window._renderGFRCard) {
+      window._renderGFRCard();
+    }
+
+    // Previous admission banner — if this patient's name matches a
+    // previously discharged patient, show their last final diagnosis
+    // so the doctor can see prior history at a glance. Handled by
+    // app.js (which has access to Storage + Auth + state).
+    if (window._renderPreviousAdmissionBanner) {
+      window._renderPreviousAdmissionBanner(patient);
+    }
+
+    // Same logic for doctor (الطبيب المعالج) input — don't reset the
+    // value if the input is currently focused (avoids Supabase Realtime
+    // echo loop erasing characters while typing fast).
+    const doctorInput = document.getElementById("patient-doctor-input");
+    const isDoctorFocused = document.activeElement === doctorInput;
+    if (!isDoctorFocused) {
+      doctorInput.value = (patient && patient.doctor) ? String(patient.doctor) : "";
+    }
+
+    // Diagnosis (التشخيص) — same focus-guard logic.
+    // Editable only by doctors + admins. For pharmacists, the input
+    // is disabled (read-only). The access control is done in app.js
+    // openPatient() which toggles the disabled attribute.
+    const diagnosisInput = document.getElementById("patient-diagnosis-input");
+    const isDiagnosisFocused = document.activeElement === diagnosisInput;
+    if (!isDiagnosisFocused) {
+      diagnosisInput.value = (patient && patient.diagnosis) ? String(patient.diagnosis) : "";
+    }
+
+    // Lab values — rendered dynamically as a grid of lab inputs with
+    // '+' buttons for adding new entries. Each lab field stores its
+    // current value in p.labs[key] (the latest), and all previous
+    // values are stored in p.labHistory (array of {date, key, value}).
+    // When a '+' button is pressed, the current value is archived with
+    // today's date into labHistory, and the input is cleared for the
+    // new value.
+    const labsContainer = document.getElementById("patient-labs-row");
+    const labsHistoryEl = document.getElementById("patient-labs-history");
+    const labs = (patient && patient.labs) ? patient.labs : {};
+    const labHistory = (patient && patient.labHistory) ? patient.labHistory : [];
+    const labDefs = [
+      ["S. Creatinine", "creatinine"],
+      ["S. Albumin",    "albumin"],
+      ["WBC",           "wbc"],
+      ["Hb",            "hb"],
+      ["PLT",           "plt"],
+      ["Na+",           "na"],
+      ["K+",            "k"],
+      ["Glucose",       "glucose"],
+      ["CRP",           "crp"]
+    ];
+
+    if (labsContainer) {
+      labsContainer.innerHTML = "";
+      labsContainer.style.display = "grid";
+      labsContainer.style.gridTemplateColumns = "repeat(auto-fill, minmax(80px, 1fr))";
+      labsContainer.style.gap = "6px";
+      labsContainer.style.marginTop = "8px";
+
+      labDefs.forEach(([label, key], i) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "lab-cell";
+        const input = document.createElement("input");
+        input.type = "text";
+        input.id = "lab-" + labFieldIdFromKey(key);
+        input.className = "lab-input";
+        input.placeholder = label;
+        input.inputMode = "decimal";
+        const isFocused = document.activeElement === input;
+        if (!isFocused) {
+          input.value = labs[key] ? String(labs[key]) : "";
+        }
+        // Access control (disabled state set later by app.js openPatient)
+        wrapper.appendChild(input);
+
+        // '+' button to archive current value + start new
+        const addBtn = document.createElement("button");
+        addBtn.className = "lab-add-btn";
+        addBtn.type = "button";
+        addBtn.innerHTML = "+";
+        addBtn.title = "أرشفة القيمة الحالية وإضافة تحليل جديد";
+        addBtn.dataset.labKey = key;
+        addBtn.dataset.labLabel = label;
+        wrapper.appendChild(addBtn);
+        labsContainer.appendChild(wrapper);
+      });
+    }
+
+    // Render lab history (previous entries, newest first)
+    if (labsHistoryEl) {
+      labsHistoryEl.innerHTML = "";
+      if (labHistory.length > 0) {
+        const title = document.createElement("div");
+        title.className = "lab-history-title";
+        title.textContent = "التحاليل السابقة";
+        labsHistoryEl.appendChild(title);
+
+        // Group by date
+        const byDate = {};
+        labHistory.forEach(h => {
+          const d = h.date || "—";
+          if (!byDate[d]) byDate[d] = [];
+          byDate[d].push(h);
+        });
+        Object.keys(byDate).sort().reverse().forEach(date => {
+          const row = document.createElement("div");
+          row.className = "lab-history-row";
+          const entries = byDate[date];
+          const dateStr = formatDateShort(date);
+          const parts = entries.map(e => `${e.label}: ${e.value}`).join(" · ");
+          row.innerHTML = `<span class="lab-history-date">${dateStr}</span> <span class="lab-history-vals">${parts}</span>`;
+          labsHistoryEl.appendChild(row);
+        });
+      }
+    }
 
     const medsList = document.getElementById("meds-list");
     const emptyMeds = document.getElementById("empty-meds");
@@ -243,19 +498,65 @@
       const bedNum = match[2] ? parseInt(match[2], 10) : null;
       const hasMeds = Array.isArray(p.medications) && p.medications.length > 0;
       const initial = (p.name || "").trim().charAt(0) || "؟";
+      // Detect Albumin (yellow dot) and Meronem (red dot) for visual
+      // triage in the patients list.
+      const flags = bedSpecialFlags(p);
+      const hasAlbumin = flags.hasAlbumin;
+      const hasMeronem = flags.hasMeronem;
+      // Plate number (optional field, shown under the room/bed line
+      // if the patient has one)
+      const plateNumber = p.plateNumber && String(p.plateNumber).trim()
+        ? String(p.plateNumber).trim()
+        : "";
 
+      const nameChildren = [p.name];
+      if (hasAlbumin) {
+        // Small yellow dot next to the name to mark Albumin
+        nameChildren.push(h("span", {
+          class: "pr-albumin-dot",
+          title: "Albumin — يحتاج متابعة"
+        }, "●"));
+      }
+      if (hasMeronem) {
+        // Small red dot next to the name to mark Meronem (500mg or 1g)
+        nameChildren.push(h("span", {
+          class: "pr-meronem-dot",
+          title: "Meronem — يحتاج متابعة"
+        }, "●"));
+      }
+
+      const locChildren = [`غرفة ${roomId} · سرير ${bedNum}`];
+      if (plateNumber) {
+        locChildren.push(h("span", { class: "pr-plate" }, " · طبلة " + plateNumber));
+      }
+      // Append age + gender to the location line if present, so the
+      // patients list shows them at a glance.
+      const ageStr = (p.age && String(p.age).trim()) ? String(p.age).trim() : "";
+      const genderStr = (p.gender === "male")
+        ? "ذكر"
+        : (p.gender === "female")
+          ? "أنثى"
+          : "";
+      const demoParts = [];
+      if (ageStr) demoParts.push("العمر " + ageStr);
+      if (genderStr) demoParts.push(genderStr);
+      if (demoParts.length > 0) {
+        locChildren.push(h("span", { class: "pr-demo" }, " · " + demoParts.join(" · ")));
+      }
+
+      const rowCls =
+        "patient-row" +
+        (hasMeds ? " has-meds" : "") +
+        (hasAlbumin ? " has-albumin" : "") +
+        (hasMeronem ? " has-meronem" : "");
       const row = h("div", {
-        class: "patient-row" + (hasMeds ? " has-meds" : ""),
+        class: rowCls,
         dataset: { roomId: roomId, bed: bedNum, key: p.key }
       }, [
-        h("div", { class: "pr-avatar" }, initial),
         h("div", { class: "pr-info" }, [
-          h("div", { class: "pr-name" }, p.name),
-          h("div", { class: "pr-loc" }, `غرفة ${roomId} · سرير ${bedNum}`)
-        ]),
-        hasMeds
-          ? h("div", { class: "pr-meds" }, p.medications.length + " علاج")
-          : h("div", { class: "pr-meds", style: "background:var(--warning-soft);color:var(--warning);" }, "بدون علاج")
+          h("div", { class: "pr-name" }, nameChildren),
+          h("div", { class: "pr-loc" }, locChildren)
+        ])
       ]);
       container.appendChild(row);
     });
@@ -273,7 +574,7 @@
     updateTabCounts(meds);
 
     // Resolve the active tab — must be one of the known forms, else "vial"
-    const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup", "suppository", "solution", "supplies"];
+    const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup-and-oral-drop", "suppository", "solution", "supplies"];
     const tab = VALID_FORMS.indexOf(activeTab) !== -1 ? activeTab : "vial";
 
     const q = (filterText || "").trim().toLowerCase();
@@ -540,7 +841,14 @@
     document.querySelectorAll(".nav-item").forEach(n => {
       n.classList.toggle("active", n.dataset.nav === name);
     });
-    window.scrollTo({ top: 0, behavior: "instant" });
+    // Only scroll to top when switching to a DIFFERENT view.
+    // If we're already on this view (e.g. returning to 'home' after
+    // adding meds), don't scroll — preserve the user's scroll
+    // position so they don't lose their place in the rooms grid.
+    if (showView._lastView !== name) {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+    showView._lastView = name;
   }
 
   // ---------- Admin: medication catalog list ----------
@@ -556,77 +864,105 @@
       return;
     }
 
-    meds.forEach((m, idx) => {
-      const isFirst = idx === 0;
-      const isLast  = idx === meds.length - 1;
-      const sci = scientificName(m);
-      const metaParts = [];
-      if (sci) metaParts.push(sci);
-      if (m.defaultDose) metaParts.push(m.defaultDose);
-      if (m.defaultFrequency) metaParts.push(m.defaultFrequency);
+    // Group meds by their form (vial / ampule / tablet / syrup / ...).
+    // We use the FORM_ORDER from medications.js so the sections appear
+    // in a fixed, predictable order (the same order as the sheet tabs).
+    // Within each section, the meds keep their original relative order
+    // from the `meds` array — this preserves the catalog's sort_order
+    // so move-up/move-down still work as before.
+    const Meds = global.PharmacyMedications || {};
+    const FORM_LABELS = Meds.FORM_LABELS || {};
+    const FORM_ORDER  = Meds.FORM_ORDER || ["vial", "ampule", "prefilled-syringe", "tablet", "syrup-and-oral-drop", "suppository", "solution", "supplies"];
 
-      const FORM_LABELS = (global.PharmacyMedications && global.PharmacyMedications.FORM_LABELS) || {};
+    // Group: bucket each med into its form group (using 'vial' as
+    // fallback for unknown/legacy forms).
+    const groups = {};
+    FORM_ORDER.forEach(form => { groups[form] = []; });
+    meds.forEach(m => {
       const formKey = (m.form && FORM_LABELS[m.form]) ? m.form : "vial";
-      const formLabel = FORM_LABELS[formKey] || formKey;
-      const formClass = "admin-form-badge is-" + formKey;
+      if (!groups[formKey]) groups[formKey] = []; // unknown form → its own bucket
+      groups[formKey].push(m);
+    });
 
-      const row = h("div", {
-        class: "admin-med-row" + (selectedId === m.id ? " selected" : ""),
-        dataset: { medId: m.id }
+    // Render each non-empty group with a section header.
+    // We keep a running index across all groups so the "position"
+    // badge on each row still reflects the med's position in the
+    // full catalog (1-based), matching what the chart and the
+    // bottom-sheet selection see. Move-up/move-down use the actual
+    // index in the underlying `meds` array (passed via the med's id),
+    // not the visible position, so they keep working.
+    let runningIdx = 0;
+    FORM_ORDER.forEach(form => {
+      const bucket = groups[form];
+      if (!Array.isArray(bucket) || bucket.length === 0) return;
+      const formLabel = FORM_LABELS[form] || form;
+
+      // Section header — sticky so it stays visible when scrolling
+      // a long list of meds within one form.
+      const header = h("div", {
+        class: "admin-med-section-header admin-form-badge is-" + form
       }, [
-        h("div", { class: "admin-med-pos", title: "ترتيب الظهور في قائمة الاختيار" }, String(idx + 1)),
-        h("div", { class: "admin-med-info" }, [
-          h("div", { class: "admin-med-name" }, [
-            primaryName(m),
-            h("span", { class: formClass, title: "الشكل الدوائي" }, formLabel)
-          ]),
-          h("div", { class: "admin-med-meta" },
-            metaParts.length ? metaParts.join(" · ") : "—")
-        ]),
-        h("div", { class: "admin-med-actions" }, [
-          h("button", {
-            class: "admin-ico-btn move top",
-            type: "button",
-            dataset: { medId: m.id, action: "move-top" },
-            title: "نقل للأعلى (أول القائمة)",
-            disabled: isFirst ? "disabled" : undefined
-          }, "⤒"),
-          h("button", {
-            class: "admin-ico-btn move up",
-            type: "button",
-            dataset: { medId: m.id, action: "move-up" },
-            title: "تحريك لأعلى",
-            disabled: isFirst ? "disabled" : undefined
-          }, "↑"),
-          h("button", {
-            class: "admin-ico-btn move down",
-            type: "button",
-            dataset: { medId: m.id, action: "move-down" },
-            title: "تحريك لأسفل",
-            disabled: isLast ? "disabled" : undefined
-          }, "↓"),
-          h("button", {
-            class: "admin-ico-btn move bottom",
-            type: "button",
-            dataset: { medId: m.id, action: "move-bottom" },
-            title: "نقل للأسفل (آخر القائمة)",
-            disabled: isLast ? "disabled" : undefined
-          }, "⤓"),
-          h("button", {
-            class: "admin-ico-btn edit",
-            type: "button",
-            dataset: { medId: m.id, action: "edit-med" },
-            title: "تعديل"
-          }, "✎"),
-          h("button", {
-            class: "admin-ico-btn del",
-            type: "button",
-            dataset: { medId: m.id, action: "del-med" },
-            title: "حذف"
-          }, "✕")
-        ])
+        h("span", { class: "admin-med-section-name" }, formLabel),
+        h("span", { class: "admin-med-section-count" }, bucket.length + " دواء")
       ]);
-      container.appendChild(row);
+      container.appendChild(header);
+
+      // Compute the first and last RUNNING INDEX for this form group
+      // (used for logging/debug only — the disabled state for ⤒/↑/↓/⤓
+      // buttons uses the FLAT catalog position, since move-top and
+      // move-bottom move across the entire flat list).
+      const firstIdxInGroup = runningIdx;
+      const lastIdxInGroup = runningIdx + bucket.length - 1;
+
+      bucket.forEach((m) => {
+        const idx = runningIdx;
+        const sci = scientificName(m);
+        const metaParts = [];
+        if (sci) metaParts.push(sci);
+        if (m.defaultDose) metaParts.push(m.defaultDose);
+        if (m.defaultFrequency) metaParts.push(m.defaultFrequency);
+
+        const formKey = (m.form && FORM_LABELS[m.form]) ? m.form : "vial";
+        const formLabelInner = FORM_LABELS[formKey] || formKey;
+        const formClass = "admin-form-badge is-" + formKey;
+
+        const row = h("div", {
+          class: "admin-med-row" + (selectedId === m.id ? " selected" : ""),
+          dataset: { medId: m.id },
+          draggable: "true"  // enable HTML5 drag-and-drop for reordering
+        }, [
+          h("div", { class: "admin-med-pos", title: "ترتيب الظهور في قائمة الاختيار" }, String(idx + 1)),
+          h("div", { class: "admin-med-info" }, [
+            h("div", { class: "admin-med-name" }, [
+              primaryName(m),
+              h("span", { class: formClass, title: "الشكل الدوائي" }, formLabelInner)
+            ]),
+            h("div", { class: "admin-med-meta" },
+              metaParts.length ? metaParts.join(" · ") : "—")
+          ]),
+          h("div", { class: "admin-med-actions" }, [
+            h("div", {
+              class: "admin-ico-btn drag-handle",
+              title: "اسحب لإعادة الترتيب",
+              "aria-label": "اسحب لإعادة الترتيب"
+            }, "⠿"),
+            h("button", {
+              class: "admin-ico-btn edit",
+              type: "button",
+              dataset: { medId: m.id, action: "edit-med" },
+              title: "تعديل"
+            }, "✎"),
+            h("button", {
+              class: "admin-ico-btn del",
+              type: "button",
+              dataset: { medId: m.id, action: "del-med" },
+              title: "حذف"
+            }, "✕")
+          ])
+        ]);
+        container.appendChild(row);
+        runningIdx++;
+      });
     });
   }
 
@@ -642,6 +978,7 @@
     const nameTrade = document.getElementById("adm-name-trade");
     const nameAr = document.getElementById("adm-name-ar");
     const nameEn = document.getElementById("adm-name-en");
+    const nameChart = document.getElementById("adm-name-chart");
     const form   = document.getElementById("adm-form");
     const dose   = document.getElementById("adm-dose");
     const freq   = document.getElementById("adm-freq");
@@ -651,8 +988,9 @@
     nameTrade.value = med.nameTrade || "";
     nameAr.value    = med.nameAr || "";
     nameEn.value    = med.nameEn || "";
+    nameChart.value = med.nameChart || "";
     // Set form dropdown: fall back to "vial" if form is unknown/empty
-    const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup", "suppository", "solution", "supplies"];
+    const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup-and-oral-drop", "suppository", "solution", "supplies"];
     const formVal = VALID_FORMS.indexOf(med.form) !== -1 ? med.form : "vial";
     form.value = formVal;
     dose.value      = med.defaultDose || "";
@@ -672,7 +1010,7 @@
   function hideAdminForm() {
     document.getElementById("admin-form-card").hidden = true;
     document.getElementById("admin-empty").hidden = false;
-    ["adm-name-trade", "adm-name-ar", "adm-name-en", "adm-dose", "adm-freq-custom"].forEach(id => {
+    ["adm-name-trade", "adm-name-ar", "adm-name-en", "adm-name-chart", "adm-dose", "adm-freq-custom"].forEach(id => {
       const el = document.getElementById(id); if (el) el.value = "";
     });
     document.getElementById("adm-form").value = "vial";
@@ -689,17 +1027,19 @@
     const nameTrade = document.getElementById("adm-name-trade").value.trim();
     const nameAr = document.getElementById("adm-name-ar").value.trim();
     const nameEn = document.getElementById("adm-name-en").value.trim();
+    const nameChart = document.getElementById("adm-name-chart").value.trim();
     const form   = document.getElementById("adm-form").value;
     const dose   = document.getElementById("adm-dose").value.trim();
     const freqSel = document.getElementById("adm-freq").value;
     const freqCustom = document.getElementById("adm-freq-custom").value.trim();
     const frequency = freqSel === "custom" ? freqCustom : freqSel;
-    const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup", "suppository", "solution", "supplies"];
+    const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup-and-oral-drop", "suppository", "solution", "supplies"];
 
     return {
       nameTrade: nameTrade,
       nameAr:    nameAr,
       nameEn:    nameEn,
+      nameChart: nameChart,
       form:      VALID_FORMS.indexOf(form) !== -1 ? form : "vial",
       defaultDose:      dose,
       defaultFrequency: frequency
@@ -708,7 +1048,7 @@
 
   // ---------- Print Chart (التشارت) ----------
   // Auto-pagination: 35 patients per page, header + med columns repeat.
-  function buildChartReport(patientsMap, meds) {
+  function buildChartReport(patientsMap, meds, supplyDistribution) {
     const root = document.getElementById("chart-print-root");
     root.innerHTML = "";
 
@@ -730,14 +1070,124 @@
           const key = Ward.bedKey(room.id, bed.number);
           const p = patientsMap[key];
           if (p && p.name && p.name.trim()) {
+            // IMPORTANT: deep-copy the patient's medications array so
+            // the random-supply injection below doesn't mutate the
+            // actual stored data. The chart only sees a temporary
+            // snapshot; localStorage and state.patients stay clean.
+            //
+            // ALSO: filter out any legacy 'syringe-5cc' entries that
+            // might still be on the patient from before this update
+            // (when 5cc was auto-managed + stored on the patient).
+            // They're now injected at print-time only, so we drop the
+            // stale stored copies here to avoid duplicates.
+            const medsCopy = (Array.isArray(p.medications) ? p.medications : [])
+              .filter(pm => pm && pm.id !== "syringe-5cc") // drop legacy 5cc
+              .map(pm => pm && typeof pm === "object" ? Object.assign({}, pm) : pm);
             occupiedRows.push({
               name: p.name.trim(),
-              medications: Array.isArray(p.medications) ? p.medications : []
+              medications: medsCopy
             });
           }
         });
       });
     }
+
+    // -------- Supply distribution (from the Supply Order modal) --------
+    // The caller (app.js supply-order-submit) passes a
+    // supplyDistribution map: supplyId → { bedKey: freq }.
+    // We inject each supply into the corresponding patient's
+    // medication list (on the deep-copy, not the stored data).
+    // Supplies with no entry in supplyDistribution (or freq=0) are
+    // simply not added.
+    if (supplyDistribution && typeof supplyDistribution === "object") {
+      occupiedRows.forEach(row => {
+        // Find this patient's bedKey by matching the name+medications
+        // — actually we need the bedKey. Let's store it on the row.
+      });
+    }
+
+    // We need the bedKey to look up supplyDistribution. Let's
+    // re-do the occupiedRows build to include the bedKey.
+    // (The original loop above didn't store it. We need to redo
+    //  the supply injection using the bedKey.)
+    //
+    // Actually, let's restructure: pass bedKey into the row.
+
+    // Re-build occupiedRows with bedKey included
+    const occupiedRowsWithKey = [];
+    {
+      const Ward2 = global.PharmacyWard;
+      Ward2.ROOMS.forEach(room => {
+        room.beds.forEach(bed => {
+          const key = Ward2.bedKey(room.id, bed.number);
+          const p = patientsMap[key];
+          if (p && p.name && p.name.trim()) {
+            const medsCopy = (Array.isArray(p.medications) ? p.medications : [])
+              .filter(pm => pm && pm.id !== "syringe-5cc")
+              .map(pm => pm && typeof pm === "object" ? Object.assign({}, pm) : pm);
+            occupiedRowsWithKey.push({
+              bedKey: key,
+              name: p.name.trim(),
+              medications: medsCopy
+            });
+          }
+        });
+      });
+    }
+
+    // Inject supplies from supplyDistribution
+    if (supplyDistribution && typeof supplyDistribution === "object") {
+      // For each supplyId in the distribution, look up the catalog
+      // entry (for display name/dose). Fall back to hardcoded defaults.
+      const findOrDefaults = (id, fallback) => {
+        const m = meds.find(x => x && x.id === id);
+        return m || fallback;
+      };
+      const supplyDefaults = {
+        "dextrose-saline":   { nameTrade: "G/S", nameAr: "ديكستروز سالين", nameEn: "Glucose Saline", defaultDose: "500 ml" },
+        "ringers-lactate":    { nameTrade: "R/L", nameAr: "رينجر لاكتات", nameEn: "Ringer Lactate", defaultDose: "500 ml" },
+        "glucose-5":          { nameTrade: "G/W", nameAr: "مغذي سكري 5%", nameEn: "Glucose 5%", defaultDose: "500 ml" },
+        "sodium-chloride-09": { nameTrade: "N/S", nameAr: "مغذي ملح 500مل", nameEn: "Normal Saline 500ml", defaultDose: "500 ml" },
+        "nacl-100ml":         { nameTrade: "N/S 100ml", nameAr: "مغذي ملح 100مل", nameEn: "NaCl 0.9% 100ml", defaultDose: "100 ml" },
+        "iv-set":             { nameTrade: "I.V. Set", nameAr: "خط الإعطاء", nameEn: "I.V. Set", defaultDose: "1 خط" },
+        "blood-iv-set":       { nameTrade: "Blood I.V. Set", nameAr: "خط دم", nameEn: "Blood I.V. Set", defaultDose: "1 خط" },
+        "cannula":            { nameTrade: "Cannula", nameAr: "كانيولا", nameEn: "Cannula", defaultDose: "1 قطعة" },
+        "syringe-5cc":        { nameTrade: "5cc Syringe", nameAr: "سرنجة 5 سي سي", nameEn: "5cc Syringe", defaultDose: "1 سرنجة" },
+        "syringe-1cc":        { nameTrade: "1cc Syringe", nameAr: "سرنجة 1 سي سي", nameEn: "1cc Syringe", defaultDose: "1 سرنجة" },
+        "syringe-10cc":       { nameTrade: "10cc Syringe", nameAr: "سرنجة 10 سي سي", nameEn: "10cc Syringe", defaultDose: "1 سرنجة" },
+        "syringe-20cc":       { nameTrade: "20cc Syringe", nameAr: "سرنجة 20 سي سي", nameEn: "20cc Syringe", defaultDose: "1 سرنجة" },
+        "syringe-50cc":       { nameTrade: "50cc Syringe", nameAr: "سرنجة 50 سي سي", nameEn: "50cc Syringe", defaultDose: "1 سرنجة" },
+        "urine-bag":          { nameTrade: "Urine Bag", nameAr: "كيس إدرار", nameEn: "Urine Bag", defaultDose: "1 كيس" },
+        "ng-tube-14":         { nameTrade: "NG Tube 14", nameAr: "أنبوب تغذية 14", nameEn: "NG Tube 14", defaultDose: "1 قطعة" },
+        "floy-14":            { nameTrade: "Foley 14", nameAr: "قسطرة فولي 14", nameEn: "Foley 14", defaultDose: "1 قطعة" }
+      };
+
+      Object.keys(supplyDistribution).forEach(supplyId => {
+        const dist = supplyDistribution[supplyId];
+        if (!dist || typeof dist !== "object") return;
+        const defaults = supplyDefaults[supplyId] || { nameTrade: supplyId, nameAr: "", nameEn: supplyId, defaultDose: "" };
+        const med = findOrDefaults(supplyId, defaults);
+
+        occupiedRowsWithKey.forEach(row => {
+          const freq = dist[row.bedKey];
+          if (freq && freq > 0) {
+            row.medications.push({
+              id:        supplyId,
+              nameTrade: med.nameTrade || defaults.nameTrade,
+              nameAr:    med.nameAr || defaults.nameAr || "",
+              nameEn:    med.nameEn || defaults.nameEn || "",
+              form:      "supplies",
+              dose:      (med.defaultDose || defaults.defaultDose) || "",
+              frequency: "1×" + freq
+            });
+          }
+        });
+      });
+    }
+
+    // Replace occupiedRows with the enriched version
+    occupiedRows.length = 0;
+    occupiedRowsWithKey.forEach(r => occupiedRows.push(r));
 
     const prescribedIds = new Set();
     occupiedRows.forEach(p => {
@@ -745,10 +1195,81 @@
         if (pm && pm.id) prescribedIds.add(pm.id);
       });
     });
+    // prescribedMeds = catalog meds that are prescribed. PLUS any
+    // injected random supplies that aren't in the catalog (e.g. user
+    // deleted syringe-1cc / iv-set but we still injected them with
+    // fallback defaults). We add those fallbacks so their columns
+    // appear in the chart.
     const prescribedMeds = meds.filter(m => prescribedIds.has(m.id));
+    // Find any prescribed ids that aren't in the catalog, and
+    // synthesize catalog-like entries for them from the injected
+    // rows (so they get a column header in the chart).
+    const catalogIds = new Set(meds.map(m => m && m.id).filter(Boolean));
+    const missingFromCatalog = [];
+    prescribedIds.forEach(id => {
+      if (!catalogIds.has(id)) {
+        // Find the first injected row that has this id and use its
+        // metadata as the column header source.
+        for (const row of occupiedRows) {
+          const found = (row.medications || []).find(pm => pm && pm.id === id);
+          if (found) {
+            missingFromCatalog.push({
+              id:        found.id,
+              nameTrade: found.nameTrade,
+              nameAr:    found.nameAr    || "",
+              nameEn:    found.nameEn    || "",
+              form:      found.form      || "supplies"
+            });
+            break;
+          }
+        }
+      }
+    });
+    const allPrescribedMeds = prescribedMeds.concat(missingFromCatalog);
+
+    // Prioritize the auto-injected supplies so they always get a
+    // column in the chart. Without this, a catalog with 50+
+    // prescribed meds could fill the 50-column limit before reaching
+    // the supplies at the end (and the user would see "NaCl 100ml"
+    // and "Cannula" missing from the chart).
+    //
+    // The user asked for the supplies to appear at the END of the
+    // chart (after all regular medications), not at the beginning.
+    // So we take the first (MED_COLS - N_priority) regular meds,
+    // then append the priority supplies. This guarantees:
+    //   1. Supplies always get a column (reserved slots at the end)
+    //   2. Supplies appear after all other meds
+    const PRIORITY_SUPPLY_IDS = [
+      "dextrose-saline", "ringers-lactate", "glucose-5", "sodium-chloride-09",
+      "nacl-100ml", "iv-set", "blood-iv-set", "cannula",
+      "syringe-5cc", "syringe-1cc", "syringe-10cc", "syringe-20cc", "syringe-50cc",
+      "urine-bag", "ng-tube-14", "floy-14"
+    ];
+    // Split: priority supplies (for counting), then the rest in
+    // catalog order.
+    const priorityBucket = [];
+    const restBucket = [];
+    allPrescribedMeds.forEach(m => {
+      if (m && PRIORITY_SUPPLY_IDS.indexOf(m.id) !== -1) {
+        priorityBucket.push(m);
+      } else {
+        restBucket.push(m);
+      }
+    });
+    // Sort priority bucket by the PRIORITY_SUPPLY_IDS order so they
+    // appear in the chart in a predictable, stable order.
+    priorityBucket.sort((a, b) => {
+      return PRIORITY_SUPPLY_IDS.indexOf(a.id) - PRIORITY_SUPPLY_IDS.indexOf(b.id);
+    });
+    // Reserve the last N slots for priority supplies, fill the rest
+    // with regular meds (up to MED_COLS - N_priority).
+    const numPriority = priorityBucket.length;
+    const maxRegular = Math.max(0, MED_COLS - numPriority);
+    const regularToFit = restBucket.slice(0, maxRegular);
+    const ordered = regularToFit.concat(priorityBucket);
     const orderedMeds = [];
     for (let i = 0; i < MED_COLS; i++) {
-      orderedMeds.push(prescribedMeds[i] || null);
+      orderedMeds.push(ordered[i] || null);
     }
 
     const numPages = Math.max(1, Math.ceil(occupiedRows.length / PATIENTS_PER_PAGE));
@@ -800,9 +1321,18 @@
         if (p && Array.isArray(p.medications) && p.medications.length > 0) {
           myMedCounts = {};
           p.medications.forEach(pm => {
-            const match = (pm.frequency || "").match(/×\s*(\d+)/);
-            const n = match ? parseInt(match[1], 10) : 0;
-            myMedCounts[pm.id] = { count: n, freq: pm.frequency || "" };
+            const freq = pm.frequency || "";
+            const match = freq.match(/×\s*(\d+)/);
+            let n;
+            if (match) {
+              n = parseInt(match[1], 10);
+            } else {
+              // No '×' found — try parsing as a plain number
+              // (e.g. "1" or "2" without the "1×" prefix)
+              const plainNum = parseInt(freq, 10);
+              n = isNaN(plainNum) ? 0 : plainNum;
+            }
+            myMedCounts[pm.id] = { count: n, freq: freq };
           });
         }
 
@@ -824,7 +1354,9 @@
               }
             }
           }
-          tr.appendChild(h("td", { class: cellClass }, cellText));
+          tr.appendChild(h("td", { class: cellClass }, [
+            h("center", {}, cellText)
+          ]));
         });
 
         tbody.appendChild(tr);
@@ -833,6 +1365,9 @@
       pageDiv.appendChild(table);
       root.appendChild(pageDiv);
     }
+    // No return value — the user requested no flashHint message after
+    // the random distribution, so we don't need to surface stats to
+    // the caller.
   }
 
   global.PharmacyUI = {
@@ -847,6 +1382,7 @@
     closeSheet,
     showView,
     bedStatus,
+    bedSpecialFlags,
     // admin
     renderAdminMedList,
     showAdminForm,

@@ -18,6 +18,7 @@
      name_trade      TEXT
      name_ar         TEXT
      name_en         TEXT
+     name_chart      TEXT        (optional — used by جارت الجارت + printed chart)
      form            TEXT NOT NULL DEFAULT 'vial'
      default_dose    TEXT NOT NULL
      default_frequency TEXT NOT NULL
@@ -91,14 +92,11 @@
       name_trade: m.nameTrade || null,
       name_ar: m.nameAr || null,
       name_en: m.nameEn || null,
+      name_chart: m.nameChart || null,
       form: m.form || "vial",
       default_dose: m.defaultDose || "",
       default_frequency: m.defaultFrequency || "",
       sort_order: sortOrder
-      // NOTE: we deliberately omit updated_at so the DB trigger
-      // (if installed) sets it; otherwise the column default is now()
-      // which would refresh on every upsert — handled by the localMs
-      // comparison being based on real edits, not push timing.
     };
   }
   function rowToMed(row) {
@@ -107,6 +105,7 @@
       nameTrade: row.name_trade || "",
       nameAr: row.name_ar || "",
       nameEn: row.name_en || "",
+      nameChart: row.name_chart || "",
       form: row.form || "vial",
       defaultDose: row.default_dose || "",
       defaultFrequency: row.default_frequency || ""
@@ -155,7 +154,12 @@
       if (!Array.isArray(data)) return { ok: false, error: "استجابة غير متوقعة" };
 
       const meds = data.map(rowToMed);
-      // Overwrite the local catalog with the cloud version
+      // Cloud is the source of truth: OVERWRITE local with cloud.
+      // No merge, no "local-only meds" — those would be stale or
+      // duplicate of what's already in the cloud. If the user wants
+      // new meds added, they must be added via the admin (which
+      // pushes them to the cloud); the local catalog is just a
+      // cache of what's in the cloud.
       Local.saveMedications(meds);
       // Mark local as "synced" at this moment — both localModifiedAt
       // and localSyncedAt are now equal, so future pulls are allowed
@@ -175,6 +179,48 @@
   // Uses upsert (insert with ON CONFLICT DO UPDATE) so partial failures
   // don't leave the cloud table empty. Also deletes any rows that exist
   // in the cloud but not locally (so removals propagate).
+  //
+  // Optional column fallback for the medications table.
+  // Similar to upsertWithFallback() for the patients table — but
+  // with a different (smaller) set of optional columns. The only
+  // optional column on `medications` is `name_chart`, which was
+  // added in a schema migration. Legacy installs that haven't run
+  // the migration don't have the column, and the upsert would fail
+  // with: "Could not find the 'name_chart' column of 'medications'
+  // in the schema cache". We catch that, strip the column, retry.
+  const OPTIONAL_MED_COLS = ["name_chart"];
+
+  async function upsertMedicationsWithFallback(client, slice) {
+    let currentSlice = slice;
+    let strippedCols = new Set();
+    // Max 1 retry per optional column.
+    for (let attempt = 0; attempt <= OPTIONAL_MED_COLS.length; attempt++) {
+      const { error: upErr } = await client
+        .from("medications")
+        .upsert(currentSlice, { onConflict: "id" });
+      if (!upErr) {
+        if (strippedCols.size > 0) {
+          console.warn("[Supabase] med upsert succeeded after stripping columns:", Array.from(strippedCols).join(", "));
+        }
+        return { ok: true };
+      }
+      const msg = upErr.message || "";
+      const colMatch = msg.match(/Could not find the '([a-zA-Z_]+)' column/);
+      const missingCol = colMatch ? colMatch[1] : null;
+      if (!missingCol || !OPTIONAL_MED_COLS.includes(missingCol)) {
+        return { ok: false, error: msg };
+      }
+      if (!strippedCols.has(missingCol)) {
+        console.warn("[Supabase] stripping missing med column '" + missingCol + "' and retrying upsert");
+        strippedCols.add(missingCol);
+        currentSlice = currentSlice.map(row => stripColumn(row, missingCol));
+      } else {
+        return { ok: false, error: msg };
+      }
+    }
+    return { ok: false, error: "Exhausted med column-stripping retries" };
+  }
+
   // Returns { ok: true } on success or { ok: false, error }.
   async function pushCatalog() {
     if (!SB || !SB.isConfigured()) return { ok: false, error: "غير مُهيّأ" };
@@ -185,17 +231,20 @@
     if (!Array.isArray(meds)) return { ok: false, error: "كتالوج محلي غير صالح" };
 
     try {
-      // 1) Upsert all rows (insert OR update on conflict by id)
+      // 1) Upsert all rows (insert OR update on conflict by id).
+      // We use upsertMedicationsWithFallback() which retries with
+      // progressively stripped optional columns (currently only
+      // `name_chart`) — this lets the app keep working on legacy
+      // Supabase installs that haven't yet run the latest schema
+      // migration that adds the `name_chart` column.
       const rows = meds.map((m, i) => medToRow(m, i));
       const CHUNK = 100;
       for (let i = 0; i < rows.length; i += CHUNK) {
         const slice = rows.slice(i, i + CHUNK);
-        const { error: upErr } = await client
-          .from("medications")
-          .upsert(slice, { onConflict: "id" });
-        if (upErr) {
+        const result = await upsertMedicationsWithFallback(client, slice);
+        if (!result.ok) {
           saveSyncState({ lastPushOk: false, lastPushAt: Date.now() });
-          return { ok: false, error: upErr.message };
+          return { ok: false, error: result.error };
         }
       }
 
@@ -279,13 +328,21 @@
     const roomId = m ? parseInt(m[1], 10) : 0;
     const bedNum = m ? parseInt(m[2], 10) : 0;
     return {
-      bed_key:     bedKey,
-      room_id:     roomId,
-      bed_number: bedNum,
-      name:        (p && p.name) ? p.name : "",
-      medications: JSON.stringify((p && p.medications) || []),
+      bed_key:      bedKey,
+      room_id:      roomId,
+      bed_number:   bedNum,
+      name:         (p && p.name) ? p.name : "",
+      plate_number: (p && p.plateNumber) ? String(p.plateNumber) : "",
+      doctor:       (p && p.doctor) ? String(p.doctor) : "",   // الطبيب المعالج
+      diagnosis:    (p && p.diagnosis) ? String(p.diagnosis) : "", // التشخيص
+      age:          (p && p.age) ? String(p.age) : "",            // العمر (سنة)
+      gender:       (p && p.gender) ? String(p.gender) : "",     // الجنس: "male" | "female" | ""
+      firstMedDate:  (p && p.firstMedDate) ? String(p.firstMedDate) : "", // تاريخ أول دواء حرج (لتتبع D1, D2...)
+      labs:         (p && p.labs) ? JSON.stringify(p.labs) : "", // التحاليل المختبرية
+      labHistory:   (p && p.labHistory) ? JSON.stringify(p.labHistory) : "", // سجل التحاليل السابقة
+      medications:  JSON.stringify((p && p.medications) || []),
       // Use the local updatedAt if present (ms → ISO); otherwise now.
-      updated_at:  new Date(_toMs(p && p.updatedAt) || Date.now()).toISOString()
+      updated_at:   new Date(_toMs(p && p.updatedAt) || Date.now()).toISOString()
     };
   }
 
@@ -301,6 +358,14 @@
     } catch (e) { meds = []; }
     return {
       name:        row.name || "",
+      plateNumber: row.plate_number || "",
+      doctor:      row.doctor || "",   // الطبيب المعالج (attending physician)
+      diagnosis:   row.diagnosis || "",   // التشخيص
+      age:         row.age || "",          // العمر (سنة)
+      gender:      row.gender || "",       // الجنس: "male" | "female" | ""
+      firstMedDate: row.first_med_date || "", // تاريخ أول دواء حرج
+      labs:         row.labs ? (typeof row.labs === "string" ? JSON.parse(row.labs) : row.labs) : {}, // التحاليل
+      labHistory:   row.lab_history ? (typeof row.lab_history === "string" ? JSON.parse(row.lab_history) : row.lab_history) : [], // سجل التحاليل
       medications: Array.isArray(meds) ? meds : [],
       updatedAt:   _toMs(row.updated_at)
     };
@@ -321,10 +386,8 @@
         const CHUNK = 100;
         for (let i = 0; i < entries.length; i += CHUNK) {
           const slice = entries.slice(i, i + CHUNK);
-          const { error: upErr } = await client
-            .from("patients")
-            .upsert(slice, { onConflict: "bed_key" });
-          if (upErr) return { ok: false, error: upErr.message };
+          const result = await upsertWithFallback(client, slice);
+          if (!result.ok) return { ok: false, error: result.error };
         }
       }
       // No bulk delete — see header comment.
@@ -332,6 +395,78 @@
     } catch (e) {
       return { ok: false, error: (e && e.message) ? e.message : String(e) };
     }
+  }
+
+  // Upsert with progressive fallback for older Supabase installs
+  // that may be missing newer columns. The 'patients' table has been
+  // extended several times since the original release:
+  //   v1: bed_key, room_id, bed_number, name, plate_number,
+  //       medications, updated_at (the original 7 columns)
+  //   v2: + doctor, diagnosis, first_med_date (legacy 3 extra)
+  //   v3: + labs, lab_history (the lab-tracking extras)
+  //   v4: + age, gender (the demographics extras)
+  //
+  // Old installs that were created before v4 don't have age/gender
+  // columns, and may also be missing labs/lab_history. When the upsert
+  // fails with "Could not find the 'X' column" error, we strip the
+  // named column + retry. This loops until either:
+  //   - The upsert succeeds (with whatever columns ARE present), OR
+  //   - We've stripped every optional column + still fail (real error).
+  //
+  // The CORE columns (bed_key, room_id, bed_number, name, plate_number,
+  // medications, updated_at) are NEVER stripped — those have been there
+  // since v1.
+  const OPTIONAL_COLS = [
+    "age", "gender", "labHistory", "labs",
+    "firstMedDate", "diagnosis", "doctor"
+  ];
+
+  // Strip a single column from a row object (returns a new object
+  // without that key).
+  function stripColumn(row, col) {
+    const { [col]: _removed, ...rest } = row;
+    return rest;
+  }
+
+  // Try upsert → on column-missing error → strip + retry → loop.
+  async function upsertWithFallback(client, slice) {
+    let currentSlice = slice;
+    let strippedCols = new Set();
+    // Max 7 retries (one per optional column).
+    for (let attempt = 0; attempt <= OPTIONAL_COLS.length; attempt++) {
+      const { error: upErr } = await client
+        .from("patients")
+        .upsert(currentSlice, { onConflict: "bed_key" });
+      if (!upErr) {
+        if (strippedCols.size > 0) {
+          console.warn("[Supabase] upsert succeeded after stripping columns:", Array.from(strippedCols).join(", "));
+        }
+        return { ok: true };
+      }
+      // Parse the error message to find the missing column name.
+      // PostgREST returns messages like:
+      //   "Could not find the 'age' column of 'patients' in the schema cache"
+      // We extract the column name from the single-quoted part.
+      const msg = upErr.message || "";
+      const colMatch = msg.match(/Could not find the '([a-zA-Z_]+)' column/);
+      const missingCol = colMatch ? colMatch[1] : null;
+      if (!missingCol || !OPTIONAL_COLS.includes(missingCol)) {
+        // Not a column-missing error we can handle → real error.
+        return { ok: false, error: msg };
+      }
+      // Strip this column from every row in the slice + retry.
+      // Also remember it so we don't try again on the next iteration.
+      if (!strippedCols.has(missingCol)) {
+        console.warn("[Supabase] stripping missing column '" + missingCol + "' and retrying upsert");
+        strippedCols.add(missingCol);
+        currentSlice = currentSlice.map(row => stripColumn(row, missingCol));
+      } else {
+        // Already stripped — this shouldn't happen but break to
+        // avoid infinite loop.
+        return { ok: false, error: msg };
+      }
+    }
+    return { ok: false, error: "Exhausted column-stripping retries" };
   }
 
   // Delete a single bed_key from the cloud (used when the user
