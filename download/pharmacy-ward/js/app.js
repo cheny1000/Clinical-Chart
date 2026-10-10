@@ -4159,7 +4159,7 @@
     // Version marker — printed in a small footer on each patient sheet
     // so we can verify the running code version visually. Bump this
     // when making print-layout changes that need to be visible.
-    const SHEET_VERSION = "v1.1-sumDose";
+    const SHEET_VERSION = "v1.2-sumDose-only";
     const user = Auth && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
     // The patient's attending physician (الطبيب المعالج) — stored as
     // a free-text field on the patient record (e.g. "أ.د. محمد الجبوري").
@@ -4245,7 +4245,7 @@
         // sumDose() total would silently not appear whenever the user
         // added a med without explicitly typing a dose/freq.
         const medCatalogEntry = medCatalog.find(m2 => m2 && m2.id === m.id) || {};
-        const dose = m.dose || medCatalogEntry.defaultDose || "";
+        let dose = m.dose || medCatalogEntry.defaultDose || "";
         const freq = m.frequency || medCatalogEntry.defaultFrequency || "";
 
         // For non-daily frequencies, show the interval text + whether
@@ -4268,22 +4268,31 @@
           else if (/^\s*\d+\s*$/.test(freq)) freqStr = "x " + freq.trim();
         }
 
-        // Total daily dose — uses sumDose() to multiply the per-dose
-        // value by the frequency multiplier and normalize the unit up
-        // (e.g. "500mg" + "2×1" → "1g ×1"). Only shown when both dose
-        // and freq are present and parseable; falls back to "" (no
-        // total shown) for non-numeric or non-daily frequencies.
-        let totalStr = "";
+        // Compute the TOTAL per-dose (multiply by the freq multiplier,
+        // normalize the unit up: 500mg + 2×1 → "1g ×1"). Then strip
+        // the " ×N" suffix to keep just the dose part ("1g"), and
+        // REPLACE the original dose shown in the line. The user wants
+        // the final dose to appear alone (e.g. "Amikacin 1g x 2")
+        // instead of showing both per-dose + total. We only replace
+        // when sumDose actually produced a "{value}{unit} ×{times}"
+        // formatted output — that means the multiplication happened
+        // for a daily, numeric frequency. For non-daily freqs
+        // ("كل أسبوع") / non-numeric freqs ("حسب القياس") / non-
+        // parseable doses ("حسب الخطة"), sumDose returns the inputs
+        // as-is, so we leave `dose` unchanged.
         if (typeof Meds.sumDose === "function") {
           const computed = Meds.sumDose(dose, freq);
-          // sumDose returns the dose + freq as-is for non-daily / non-
-          // numeric freqs; only show the total when it actually
-          // computed something different from the inputs (i.e. the
-          // multiplication happened).
-          if (computed && computed !== dose && computed !== freq
-              && computed !== (dose + " " + freq)
-              && computed.indexOf("×") !== -1) {
-            totalStr = "= " + computed;
+          // sumDose's success output looks like "1g ×1" (always with
+          // " ×N" separator). Failure cases ("500mg كل أسبوع",
+          // "500mg حسب القياس", "2×1" for unparseable dose) do NOT
+          // contain the " ×N" pattern.
+          if (computed && computed.indexOf(" ×") !== -1) {
+            const splitParts = computed.split(" ×");
+            // Successful parse → ["1g", "1"] (length 2). Unparseable
+            // dose case ("2×1") → ["2×1"] (length 1, no split).
+            if (splitParts.length === 2 && splitParts[0]) {
+              dose = splitParts[0];
+            }
           }
         }
 
@@ -4306,7 +4315,6 @@
           escapeHtml(name),
           dose ? escapeHtml(dose) : "",
           freqStr ? escapeHtml(freqStr) : "",
-          totalStr ? escapeHtml(totalStr) : "",
           dueNote ? escapeHtml(dueNote) : ""
         ].filter(p => p).join("&nbsp;&nbsp;");
         return `<div class="ps-med-line"><span class="ps-med-day">${medDay}</span><span class="ps-med-form">${formAbbr}</span><span class="ps-med-num">${i + 1}.</span> <span class="ps-med-name">${parts}</span></div>`;
@@ -4499,7 +4507,7 @@
           const name = m.nameEn || m.nameTrade || m.nameAr || m.name || m.id || "—";
           // Fall back to catalog defaults (same fix as printPatientSheet)
           const medCatalogEntry2 = medCatalog2.find(m2 => m2 && m2.id === m.id) || {};
-          const dose = m.dose || medCatalogEntry2.defaultDose || "";
+          let dose = m.dose || medCatalogEntry2.defaultDose || "";
           let freqStr = "";
           let dueNote = "";
           const freq = m.frequency || medCatalogEntry2.defaultFrequency || "";
@@ -4517,17 +4525,17 @@
             if (m1) freqStr = "x " + m1[1];
             else if (m2) freqStr = "x " + m2[1];
           }
-          // Total daily dose — sumDose() multiplies per-dose × freq
-          // multiplier and normalizes the unit (e.g. "500mg" + "2×1"
-          // → "1g ×1"). Only shown when the multiplication actually
-          // happened (numeric dose + numeric daily freq).
-          let totalStr2 = "";
+          // Replace dose with sumDose's per-dose total (e.g. 500mg + 2×1
+          // → "1g ×1" → extract "1g" → display "1g x 1"). Skipped for
+          // non-daily / non-numeric freqs / unparseable doses (same
+          // logic as printPatientSheet).
           if (typeof Meds2.sumDose === "function") {
             const computed2 = Meds2.sumDose(dose, freq);
-            if (computed2 && computed2 !== dose && computed2 !== freq
-                && computed2 !== (dose + " " + freq)
-                && computed2.indexOf("×") !== -1) {
-              totalStr2 = "= " + computed2;
+            if (computed2 && computed2.indexOf(" ×") !== -1) {
+              const splitParts2 = computed2.split(" ×");
+              if (splitParts2.length === 2 && splitParts2[0]) {
+                dose = splitParts2[0];
+              }
             }
           }
           // Day label for critical meds only
@@ -4542,7 +4550,6 @@
             escapeHtml(name),
             dose ? escapeHtml(dose) : "",
             freqStr ? escapeHtml(freqStr) : "",
-            totalStr2 ? escapeHtml(totalStr2) : "",
             dueNote ? escapeHtml(dueNote) : ""
           ].filter(p => p).join("&nbsp;&nbsp;");
           return `<div class="ps-med-line"><span class="ps-med-day">${medDay2}</span><span class="ps-med-form">${formAbbr2}</span><span class="ps-med-num">${i + 1}.</span> <span class="ps-med-name">${parts}</span></div>`;
