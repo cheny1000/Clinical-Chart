@@ -4234,8 +4234,15 @@
       medsRows = sortedMeds.map((m, i) => {
         // English-first name (user requested English).
         const name = m.nameEn || m.nameTrade || m.nameAr || m.name || m.id || "—";
-        const dose = m.dose || "";
-        const freq = m.frequency || "";
+        // Fall back to the catalog's default dose/frequency if the
+        // patient-level prescription doesn't override them. This
+        // matches the behavior of chart-bridge.js + the rest of the
+        // app (see lines 2234, 2639, 5131). Without this fallback, the
+        // sumDose() total would silently not appear whenever the user
+        // added a med without explicitly typing a dose/freq.
+        const medCatalogEntry = medCatalog.find(m2 => m2 && m2.id === m.id) || {};
+        const dose = m.dose || medCatalogEntry.defaultDose || "";
+        const freq = m.frequency || medCatalogEntry.defaultFrequency || "";
 
         // For non-daily frequencies, show the interval text + whether
         // the med is due today. For daily frequencies, show "x N".
@@ -4482,10 +4489,12 @@
 
         medsRows = sortedMeds.map((m, i) => {
           const name = m.nameEn || m.nameTrade || m.nameAr || m.name || m.id || "—";
-          const dose = m.dose || "";
+          // Fall back to catalog defaults (same fix as printPatientSheet)
+          const medCatalogEntry2 = medCatalog2.find(m2 => m2 && m2.id === m.id) || {};
+          const dose = m.dose || medCatalogEntry2.defaultDose || "";
           let freqStr = "";
           let dueNote = "";
-          const freq = m.frequency || "";
+          const freq = m.frequency || medCatalogEntry2.defaultFrequency || "";
           const interval = getFrequencyInterval2(freq);
           if (interval > 0) {
             freqStr = freq;
