@@ -91,14 +91,11 @@
       name_trade: m.nameTrade || null,
       name_ar: m.nameAr || null,
       name_en: m.nameEn || null,
+      name_chart: m.nameChart || null,
       form: m.form || "vial",
       default_dose: m.defaultDose || "",
       default_frequency: m.defaultFrequency || "",
       sort_order: sortOrder
-      // NOTE: we deliberately omit updated_at so the DB trigger
-      // (if installed) sets it; otherwise the column default is now()
-      // which would refresh on every upsert — handled by the localMs
-      // comparison being based on real edits, not push timing.
     };
   }
   function rowToMed(row) {
@@ -107,6 +104,7 @@
       nameTrade: row.name_trade || "",
       nameAr: row.name_ar || "",
       nameEn: row.name_en || "",
+      nameChart: row.name_chart || "",
       form: row.form || "vial",
       defaultDose: row.default_dose || "",
       defaultFrequency: row.default_frequency || ""

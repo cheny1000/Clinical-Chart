@@ -52,7 +52,7 @@
             const catalog = (state.medications || []).find(m => m && m.id === pm.id);
             const source = catalog || pm;
             // Prefer English name (matches the patient-sheet requirement)
-            const name = source.nameEn || source.nameTrade || source.nameAr || source.name || source.id || "";
+            const name = source.nameChart || source.nameEn || source.nameTrade || source.nameAr || source.name || source.id || "";
             const freq = pm.frequency || (catalog ? catalog.defaultFrequency : "") || "";
             return { name: name, freq: freq };
           });
@@ -67,7 +67,7 @@
             const freq = dist[key];  // frequency assigned to THIS patient
             if (!freq) return;       // this patient didn't get this supply
             const catalog = supplyCatalog[supplyId];
-            const name = (catalog && (catalog.nameEn || catalog.nameTrade || catalog.nameAr))
+            const name = (catalog && (catalog.nameChart || catalog.nameEn || catalog.nameTrade || catalog.nameAr))
               || supplyId;
             meds.push({ name: name, freq: String(freq) });
           });

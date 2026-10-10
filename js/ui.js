@@ -978,6 +978,7 @@
     const nameTrade = document.getElementById("adm-name-trade");
     const nameAr = document.getElementById("adm-name-ar");
     const nameEn = document.getElementById("adm-name-en");
+    const nameChart = document.getElementById("adm-name-chart");
     const form   = document.getElementById("adm-form");
     const dose   = document.getElementById("adm-dose");
     const freq   = document.getElementById("adm-freq");
@@ -987,6 +988,7 @@
     nameTrade.value = med.nameTrade || "";
     nameAr.value    = med.nameAr || "";
     nameEn.value    = med.nameEn || "";
+    nameChart.value = med.nameChart || "";
     // Set form dropdown: fall back to "vial" if form is unknown/empty
     const VALID_FORMS = ["vial", "ampule", "prefilled-syringe", "tablet", "syrup-and-oral-drop", "suppository", "solution", "supplies"];
     const formVal = VALID_FORMS.indexOf(med.form) !== -1 ? med.form : "vial";
@@ -1008,7 +1010,7 @@
   function hideAdminForm() {
     document.getElementById("admin-form-card").hidden = true;
     document.getElementById("admin-empty").hidden = false;
-    ["adm-name-trade", "adm-name-ar", "adm-name-en", "adm-dose", "adm-freq-custom"].forEach(id => {
+    ["adm-name-trade", "adm-name-ar", "adm-name-en", "adm-name-chart", "adm-dose", "adm-freq-custom"].forEach(id => {
       const el = document.getElementById(id); if (el) el.value = "";
     });
     document.getElementById("adm-form").value = "vial";
@@ -1025,6 +1027,7 @@
     const nameTrade = document.getElementById("adm-name-trade").value.trim();
     const nameAr = document.getElementById("adm-name-ar").value.trim();
     const nameEn = document.getElementById("adm-name-en").value.trim();
+    const nameChart = document.getElementById("adm-name-chart").value.trim();
     const form   = document.getElementById("adm-form").value;
     const dose   = document.getElementById("adm-dose").value.trim();
     const freqSel = document.getElementById("adm-freq").value;
@@ -1036,6 +1039,7 @@
       nameTrade: nameTrade,
       nameAr:    nameAr,
       nameEn:    nameEn,
+      nameChart: nameChart,
       form:      VALID_FORMS.indexOf(form) !== -1 ? form : "vial",
       defaultDose:      dose,
       defaultFrequency: frequency

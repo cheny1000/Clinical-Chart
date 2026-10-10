@@ -241,7 +241,9 @@
       // Med names start from the RIGHT (near patient col) and go LEFT.
       orderedMeds.forEach((m, colIdx) => {
         if (!m) return;
-        const label = m.nameTrade || m.nameAr || m.nameEn || m.id;
+        // Use nameChart (chart-specific name) if available, otherwise
+        // fall back to nameTrade → nameAr → nameEn → id.
+        const label = m.nameChart || m.nameTrade || m.nameAr || m.nameEn || m.id;
         // Flip to visual column: col 0 → rightmost (NUM_COLS-1)
         const visualCol = G.NUM_COLS - 1 - colIdx;
         drawVerticalText(ctx, label, visualCol);
