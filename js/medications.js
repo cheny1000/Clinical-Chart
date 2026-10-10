@@ -357,6 +357,119 @@
     "كل أسبوع":  7    // every week
   };
 
+  // ---- Dose summation helper (sumDose) ----
+  // تجمع قيمة الجرعة بناءً على معامل التكرار وتبسّط الوحدة.
+  // مثال: sumDose("500mg", "2×1") → "1g ×1"
+  //       sumDose("250mg", "2×3") → "500mg ×3"
+  //       sumDose("100mcg", "3×1") → "300mcg ×1"
+  //       sumDose("1g", "2×1")     → "2g ×1"
+  //
+  // المنطق:
+  //   1) نحلّل الجرعة إلى (قيمة رقمية + وحدة)
+  //   2) نحلّل التكرار إلى (معامل N + مرات في اليوم M)
+  //   3) نضرب: القيمة × N
+  //   4) نبسّط الوحدة للأعلى إذا تجاوزت 1000 (mcg→mg→g→kg, mL→L)
+  //   5) نعيد النتيجة بصيغة "{قيمة}{وحدة} ×{مرات في اليوم}"
+  //
+  // حالات خاصة:
+  //   - التكرار غير يومي ("كل أسبوع") أو غير رقمي ("حسب القياس")
+  //     → نعيد الجرعة + التكرار كما هما (لا يمكن جمعهما)
+  //   - الجرعة غير قابلة للتحليل (نص حر مثل "حسب الخطة")
+  //     → نعيد معامل التكرار فقط "N×M"
+  //   - الجرعة أو التكرار فارغ → نعيد النص غير الفارغ فقط
+  const UNIT_STEPS = {
+    // الكتلة (mass)
+    "mcg": { up: 1000, next: "mg" },
+    "mg":  { up: 1000, next: "g"  },
+    "g":   { up: 1000, next: "kg" },
+    // الحجم (volume)
+    "ml":  { up: 1000, next: "L"  },
+    "l":   { up: null,  next: null }
+  };
+
+  // يحلّل نص الجرعة إلى {value, unit}. يعيد null إذا لم يطابق النمط.
+  // يقبل: "500mg", "1g", "0.5mg", "250mcg", "5%", "1000"
+  // يرفض: "حسب الخطة", "1-2g", "mg/kg", "5mg/5ml"
+  function parseDose(dose) {
+    if (dose == null) return null;
+    const s = String(dose).trim();
+    if (!s) return null;
+    const m = s.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z%µμ]+)?$/i);
+    if (!m) return null;
+    return {
+      value: parseFloat(m[1]),
+      unit: (m[2] || "").toLowerCase()
+    };
+  }
+
+  // يبسّط الوحدة للأعلى طالما القيمة ≥ 1000 ولها وحدة أكبر.
+  // مثال: 1000mg → 1g, 1500mcg → 1.5mg, 2000g → 2kg
+  function normalizeUp(value, unit) {
+    let v = value;
+    let u = unit;
+    while (UNIT_STEPS[u] && UNIT_STEPS[u].up && v >= UNIT_STEPS[u].up) {
+      v = v / UNIT_STEPS[u].up;
+      u = UNIT_STEPS[u].next;
+    }
+    return { value: v, unit: u };
+  }
+
+  // ينسّق الرقم: 1.0 → "1", 1.5 → "1.5", 0.5 → "0.5"
+  function formatDoseNumber(n) {
+    if (Number.isInteger(n)) return String(n);
+    return parseFloat(n.toFixed(3)).toString();
+  }
+
+  function sumDose(dose, freq) {
+    const d = (dose == null) ? "" : String(dose).trim();
+    const f = (freq == null)  ? "" : String(freq).trim();
+    if (!d && !f) return "";
+    if (!d) return f;
+    if (!f) return d;
+
+    // التكرار غير اليومي → لا يمكن جمعه، أعد النصين كما هما
+    if (NON_DAILY_INTERVALS[f]) return d + " " + f;
+
+    // حاول تحليل "N×M" أو "NxM"
+    const freqMatch = f.match(/(\d+)\s*[x×]\s*(\d+)/i);
+    let multiplier = 1, timesPerDay = 1;
+    if (freqMatch) {
+      multiplier = parseInt(freqMatch[1], 10);
+      timesPerDay = parseInt(freqMatch[2], 10);
+    } else {
+      // رقم مفرد؟ مثل "3" → نُعامله كـ 3×1
+      const singleN = parseInt(f, 10);
+      if (!isNaN(singleN) && singleN > 0) {
+        multiplier = singleN;
+        timesPerDay = 1;
+      } else {
+        // تكرار غير رقمي ("حسب القياس", "حسب الحاجة"...) → أعد النصين
+        return d + " " + f;
+      }
+    }
+
+    // حاول تحليل الجرعة
+    const parsed = parseDose(d);
+    if (!parsed) {
+      // جرعة غير قابلة للتحليل → أعد معامل التكرار فقط
+      return multiplier + "×" + timesPerDay;
+    }
+
+    // اضرب القيمة في المعامل
+    let value = parsed.value * multiplier;
+    let unit = parsed.unit;
+
+    // بسّط الوحدة للأعلى إن أمكن
+    if (UNIT_STEPS[unit]) {
+      const normalized = normalizeUp(value, unit);
+      value = normalized.value;
+      unit = normalized.unit;
+    }
+
+    // النتيجة النهائية: "1g ×1"
+    return formatDoseNumber(value) + unit + " ×" + timesPerDay;
+  }
+
   // Returns the interval (in days) for a frequency string.
   //   "1×3"       → 0 (daily, 3 times per day)
   //   "كل يومين"  → 2 (every 2 days)
@@ -411,6 +524,9 @@
     DISABLED_MEDICATIONS,
     NON_DAILY_INTERVALS,
     getFrequencyInterval,
-    isMedDueToday
+    isMedDueToday,
+    sumDose,
+    parseDose,
+    normalizeUp
   };
 })(window);
