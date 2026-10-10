@@ -4257,6 +4257,25 @@
           else if (/^\s*\d+\s*$/.test(freq)) freqStr = "x " + freq.trim();
         }
 
+        // Total daily dose — uses sumDose() to multiply the per-dose
+        // value by the frequency multiplier and normalize the unit up
+        // (e.g. "500mg" + "2×1" → "1g ×1"). Only shown when both dose
+        // and freq are present and parseable; falls back to "" (no
+        // total shown) for non-numeric or non-daily frequencies.
+        let totalStr = "";
+        if (typeof Meds.sumDose === "function") {
+          const computed = Meds.sumDose(dose, freq);
+          // sumDose returns the dose + freq as-is for non-daily / non-
+          // numeric freqs; only show the total when it actually
+          // computed something different from the inputs (i.e. the
+          // multiplication happened).
+          if (computed && computed !== dose && computed !== freq
+              && computed !== (dose + " " + freq)
+              && computed.indexOf("×") !== -1) {
+            totalStr = "= " + computed;
+          }
+        }
+
         // Day label for this med — show D1/D2/... only for critical
         // meds (antibiotics). Non-critical meds get an empty cell.
         const medDay = (ANTIBIOTIC_IDS.indexOf(m.id) !== -1 && hasCriticalMed) ? dayLabel : "";
@@ -4276,6 +4295,7 @@
           escapeHtml(name),
           dose ? escapeHtml(dose) : "",
           freqStr ? escapeHtml(freqStr) : "",
+          totalStr ? escapeHtml(totalStr) : "",
           dueNote ? escapeHtml(dueNote) : ""
         ].filter(p => p).join("&nbsp;&nbsp;");
         return `<div class="ps-med-line"><span class="ps-med-day">${medDay}</span><span class="ps-med-form">${formAbbr}</span><span class="ps-med-num">${i + 1}.</span> <span class="ps-med-name">${parts}</span></div>`;
@@ -4480,6 +4500,19 @@
             if (m1) freqStr = "x " + m1[1];
             else if (m2) freqStr = "x " + m2[1];
           }
+          // Total daily dose — sumDose() multiplies per-dose × freq
+          // multiplier and normalizes the unit (e.g. "500mg" + "2×1"
+          // → "1g ×1"). Only shown when the multiplication actually
+          // happened (numeric dose + numeric daily freq).
+          let totalStr2 = "";
+          if (typeof Meds2.sumDose === "function") {
+            const computed2 = Meds2.sumDose(dose, freq);
+            if (computed2 && computed2 !== dose && computed2 !== freq
+                && computed2 !== (dose + " " + freq)
+                && computed2.indexOf("×") !== -1) {
+              totalStr2 = "= " + computed2;
+            }
+          }
           // Day label for critical meds only
           const medDay2 = (ANTIBIOTIC_IDS2.indexOf(m.id) !== -1 && hasCriticalMed2) ? dayLabel2 : "";
           // Form abbreviation — fluids get "F"
@@ -4492,6 +4525,7 @@
             escapeHtml(name),
             dose ? escapeHtml(dose) : "",
             freqStr ? escapeHtml(freqStr) : "",
+            totalStr2 ? escapeHtml(totalStr2) : "",
             dueNote ? escapeHtml(dueNote) : ""
           ].filter(p => p).join("&nbsp;&nbsp;");
           return `<div class="ps-med-line"><span class="ps-med-day">${medDay2}</span><span class="ps-med-form">${formAbbr2}</span><span class="ps-med-num">${i + 1}.</span> <span class="ps-med-name">${parts}</span></div>`;
